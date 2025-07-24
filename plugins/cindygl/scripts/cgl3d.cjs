@@ -1450,6 +1450,7 @@ cglMergeDicts(dict1,dict2):=(
 // TODO? cglLogLevel(...) built-in for setting log-level
 
 // bug TODO:
+// TODO! cglLazy-modifiers can be undefined when evaluating texture code
 // TODO rendering of mesh with overlapping transparent textures is partially broken
 //    (when multiple transparent triangles are rendered in single call WebGL ignores lower ones)
 //    ? add texture mode to automatically ignore pixels belows certain alpha value
@@ -1656,7 +1657,7 @@ cglSphere3d(center,radius):=(
 
 cglInterface("draw3d",cglDraw3d,(point1,point2),(color,color1,color2,colors,texture,
   textureRGB,textureRGBA,interpolateTexture,repeatTexture,colorExpr:(texturePos,spacePos,normal),
-  colorExprRGB:(texturePos,spacePos,normal),colorExprRGBA:(texturePos,spacePos,normal),size,alpha,
+  colorExprRGB:(texturePos,spacePos,normal),colorExprRGBA:(texturePos,spacePos,normal),size,alpha,renderBack,direction1,
   light:(color,direction,normal),caps,cap1,cap2,projection:(normal,height,orientation),plotModifiers,tags,dynamic));
 cglDraw3d(point1,point2):=(
   size = cglValOrDefault(size,cglDefaults_"cylinderSize");
@@ -1666,7 +1667,7 @@ cglDraw3d(point1,point2):=(
 );
 cglInterface("cylinder3d",cglCylinder3d,(point1,point2),(color,color1,color2,colors,texture,
   textureRGB,textureRGBA,interpolateTexture,repeatTexture,colorExpr:(texturePos,spacePos,normal),
-  colorExprRGB:(texturePos,spacePos,normal),colorExprRGBA:(texturePos,spacePos,normal),size,alpha,
+  colorExprRGB:(texturePos,spacePos,normal),colorExprRGBA:(texturePos,spacePos,normal),size,alpha,renderBack,direction1,
   light:(color,direction,normal),caps,cap1,cap2,projection:(normal,height,orientation),plotModifiers,tags,dynamic));
 cglCylinder3d(point1,point2):=(
   size = cglValOrDefault(size,cglDefaults_"cylinderSize");
@@ -1887,8 +1888,8 @@ cglConnect3d(points):=(
   caps = cglValOrDefault(caps,cglDefaults_"curveCaps");
   cap1 = cglValOrDefault(cap1,caps);
   cap2 = cglValOrDefault(cap2,caps);
-  if(cap1 == CglCylinderCapOpen % cap1 == CglCylinderCapCutOpen %
-    cap2 == CglCylinderCapOpen % cap2 == CglCylinderCapCutOpen,
+  if(cap1 == CglCylinderCapOpen % cap1_"name" == "Cut-Open" %
+    cap2 == CglCylinderCapOpen % cap2_"name" == "Cut-Open",
     renderBack = true; // caps are open -> need back face
   );
   joints = cglValOrDefault(joints,cglDefaults_"curveJoints");
@@ -2718,9 +2719,9 @@ cglSurface3d(fun) := (
 );
 
 // feature TODO? add ability to scale axes independently from CindyJS coordinate system
-cglInterface("plot3d",cglPlot3d,(f:(x,y)),(colortexture,textureRGB,textureRGBA,interpolateTexture,repeatTexture,
+cglInterface("plot3d",cglPlot3d,(f:(x,y)),(color,texture,textureRGB,textureRGBA,interpolateTexture,repeatTexture,
   colorExpr:(texturePos,spacePos,normal),colorExprRGB:(texturePos,spacePos,normal),colorExprRGBA:(texturePos,spacePos,normal),
-  thickness,alpha,light:(color,direction,normal),texture,uv,df:(x,y),cutoffRegion,degree,plotModifiers,tags));
+  thickness,alpha,light:(color,direction,normal),texture,uv,df:(x,y),cutoffRegion,degree,layers,plotModifiers,tags));
 cglPlot3d(f/*f(x,y)*/):=(
   if(isundefined(degree),
       degree = min(cglTryDetermineDegree(f),cglMaxAutoDeg);
@@ -2729,10 +2730,10 @@ cglPlot3d(f/*f(x,y)*/):=(
 );
 cglInterface("complexplot3d",cglCPlot3d,(f:(z)),(color,texture,textureRGB,textureRGBA,interpolateTexture,
   repeatTexture, colorExpr:(texturePos,spacePos,normal),colorExprRGB:(texturePos,spacePos,normal),
-  colorExprRGBA:(texturePos,spacePos,normal),thickness,alpha,light:(color,direction,normal),texture,uv,df:(z),cutoffRegion,degree,plotModifiers,tags));
+  colorExprRGBA:(texturePos,spacePos,normal),thickness,alpha,light:(color,direction,normal),texture,uv,df:(z),cutoffRegion,degree,layers,plotModifiers,tags));
 cglInterface("cplot3d",cglCPlot3d,(f:(z)),(color,texture,textureRGB,textureRGBA,interpolateTexture,
   repeatTexture,colorExpr:(texturePos,spacePos,normal),colorExprRGB:(texturePos,spacePos,normal),
-  colorExprRGBA:(texturePos,spacePos,normal),thickness,alpha,light:(color,direction,normal),texture,uv,df:(z),cutoffRegion,degree,plotModifiers,tags));
+  colorExprRGBA:(texturePos,spacePos,normal),thickness,alpha,light:(color,direction,normal),texture,uv,df:(z),cutoffRegion,degree,layers,plotModifiers,tags));
 cglCPlot3d(f/*f(z)*/):=(
   if(isundefined(color) & isundefined(colorExpr), // TODO find better condition for choosing phase-coloring
     colorExpr = cglLazy((texturePos,spacePos,normal),
