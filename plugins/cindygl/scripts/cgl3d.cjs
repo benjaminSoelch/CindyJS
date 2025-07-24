@@ -1421,7 +1421,13 @@ cglMergeDicts(dict1,dict2):=(
 );
 
 // feature TODO:
-// TODO port code for movable codes to library
+// TODO port code for movable objects to library
+// TODO? add simple way to specify seperate color(s)/texture for back-side of rendered surface
+// * support orthogonal projection, smooth moving between linear and orth projection
+// TODO orthogonal projection
+// TODO? intersection of surfaces as primitive operation
+// TODO? global clipping region
+// TODO? better ligthing system
 // TODO find good list of default modifiers‚
 // function->f(#pos,#norm,#kmin,#kmax....) (colorplot on drawn surface)
 // thickness -> give rendered surfaces a thinkness (needed for conversion to 3d-printer file)
@@ -1429,8 +1435,6 @@ cglMergeDicts(dict1,dict2):=(
 // TODO function for updating/resetting defaults
 // ? use internal global variables (-> document names of default values)
 // ? always use cglAlpha even if explicitly not specified
-// TODO? add simple way to specify seperate color(s)/texture for back-side of rendered surface
-// * support orthogonal projection, smooth moving between linear and orth projection
 
 // TODO? is the `tags` modifier usefull (currently used by "find object at point" built-in)
 // ? replace with explicit "moveable" modifier
