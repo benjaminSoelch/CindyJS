@@ -1423,8 +1423,14 @@ cglMergeDicts(dict1,dict2):=(
 // feature TODO:
 // TODO port code for movable objects to library
 // TODO? add simple way to specify seperate color(s)/texture for back-side of rendered surface
-// * support orthogonal projection, smooth moving between linear and orth projection
+// ? colorBack, colorsBack, ... modifiers (will almost double length of signatures)
+// ? wrap local color processing in cglLazy and completely move color-resolving to single procedure
+// -> pixelExpr = resolveColors(colorProcessor)
 // TODO orthogonal projection
+// * support orthogonal projection, smooth moving between linear and orth projection
+// ? how much does internal coordinate system need to be changed to support different projection
+// a) make view-pos pixel dependent in orthogonal mode (feels a bit hacky)
+// b) replace view-pos with view-direction + viewDepth + clip-depth(s)
 // TODO? intersection of surfaces as primitive operation
 // TODO? global clipping region
 // TODO? better ligthing system
