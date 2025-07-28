@@ -1422,10 +1422,6 @@ cglMergeDicts(dict1,dict2):=(
 
 // feature TODO:
 // TODO port code for movable objects to library
-// TODO? add simple way to specify seperate color(s)/texture for back-side of rendered surface
-// ? colorBack, colorsBack, ... modifiers (will almost double length of signatures)
-// ? wrap local color processing in cglLazy and completely move color-resolving to single procedure
-// -> pixelExpr = resolveColors(colorProcessor)
 // TODO orthogonal projection
 // * support orthogonal projection, smooth moving between linear and orth projection
 // ? how much does internal coordinate system need to be changed to support different projection
@@ -1456,7 +1452,6 @@ cglMergeDicts(dict1,dict2):=(
 // TODO? cglLogLevel(...) built-in for setting log-level
 
 // bug TODO:
-// FIXME figure out why quadric+plane example rebuilds code (for all cylinders) every time a point is moved
 // TODO! cglLazy-modifiers can be undefined when evaluating texture code
 // TODO rendering of mesh with overlapping transparent textures is partially broken
 //    (when multiple transparent triangles are rendered in single call WebGL ignores lower ones)

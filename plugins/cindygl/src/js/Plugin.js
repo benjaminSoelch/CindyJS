@@ -190,7 +190,7 @@ let CindyGL = function(api) {
             // ensure modifier types are compatible with previous modifiers
             let prevModifiers=renderer.modifierTypes;
             if(prevModifiers.size != modifierTypes.size)
-                continue; // differernt sets of modifers -> try next renderer
+                continue; // different sets of modifiers -> try next renderer
             let changed = false;
             let compatible = true;
             for(const key of mergedTypes.keys()){
@@ -212,13 +212,13 @@ let CindyGL = function(api) {
                     }
                     mergedTypes.get(key).type = commonType;
                 } else {
-                    // differernt sets of modifers
+                    // different sets of modifiers
                     compatible = false;
                     break;
                 }
             }
             if(!compatible)
-                continue; // differernt sets of modifers -> try next renderer
+                continue; // different sets of modifiers  -> try next renderer
             if(changed) {
                 renderer.updateModifierTypes(mergedTypes);
             }
