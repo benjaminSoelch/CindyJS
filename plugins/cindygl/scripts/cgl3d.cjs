@@ -35,6 +35,12 @@ cglSimpleLight = cglLazy((color,viewDirection,normal),
   brightness = 0.25+0.6*abs(brightness)-0.15*brightness;
   brightness*color;
 );
+cglLightNormal = cglLazy((color,viewDirection,normal),
+  (normal+(1,1,1))/2;
+);
+cglLightDepth = cglLazy((color,viewDirection,normal),
+  hue(cglDepth-0.3);
+);
 cglAddLight(material, lightcolor, lightdir, normal, gamma1,gamma2) := (
   regional(illumination,res);
   illumination = max(0,(lightdir/abs(lightdir))*normal);
@@ -67,6 +73,48 @@ cglDefaultLight = cglLazy((color,direction,normal),
   lightCol_2=col3_2;
   lightCol_3=col3_3;
   lightCol;
+);
+
+cglLight2gamma = [2, 20, 2, 20, 1, 10, 1, 10];
+cglLight2colors = [
+    (.3, .5, 1.),
+    (1, 2, 2) / 2,
+    (1., 0.2, 0.1),
+    (2, 2, 1) / 2,
+    .4 * (.7, .8, .3),
+    .9 * (.7, .8, .3),
+    .4 * (.6, .1, .6),
+    .9 * (.6, .1, .6)
+];
+cglLight2(direction, dst, color,normal) := (
+  // lighting parameters
+  lightdirs = [ // depends on view-direction -> need to calculate within shader
+    cglRay(direction, -100), //enlights parts of the surface which normal points away from the camera
+    cglRay(direction, -100),
+    cglRay(direction, 100), //Has an effect, if the normal of the surface points to the camera
+
+    cglRay(direction, 100),
+    (-10, 10, -2.), // TODO? make relative to view
+    (-10, 10, -2.),
+    (10, -8, 3.),
+    (10, -8, 3.)
+  ];
+  al=0.5; // how much should color depend on surface color
+  // ----
+  x = cglViewPos + dst*direction; //the intersection point in R^3
+  color = (1 - al) * color;
+
+  forall(1..length(lightdirs),
+    col=cglLight2colors_#;                
+    //illuminate if the normal and lightdir point in the same direction
+    illumination = max(0, (lightdirs_# / abs(lightdirs_#)) * normal);
+    col = (illumination ^ cglLight2gamma_#)* col;
+    color = color + al * if(length(color)==3,col,(col_1,col_2,col_3,1/length(lightdirs)));
+  );
+  color
+);
+cglLight2=cglLazy((color,viewDirection,normal),
+  cglLight2(viewDirection,cglRawDepth,color,normal)
 );
 
 /////////////////////
