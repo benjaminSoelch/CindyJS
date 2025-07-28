@@ -1456,6 +1456,7 @@ cglMergeDicts(dict1,dict2):=(
 // TODO? cglLogLevel(...) built-in for setting log-level
 
 // bug TODO:
+// FIXME figure out why quadric+plane example rebuilds code (for all cylinders) every time a point is moved
 // TODO! cglLazy-modifiers can be undefined when evaluating texture code
 // TODO rendering of mesh with overlapping transparent textures is partially broken
 //    (when multiple transparent triangles are rendered in single call WebGL ignores lower ones)
@@ -1488,49 +1489,55 @@ cglMergeDicts(dict1,dict2):=(
 // helper functions for resolving of colorExpression/textures
 // pick the first defined color expression return undefined if there is none
 // code TODO? to which extend can this function be shortened by extracting code
-cglResolveColorExpr(hasAlpha):=(
-  regional(pixelExpr,usesAlpha,modifiers);
+
+// TODO? replace explicit blend function with colors mode:
+CglColorsIgnore = 0; // ignore colors field
+CglColorsInterpolate = 1; // interpolate between colors_1 and colors_2 usign texPos_2 (cylinder)
+CglColorsVertex = 2; // one color per vertex
+cglResolveColorExpr0(hasAlpha,colorsMode,isBack):=(
+  regional(pixelExpr,usesAlpha,modifiers,vModifiers);
   hasAlpha = cglValOrDefault(hasAlpha,false); // undefined condition would be silent failure
   repeatTexture = cglValOrDefault(repeatTexture,false);
   interpolateTexture = cglValOrDefault(interpolateTexture, true);
   modifiers = {};
+  vModifiers = {};
   usesAlpha = false;
-  if(!isundefined(colorExprRGBA),
+  if(isundefined(pixelExpr) & !isundefined(colorExprRGBA),
     usesAlpha = true;
     pixelExpr = if(hasAlpha,
       cglLazy((texturePos,spacePos),
         regional(col);
         col=cglEval(colorExprRGBA,texturePos,spacePos);
         (col_1,col_2,col_3,col_4*cglAlpha)
-      );
+      ,colorExprRGBA);
     ,
       colorExprRGBA
     );
   );
   // feature TODO warining for re-definition
-  if(!isundefined(colorExprRGB),
+  if(isundefined(pixelExpr) & !isundefined(colorExprRGB),
     pixelExpr = if(hasAlpha,
       cglLazy((texturePos,spacePos),
         regional(col);
         col=cglEval(colorExprRGB,texturePos,spacePos);
         (col_1,col_2,col_3,cglAlpha)
-      );
+      ,colorExprRGB->colorExprRGB);
     ,
       colorExprRGB
     );
   );
-  if(!isundefined(colorExpr),
+  if(isundefined(pixelExpr) & !isundefined(colorExpr),
     pixelExpr = if(hasAlpha,
       cglLazy((texturePos,spacePos),
         regional(col);
         col=cglEval(colorExpr,texturePos,spacePos);
         (col_1,col_2,col_3,cglAlpha)
-      );
+      ,colorExpr->colorExpr);
     ,
       colorExpr
     );
   );
-  if(!isundefined(textureRGBA),
+  if(isundefined(pixelExpr) & !isundefined(textureRGBA),
     usesAlpha = true;
     pixelExpr = if(hasAlpha,
       cglLazy((texturePos,spacePos,normal),
@@ -1544,7 +1551,7 @@ cglResolveColorExpr(hasAlpha):=(
       ,textureRGBA->textureRGBA,repeatTexture->repeatTexture,interpolateTexture->interpolateTexture);
     );
   );
-  if(!isundefined(textureRGB),
+  if(isundefined(pixelExpr) & !isundefined(textureRGB),
     pixelExpr = if(hasAlpha,
       cglLazy((texturePos,spacePos,normal),
         regional(col);
@@ -1557,7 +1564,7 @@ cglResolveColorExpr(hasAlpha):=(
       ,textureRGB->textureRGB,repeatTexture->repeatTexture,interpolateTexture->interpolateTexture);
     );
   );
-  if(!isundefined(texture),
+  if(isundefined(pixelExpr) & !isundefined(texture),
     pixelExpr = if(hasAlpha,
       cglLazy((texturePos,spacePos,normal),
         regional(col);
@@ -1570,7 +1577,124 @@ cglResolveColorExpr(hasAlpha):=(
       ,texture->texture,repeatTexture->repeatTexture,interpolateTexture->interpolateTexture);
     );
   );
-  {"pixelExpr":pixelExpr, "usesAlpha": usesAlpha, "modifiers": modifiers}
+  if(colorsMode != CglColorsIgnore & isundefined(pixelExpr) & !isundefined(colors),
+    colors = apply(colors,cglNormalColor(#));
+    usesAlpha = false;
+    forall(colors,col,usesAlpha = usesAlpha % length(col)==4);
+    if(usesAlpha, // ensure all colors have the same length
+      colors = apply(colors,col,if(length(col)<4,(col_1,col_2,col_3,1),col));
+    );
+    if(colorsMode == CglColorsVertex,
+      colorData = if(isBack,cglLazy(cglColorBack),cglLazy(cglColor));
+      pixelExpr = if(hasAlpha,
+        if(length(colors_1)==4,
+          cglLazy((texPos,pos3d,normal),
+            regional(col);col = cglEval(colorData);
+            (col_1,col_2,col_3,col_4*cglAlpha)
+          ,colorData->colorData);
+        ,
+          cglLazy((texPos,pos3d,normal),
+            regional(col);col = cglEval(colorData);
+            (col_1,col_2,col_3,cglAlpha)
+          ,colorData->colorData);
+        );
+      ,
+        cglLazy((texPos,pos3d,normal),cglEval(colorData),colorData->colorData);
+      );
+      vModifiers_(if(isBack,"cglColorBack","cglColor")) = colors;
+    ,
+      colorData = if(isBack,cglLazy(cglColorsBack),cglLazy(cglColors));
+      pixelExpr = if(hasAlpha,
+        if(length(colors_1)==4,
+          cglLazy((texPos,pos3d,normal),
+            regional(col);col = (1-texPos_2) * cglEval(colorData)_1 + texPos_2 * cglEval(colorData)_2;
+            (col_1,col_2,col_3,col_4*cglAlpha)
+          ,colorData->colorData);
+        ,
+          cglLazy((texPos,pos3d,normal),
+            regional(col);col = (1-texPos_2) * cglEval(colorData)_1 + texPos_2 * cglEval(colorData)_2;
+            (col_1,col_2,col_3,cglAlpha)
+          ,colorData->colorData);
+        );
+      ,
+        cglLazy((texPos,pos3d,normal),
+            (1-texPos_2) * cglEval(colorData)_1 + texPos_2 * cglEval(colorData)_2
+        ,colorData->colorData);
+      );
+      modifiers_(if(isBack,"cglColorsBack","cglColors")) = colors;
+    );
+  );
+  if(isundefined(pixelExpr) & !isundefined(color),
+    color = cglNormalColor(color);
+    usesAlpha = length(color)==4;
+    colorData = if(isBack,cglLazy(cglColorBack),cglLazy(cglColor));
+    pixelExpr = if(hasAlpha,
+      if(length(color)==4,
+        cglLazy((texPos,pos3d,normal),
+          (cglEval(colorData)_1,cglEval(colorData)_2,cglEval(colorData)_3,cglEval(colorData)_4*cglAlpha)
+        ,colorData->colorData);
+      ,
+        cglLazy((texPos,pos3d,normal),
+          (cglEval(colorData)_1,cglEval(colorData)_2,cglEval(colorData)_3,cglAlpha)
+        ,colorData->colorData);
+      );
+    ,
+      cglLazy((texPos,pos3d,normal),cglEval(colorData),colorData->colorData);
+    );
+    modifiers_(if(isBack,"cglColorBack","cglColor")) = color;
+  );
+  {"pixelExpr":pixelExpr, "usesAlpha": usesAlpha, "modifiers": modifiers, "vModifiers": vModifiers}
+);
+cglResolveColorExprBack(hasAlpha,colorsMode):=(
+  regional(colorExprRGBA,colorExprRGB,colorExpr,textureRGBA,textureRGB,texture,colors,color);
+  colorExprRGBA = colorExprRGBABack;
+  colorExprRGB = colorExprRGBBack;
+  colorExpr = colorExprBack;
+  textureRGBA = textureRGBABack;
+  textureRGB = textureRGBBack;
+  texture = textureBack;
+  colors = colorsBack;
+  color = colorBack;
+  cglResolveColorExpr0(hasAlpha,colorsMode,true);
+);
+cglResolveColorExpr(hasAlpha,colorsMode):=(
+  regional(exprData,exprDataBack,usesAlphaFront,usesAlphaBack,defaultAlpha);
+  exprData = cglResolveColorExpr0(hasAlpha,colorsMode,false);
+  exprDataBack = cglResolveColorExprBack(hasAlpha,colorsMode);
+  if(!isundefined(exprDataBack_"pixelExpr"), // expression for back face is given
+    usesAlphaFront = exprData_"usesAlpha";
+    usesAlphaBack = exprDataBack_"usesAlpha";
+    exprData_"usesAlpha" = usesAlphaFront % usesAlphaBack;
+    exprData_"modifiers" = cglMergeDicts(exprData_"modifiers",exprDataBack_"modifiers");
+    exprData_"vModifiers" = cglMergeDicts(exprData_"vModifiers",exprDataBack_"vModifiers");
+    defaultAlpha = if(hasAlpha,cglLazy(cglAlpha),cglLazy(1));
+    if(usesAlphaFront == usesAlphaBack,
+      exprData_"pixelExpr" = cglLazy((texPos,pos3d,normal),
+        if(normal*cglViewDirection<=0,cglEval(exprFront,texPos,pos3d,normal),cglEval(exprBack,texPos,pos3d,normal))
+      ,exprFront->exprData_"pixelExpr",exprBack->exprDataBack_"pixelExpr")
+    ,if(usesAlphaFront,
+      exprData_"pixelExpr" = cglLazy((texPos,pos3d,normal),
+        regional(col);
+        if(normal*cglViewDirection<=0,
+          cglEval(exprFront,texPos,pos3d,normal)
+        ,
+          col = cglEval(exprBack,texPos,pos3d,normal);
+          (col_1,col_2,col_3,cglEval(defaultAlpha))
+        )
+      ,exprFront->exprData_"pixelExpr",exprBack->exprDataBack_"pixelExpr",defaultAlpha->defaultAlpha)
+    ,
+      exprData_"pixelExpr" = cglLazy((texPos,pos3d,normal),
+        regional(col);
+        if(normal*cglViewDirection<=0,
+          col = cglEval(exprFront,texPos,pos3d,normal);
+          (col_1,col_2,col_3,cglEval(defaultAlpha))
+        ,
+          cglEval(exprBack,texPos,pos3d,normal)
+        )
+      ,exprFront->exprData_"pixelExpr",exprBack->exprDataBack_"pixelExpr",defaultAlpha->defaultAlpha)
+    ))
+  );
+  exprData
 );
 // bring color into standard from
 cglNormalColor(color):=( // code TODO better name
@@ -1604,7 +1728,7 @@ cglInterface("sphere3d",cglSphere3d,(center,radius),(color,texture,textureRGB,te
   colorExpr:(texturePos,spacePos,normal),colorExprRGB:(texturePos,spacePos,normal),
   colorExprRGBA:(texturePos,spacePos,normal),alpha,light:(color,direction,normal),projection:normal,plotModifiers,tags,dynamic));
 cglSphere3d(center,radius):=(
-  regional(needBackFace,modifiers,ids,topLayer,hasAlpha,usesAlpha,exprData,pixelExpr,opacityExpr);
+  regional(needBackFace,modifiers,ids,topLayer,hasAlpha,usesAlpha,exprData,opacityExpr);
   color = cglValOrDefault(color,cglDefaults_"sphereColor");
   light = cglValOrDefault(light,cglDefaults_"light");
   projection = cglValOrDefault(projection,cglDefaults_"sphereProjection");
@@ -1613,27 +1737,11 @@ cglSphere3d(center,radius):=(
   alpha = cglValOrDefault(alpha,1);
   modifiers = {"cglLight": light,"cglProjection":projection};
   modifiers = cglMergeDicts(modifiers,cglValOrDefault(plotModifiers,{}));
-  exprData = cglResolveColorExpr(hasAlpha);
-  pixelExpr = exprData_"pixelExpr";
-  usesAlpha = exprData_"usesAlpha";
+  exprData = cglResolveColorExpr(hasAlpha,CglColorsIgnore);
   modifiers = cglMergeDicts(modifiers,exprData_"modifiers");
+  usesAlpha = exprData_"usesAlpha";
   if(hasAlpha, modifiers_"cglAlpha" = alpha);
-  if(isundefined(pixelExpr),
-    color = cglNormalColor(color);
-    usesAlpha = length(color)==4;
-    if(hasAlpha,
-      if(length(color)==4,
-        modifiers_"cglPixelExpr" = cglLazy((texPos,pos3d,normal),(cglColor_1,cglColor_2,cglColor_3,cglColor_4*cglAlpha));
-      ,
-        modifiers_"cglPixelExpr" = cglLazy((texPos,pos3d,normal),(cglColor_1,cglColor_2,cglColor_3,cglAlpha));
-      );
-    ,
-      modifiers_"cglPixelExpr" = cglLazy((texPos,pos3d,normal),cglColor);
-    );
-    modifiers_"cglColor" = color;
-  ,
-    modifiers_"cglPixelExpr" = pixelExpr;
-  );
+  modifiers_"cglPixelExpr" = exprData_"pixelExpr";
   opacityExpr = if(usesAlpha,false,if(hasAlpha,cglLazy(cglAlpha>=1),true));
   needBackFace = hasAlpha % usesAlpha;
   tags = cglValOrDefault(tags,[]);
@@ -1685,7 +1793,7 @@ cglInterface("cylinder3d",cglCylinder3d,(point1,point2,radius),(color,color1,col
   colorExprRGB:(texturePos,spacePos,normal),colorExprRGBA:(texturePos,spacePos,normal),alpha,
   light:(color,direction,normal),cap1,cap2,caps,projection:(normal,height,orientation),direction1,plotModifiers,tags,dynamic,renderBack));
 cglCylinder3d(point1,point2,radius):=(
-  regional(overhang,needBackFace,modifiers,n,ids,topLayer,hasAlpha,usesAlpha,pixelExpr,exprData,opacityExpr);
+  regional(overhang,needBackFace,modifiers,n,ids,topLayer,hasAlpha,usesAlpha,exprData,opacityExpr);
   color = cglValOrDefault(color,cglDefaults_"cylinderColor");
   if(!isundefined(colors),
     if(length(colors)!=2,
@@ -1694,12 +1802,15 @@ cglCylinder3d(point1,point2,radius):=(
         colors = colors ++ (color,color);
       );
     );
-    color1 = cglValOrDefault(color1,colors_1);
-    color2 = cglValOrDefault(color2,colors_2);
-  ,
-    color1 = cglValOrDefault(color1,color);
-    color2 = cglValOrDefault(color2,color);
-  );
+    if(!isundefined(color1),colors_1=color1);
+    if(!isundefined(color2),colors_2=color2);
+    if(colors_1 == colors_2,
+      color = colors_1;
+      colors = cglUndefinedVal();
+    );
+  ,if(!isundefined(color1) % !isundefined(color2),
+    colors = [cglValOrDefault(color1,color),cglValOrDefault(color2,color)];
+  ));
   light = cglValOrDefault(light,cglDefaults_"light");
   caps = cglValOrDefault(caps,cglDefaults_"cylinderCaps");
   cap1 = cglValOrDefault(cap1,caps);
@@ -1719,54 +1830,11 @@ cglCylinder3d(point1,point2,radius):=(
     "cglCapCut1":cap1_"capCut1","cglCapCut2":cap2_"capCut2",
     "cglProjection": projection};
   modifiers = cglMergeDicts(modifiers,cglValOrDefault(plotModifiers,{}));
-  exprData = cglResolveColorExpr(hasAlpha);
-  pixelExpr = exprData_"pixelExpr";
+  exprData = cglResolveColorExpr(hasAlpha,CglColorsInterpolate);
   usesAlpha = exprData_"usesAlpha";
   modifiers = cglMergeDicts(modifiers,exprData_"modifiers");
   if(hasAlpha, modifiers_"cglAlpha" = alpha);
-  // code TODO? is there some way to compress this code
-  if(isundefined(pixelExpr),
-    color1 = cglNormalColor(color1);
-    color2 = cglNormalColor(color2);
-    usesAlpha = length(color1)==4 % length(color2)==4;
-    if(color1!=color2,
-      if(length(color1)<length(color2),
-        color1 = (color1_1,color1_2,color1_3,1);
-      ,if(length(color2)<length(color1),
-        color2 = (color2_1,color2_2,color2_3,1);
-      ));
-      if(hasAlpha,
-        if(length(color1)==4,
-          modifiers_"cglPixelExpr" = cglLazy((texPos,pos3d,normal),
-            regional(col);col = (1-texPos_2)*cglColor1 + texPos_2*cglColor2;
-            (col_1,col_2,col_3,col_4*cglAlpha)
-          );
-        ,
-          modifiers_"cglPixelExpr" = cglLazy((texPos,pos3d,normal),
-            regional(col);col = (1-texPos_2)*cglColor1 + texPos_2*cglColor2;
-            (col_1,col_2,col_3,cglAlpha)
-          );
-        );
-      ,
-        modifiers_"cglPixelExpr" = cglLazy((texPos,pos3d,normal),(1-texPos_2)*cglColor1 + texPos_2*cglColor2);
-      );
-      modifiers_"cglColor1"=color1;
-      modifiers_"cglColor2"=color2;
-    ,
-      if(hasAlpha,
-        if(length(color1)==4,
-          modifiers_"cglPixelExpr" = cglLazy((texPos,pos3d,normal),(cglColor_1,cglColor_2,cglColor_3,cglColor_4*cglAlpha));
-        ,
-          modifiers_"cglPixelExpr" = cglLazy((texPos,pos3d,normal),(cglColor_1,cglColor_2,cglColor_3,cglAlpha));
-        );
-      ,
-        modifiers_"cglPixelExpr" = cglLazy((texPos,pos3d,normal),cglColor);
-      );
-      modifiers_"cglColor" = color1;
-    );
-  ,
-    modifiers_"cglPixelExpr" = pixelExpr;
-  );
+  modifiers_"cglPixelExpr" = exprData_"pixelExpr";
   needBackFace = hasAlpha % usesAlpha % renderBack;
   modifiers_"cglCap1front"=cap1_(if(needBackFace,"shaderFront","shaderNoBack"));
   modifiers_"cglCap2front"=cap2_(if(needBackFace,"shaderFront","shaderNoBack"));
@@ -2024,27 +2092,11 @@ cglTorus3d(center,orientation,radius1,radius2):=(
     "cglRadii": [radius1,radius2]
   };
   modifiers = cglMergeDicts(modifiers,cglValOrDefault(plotModifiers,{}));
-  exprData = cglResolveColorExpr(hasAlpha);
-  pixelExpr = exprData_"pixelExpr";
+  exprData = cglResolveColorExpr(hasAlpha,CglColorsIgnore);
   usesAlpha = exprData_"usesAlpha";
   modifiers = cglMergeDicts(modifiers,exprData_"modifiers");
   if(hasAlpha, modifiers_"cglAlpha" = alpha);
-  if(isundefined(pixelExpr),
-    color = cglNormalColor(color);
-    usesAlpha = length(color)==4;
-    if(hasAlpha,
-      if(length(color)==4,
-        modifiers_"cglPixelExpr" = cglLazy((texPos,pos3d,normal),(cglColor_1,cglColor_2,cglColor_3,cglColor_4*cglAlpha));
-      ,
-        modifiers_"cglPixelExpr" = cglLazy((texPos,pos3d,normal),(cglColor_1,cglColor_2,cglColor_3,cglAlpha));
-      );
-    ,
-      modifiers_"cglPixelExpr" = cglLazy((texPos,pos3d,normal),cglColor);
-    );
-    modifiers_"cglColor" = color;
-  ,
-    modifiers_"cglPixelExpr" = pixelExpr;
-  );
+  modifiers_"cglPixelExpr" = exprData_"pixelExpr";
   needBackFace = hasAlpha % usesAlpha;
   // use arcRange if angle1range is not given
   angle1range = cglValOrDefault(angle1range,arcRange);
@@ -2201,41 +2253,15 @@ cglTriangle3d(p1,p2,p3):=(
   modifiers_"cglNormalExpr" = normalExpr;
   modifiers_"cglTextureMapping" = cglLazy((pos3d,direction),cglTexCoords);
   vModifiers_"cglTexCoords" = uv;
-  exprData = cglResolveColorExpr(hasAlpha);
-  pixelExpr = exprData_"pixelExpr";
+  if(!isundefined(colors),
+    colors = cglCheckSize(colors,3,"wrong length for colors",color);
+  );
+  exprData = cglResolveColorExpr(hasAlpha,CglColorsVertex);
   usesAlpha = exprData_"usesAlpha";
   modifiers = cglMergeDicts(modifiers,exprData_"modifiers");
+  vModifiers = cglMergeDicts(vModifiers,exprData_"vModifiers");
   if(hasAlpha, modifiers_"cglAlpha" = alpha);
-  if(isundefined(pixelExpr),
-    if(isundefined(colors),
-      color = cglNormalColor(color);
-      colLen = length(color)
-    ,
-      colors = cglCheckSize(colors,3,"wrong length for colors",color);
-      colors = apply(colors,col,cglNormalColor(col));
-      colLen = max(apply(colors,col,length(col)));
-      colors = apply(colors,col,
-        if(colLen > length(col),(col_1,col_2,col_3,1),col);
-      );
-    );
-    usesAlpha = colLen == 4;
-    if(hasAlpha,
-      if(colLen == 4,
-        modifiers_"cglPixelExpr" = cglLazy((texPos,pos3d,normal),(cglColor_1,cglColor_2,cglColor_3,cglColor_4*cglAlpha));
-      ,
-        modifiers_"cglPixelExpr" = cglLazy((texPos,pos3d,normal),(cglColor_1,cglColor_2,cglColor_3,cglAlpha));
-      );
-    ,
-      modifiers_"cglPixelExpr" = cglLazy((texPos,pos3d,normal),cglColor);
-    );
-    if(isundefined(colors),
-      modifiers_"cglColor"=color;
-    ,
-      vModifiers_"cglColor"=colors;
-    );
-  ,
-    modifiers_"cglPixelExpr" = pixelExpr;
-  );
+  modifiers_"cglPixelExpr" = exprData_"pixelExpr";
   tags = cglValOrDefault(tags,[]);
   opacityExpr = if(usesAlpha,false,if(hasAlpha,cglLazy(cglAlpha>=1),true));
   colorplot3d(cgl3dTriangleShaderCode(#),[p1,p2,p3],
@@ -2316,21 +2342,13 @@ cglTriangles3d(triangles):=(
   modifiers_"cglNormalExpr" = normalExpr;
   modifiers_"cglTextureMapping" = cglLazy((pos3d,direction),cglTexCoords);
   vModifiers_"cglTexCoords" = uv;
-  exprData = cglResolveColorExpr(hasAlpha);
-  pixelExpr = exprData_"pixelExpr";
-  usesAlpha = exprData_"usesAlpha";
-  modifiers = cglMergeDicts(modifiers,exprData_"modifiers");
-  if(hasAlpha, modifiers_"cglAlpha" = alpha);
-  if(isundefined(pixelExpr),
-    if(isundefined(colors),
-      color = cglNormalColor(color);
-      colLen = length(color)
-    ,
-      cglCheckSize(colors,length(triangles),"colors should contain one element for each triangle");
+  if(!isundefined(colors),
+    if(length(colors)!=3*length(triangles),
+      cglCheckSize(colors,length(triangles),"colors should contain one element pre vertex or one element per triangle");
       colors = flatten(apply(1..(length(triangles)),i,
-        if(i<length(normals),
+        if(i<length(colors),
           cols = colors_i;
-          if(islist(cols_1),
+          if(islist(cols_1) % islist(cols_2) % islist(cols_3), // entry has list as element -> use sub-entries for vertices
             cglCheckSize(cols,3,"wrong length for triangle colors",color);
           ,
             [cols,cols,cols]
@@ -2339,30 +2357,14 @@ cglTriangles3d(triangles):=(
           [color,color,color]
         );
       ));
-      colors = apply(colors,col,cglNormalColor(col));
-      colLen = max(apply(colors,col,length(col)));
-      colors = apply(colors,col,
-        if(colLen > length(col),(col_1,col_2,col_3,1),col);
-      );
     );
-    usesAlpha = colLen == 4;
-    if(hasAlpha,
-      if(colLen == 4,
-        modifiers_"cglPixelExpr" = cglLazy((texPos,pos3d,normal),(cglColor_1,cglColor_2,cglColor_3,cglColor_4*cglAlpha));
-      ,
-        modifiers_"cglPixelExpr" = cglLazy((texPos,pos3d,normal),(cglColor_1,cglColor_2,cglColor_3,cglAlpha));
-      );
-    ,
-      modifiers_"cglPixelExpr" = cglLazy((texPos,pos3d,normal),cglColor);
-    );
-    if(isundefined(colors),
-      modifiers_"cglColor"=color;
-    ,
-      vModifiers_"cglColor"=colors;
-    );
-  ,
-    modifiers_"cglPixelExpr" = pixelExpr;
   );
+  exprData = cglResolveColorExpr(hasAlpha,CglColorsVertex);
+  usesAlpha = exprData_"usesAlpha";
+  modifiers = cglMergeDicts(modifiers,exprData_"modifiers");
+  vModifiers = cglMergeDicts(vModifiers,exprData_"vModifiers");
+  if(hasAlpha, modifiers_"cglAlpha" = alpha);
+  modifiers_"cglPixelExpr" = exprData_"pixelExpr";
   tags = cglValOrDefault(tags,[]);
   opacityExpr = if(usesAlpha,false,if(hasAlpha,cglLazy(cglAlpha>=1),true));
   colorplot3d(cgl3dTriangleShaderCode(#),flatten(triangles),
@@ -2452,42 +2454,15 @@ cglPolygon3d(vertices):=(
   );
   modifiers_"cglTextureMapping" = cglLazy((pos3d,direction),cglTexCoords);
   vModifiers_"cglTexCoords" = uv;
-  exprData = cglResolveColorExpr(hasAlpha);
-  pixelExpr = exprData_"pixelExpr";
+  if(!isundefined(colors),
+    colors = cglCheckSize(colors,length(vertices),"wrong length for colors",color);
+  );
+  exprData = cglResolveColorExpr(hasAlpha,CglColorsVertex);
   usesAlpha = exprData_"usesAlpha";
   modifiers = cglMergeDicts(modifiers,exprData_"modifiers");
+  vModifiers = cglMergeDicts(vModifiers,exprData_"vModifiers");
   if(hasAlpha, modifiers_"cglAlpha" = alpha);
-  if(isundefined(pixelExpr),
-    colLen = if(isundefined(colors),
-      color = cglNormalColor(color);
-      length(color)
-    ,
-      colors = cglCheckSize(colors,length(vertices),"wrong length for colors",color);
-      colors = apply(colors,col,cglNormalColor(col));
-      colLen = max(apply(colors,col,length(col)));
-      colors = apply(colors,col,
-        if(colLen > length(col),(col_1,col_2,col_3,1),col);
-      );
-      colLen;
-    );
-    usesAlpha = colLen == 4;
-    if(hasAlpha,
-      if(colLen == 4,
-        modifiers_"cglPixelExpr" = cglLazy((texPos,pos3d,normal),(cglColor_1,cglColor_2,cglColor_3,cglColor_4*cglAlpha));
-      ,
-        modifiers_"cglPixelExpr" = cglLazy((texPos,pos3d,normal),(cglColor_1,cglColor_2,cglColor_3,cglAlpha));
-      );
-    ,
-      modifiers_"cglPixelExpr" = cglLazy((texPos,pos3d,normal),cglColor);
-    );
-    if(isundefined(colors),
-      modifiers_"cglColor"=color;
-    ,
-      vModifiers_"cglColor"=colors;
-    );
-  ,
-    modifiers_"cglPixelExpr" = pixelExpr;
-  );
+  modifiers_"cglPixelExpr" = exprData_"pixelExpr";
   if(triangulationMode==CglTriangulateSpiral,
     triangulator = cglLazy(elts,cglTriangulateSpiralRec(elts));
   ,if(triangulationMode==CglTriangulateCorner,
@@ -2578,41 +2553,16 @@ cglMesh3d(grid):=(
   );
   modifiers_"cglTextureMapping" = cglLazy((pos3d,direction),cglTexCoords);
   vModifiers_"cglTexCoords" = uv;
-  exprData = cglResolveColorExpr(hasAlpha);
-  pixelExpr = exprData_"pixelExpr";
+  vModifiers=apply(vModifiers,samples,cglMeshSamplesToTriangles(samples,Nx,Ny,topology,cglSampleVertex));
+  // bring vertex colors in correct format (one color per vertex)
+  if(!isundefined(colors),colors = cglMeshSamplesToTriangles(colors,Nx,Ny,topology,cglSampleVertex));
+  if(!isundefined(colorsBack),colorsBack = cglMeshSamplesToTriangles(colorsBack,Nx,Ny,topology,cglSampleVertex));
+  exprData = cglResolveColorExpr(hasAlpha,CglColorsVertex);
   usesAlpha = exprData_"usesAlpha";
   modifiers = cglMergeDicts(modifiers,exprData_"modifiers");
+  vModifiers = cglMergeDicts(vModifiers,exprData_"vModifiers");
   if(hasAlpha, modifiers_"cglAlpha" = alpha);
-  if(isundefined(pixelExpr),
-    if(isundefined(colors),
-      color = cglNormalColor(color);
-      colLen =  length(color)
-    ,
-      colors = apply(colors,row,apply(row,col,cglNormalColor(col)));
-      colLen = max(apply(colors,row,apply(row,col,length(col))));
-      colors = apply(colors,row,apply(row,col,
-        if(colLen > length(col),(col_1,col_2,col_3,1),col);
-      ));
-    );
-    usesAlpha = colLen == 4;
-    if(hasAlpha,
-      if(colLen==4,
-        modifiers_"cglPixelExpr" = cglLazy((texPos,pos3d,normal),(cglColor_1,cglColor_2,cglColor_3,cglColor_4*cglAlpha));
-      ,
-        modifiers_"cglPixelExpr" = cglLazy((texPos,pos3d,normal),(cglColor_1,cglColor_2,cglColor_3,cglAlpha));
-      );
-    ,
-      modifiers_"cglPixelExpr" = cglLazy((texPos,pos3d,normal),cglColor);
-    );
-    if(isundefined(colors),
-      modifiers_"cglColor"=color;
-    ,
-      vModifiers_"cglColor"=colors;
-    );
-  ,
-    modifiers_"cglPixelExpr" = pixelExpr;
-  );
-  vModifiers=apply(vModifiers,samples,cglMeshSamplesToTriangles(samples,Nx,Ny,topology,cglSampleVertex));
+  modifiers_"cglPixelExpr" = exprData_"pixelExpr";
   if(normalType != NormalPerPixel,
     vModifiers_"cglNormal" = normals;
   );
@@ -2674,18 +2624,10 @@ cglSurface3d(fun) := (
     modifiers = cglMergeDicts(modifiers,cglValOrDefault(plotModifiers,{}));
     repeatTexture = cglValOrDefault(repeatTexture,true); // repeat surface texture by default
     hasAlpha = true;
-    exprData = cglResolveColorExpr(false); // do not use alpha-modifier directly in color-expression
-    pixelExpr = exprData_"pixelExpr";
+    exprData = cglResolveColorExpr(false,CglColorsIgnore); // do not use alpha-modifier directly in color-expression
     usesAlpha = exprData_"usesAlpha";
     modifiers = cglMergeDicts(modifiers,exprData_"modifiers");
-    if(!isundefined(pixelExpr),
-      modifiers_"cglPixelExpr" = pixelExpr;
-    ,
-      color = cglNormalColor(color);
-      usesAlpha = length(color) == 4;
-      modifiers_"cglPixelExpr" = cglLazy((texPos,pos3d,normal),cglColor);
-      modifiers_"cglColor" = color;
-    );
+    modifiers_"cglPixelExpr" = exprData_"pixelExpr";
     modifiers_"cglColor0" = if(usesAlpha,(0,0,0,0),(0,0,0));
     modifiers = cglMergeDicts(modifiers,cutoffRegion_"modifs");
     bounds = cutoffRegion_"bounds";
