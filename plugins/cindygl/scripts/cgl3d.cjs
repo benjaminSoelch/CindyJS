@@ -1504,8 +1504,7 @@ cglMergeDicts(dict1,dict2):=(
 // TODO rendering of mesh with overlapping transparent textures is partially broken
 //    (when multiple transparent triangles are rendered in single call WebGL ignores lower ones)
 //    ? add texture mode to automatically ignore pixels belows certain alpha value
-// TODO multi-part in cgl-lazy can lead to wrong result in expression
-// * surface3d(p=trafo(x,y,z);f(x,y,z)) leads to invalid normal vectors
+// TODO cgl-lazy result may be evaluated after used global variables changed
 // TODO handle radius <= 0
 // * <0 -> use abs-value, (? use mirrored texture coordinates)
 // * torus with major radius 0 -> sphere with minor radius as radius

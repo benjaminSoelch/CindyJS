@@ -76,6 +76,13 @@ function expressionsAreEqual(a, b) {
         }
         return true;
     } else if (a instanceof Object && b instanceof Object) {
+        if(a['ctype']=='cglLazy') {
+            if(b['ctype']!='cglLazy') return false;
+            return arraysAreEqual(a.params,b.params) && expressionsAreEqual(a.expr,b.expr) && 
+                arraysAreEqual(a.modifs, b.modifs,(a,b)=>(
+                    a[0] === b[0] && expressionsAreEqual(a[1], b[1]) 
+                ));
+        }
         let l = ['oper',
             'impl',
             'args',
