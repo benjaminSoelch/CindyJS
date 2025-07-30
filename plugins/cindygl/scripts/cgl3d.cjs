@@ -1470,6 +1470,9 @@ cglMergeDicts(dict1,dict2):=(
 
 // feature TODO:
 // TODO port code for movable objects to library
+//  -> ? callback to get movement axes depending on pointId (default is coord-axes)
+//      * reduced number of points if some axes are fixed, update axes after every motion
+// -> ? restore axis ids when cglReset3d is called
 // TODO orthogonal projection
 // * support orthogonal projection, smooth moving between linear and orth projection
 // ? how much does internal coordinate system need to be changed to support different projection
