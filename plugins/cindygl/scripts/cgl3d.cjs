@@ -1507,7 +1507,10 @@ cglMergeDicts(dict1,dict2):=(
 // TODO rendering of mesh with overlapping transparent textures is partially broken
 //    (when multiple transparent triangles are rendered in single call WebGL ignores lower ones)
 //    ? add texture mode to automatically ignore pixels belows certain alpha value
-// TODO cgl-lazy result may be evaluated after used global variables changed
+// TODO side effects of function arguments are evaluated out of order
+//   -> parameters that depend on global variables might have the wrong value
+//   e.g. surface3d(x+y+z,colorExpr->(t=0;t,t=1;t,t=0.5;t)); produces a surface with color (0.5,0.5,0.5)
+// ? change compiler to compute function arguments in order and store results in temporary variables
 // TODO handle radius <= 0
 // * <0 -> use abs-value, (? use mirrored texture coordinates)
 // * torus with major radius 0 -> sphere with minor radius as radius
