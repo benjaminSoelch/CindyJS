@@ -458,7 +458,7 @@ function tryDetermineDegree(expr,vars) {
     }
     return {degree:0};
   }
-  cglLogDebug(expr);
+  cglLogDebug("could not determine degree of:",expr);
   // TODO support cglEval expressions
   // TODO? support variables and if
   return {};
