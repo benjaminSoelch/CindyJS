@@ -101,8 +101,9 @@
                 // (m+t*v,m+t*v) = (m,m)+2*t*(m,v)+t*t*(v,v) = radius*radius
                 c = m*m - radius*radius;
                 b = m*v;
-                r = sqrt(b*b-c);
-                if(r>0,
+                r2 = b*b-c;
+                if(r2>0,
+                  r = sqrt(r2);
                   cylinder3d(m-(b+r)*v,m-(b-r)*v,0.5*pointSize,color->color);
                 );
               );
