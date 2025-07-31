@@ -391,6 +391,13 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
             expr.modifs = exprData.modifs.map(([name,value])=>{
                 return [name,value,nbindings];
             });
+            // prepare variable for result of expression
+            expr.resName = generateUniqueHelperString();
+            
+            if (!myfunctions[scope].variables) myfunctions[scope].variables = [];
+            myfunctions[scope].variables.push(expr.resName);
+            self.initvariable(expr.resName, false);
+            variables[expr.resName].assigments.push(expr);
         }
         // TODO? add support for: sum$2, sum$3, product$2, product$3
         for (let i in expr['args']) {
@@ -913,6 +920,17 @@ CodeBuilder.prototype.compile = function(expr, generateTerm) {
         });
         // evaluate "lazy" expression
         let result = this.compile(expr['args'][0],generateTerm);
+        // store computed result in variable to ensure correct evaluation order for multiple cglLazy-calls in single expression
+        if(result.term) {
+            let resType = this.getType(expr);
+            if(result.term && resType !== type.voidt) {
+                result.code += `${expr.resName} = ${result.term};\n`;
+                result.term = expr.resName;
+            } else {
+                result.code += result.term;
+                result.term = "";
+            }
+        }
         // insert assignemnt code before expression code
         result.code = code+result.code;
         return result;
