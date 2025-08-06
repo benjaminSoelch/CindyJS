@@ -115,7 +115,7 @@
               newT = (movePlaneOffset - movePlaneNormal * viewPos) / (movePlaneNormal * newDirection);
               oldPos = viewPos + oldT*oldDirection;
               newPos = viewPos + newT*newDirection;
-              truePos = cglSpherePos(target);
+              truePos = cglGetBounds(target)_"center";
               newPos = newPos+(truePos-oldPos);
               cglUpdateBounds(target,newPos,r0);
               if(target==idA,
@@ -160,7 +160,7 @@
                     maxIndex = 3;
                   );
                   coordCols_maxIndex = coordColZ;
-                  targetPos = cglSpherePos(target);
+                  targetPos = cglGetBounds(target)_"center";
                   movePlaneNormal = axes_maxIndex;
                   movePlaneOffset = movePlaneNormal*targetPos;
                   cglUpdate(xAxisIds,UcglColor->coordCols_1);
@@ -171,7 +171,7 @@
               );
             );
             if(target != -1,
-              targetPos = cglSpherePos(target);
+              targetPos = cglGetBounds(target)_"center";
               cglUpdateBounds(xAxisIds,targetPos-r2*axes_1,
                 targetPos+r2*axes_1,r1);
               cglUpdateBounds(yAxisIds,targetPos-r2*axes_2,

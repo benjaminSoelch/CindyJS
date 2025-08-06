@@ -59,7 +59,7 @@ The intended use of this function is a way to "freeze" the iteration variable of
 * `cglLogError` `cglLogWarning` `cglLogInfo` print a string at different logging levels, makes error messages easier to find in the JavaScript console
 * `cglAxes()` returns the current coordinate axes as a list of vec3
 * `cglDirection(x,y)` returns the view-direction for the screen pixel `(x,y)` seen from the viewPosition
-* `cglSpherePos(<objId>)` returns the center of the sphere with the given object id
+* `cglGetBounds(<objId>)` returns the bounding box of the object with the given id as a JSON object, the midpoint of spheres will be stored in the entry `"center"`
 
 ## Built-in variables
 
@@ -105,6 +105,8 @@ The values of the constants are directly associated with the drawn object and ca
 The modifier `opaqueIf` can be used to specify when the object should be rendered opaque, the given value can be eigther a boolean, an expression evaluating to a boolean variable or a cglLazy expression without parameters.
 Within the given (lazy) expression plotModifiers can be used and will evaluate to their value within the render evironment.
 `opaqueIf` is only a hit for how the renderer should treat the object (rendering translucent objects is much more expensive), it does not have an effect on the actual rendered alpha-value.
+
+The modifier `onUpdate` can be used to pass in a cglLazy expression with a single argument, that will be called every time the bounding box of the current object changes.
 
 ## Primitive objects
 

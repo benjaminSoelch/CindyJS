@@ -62,9 +62,9 @@
             zAxisIds = cylinder3d([0,0,-1],[0,0,1],r3,color->coordColInactive);
             planeId = polygon3d([[0.5,0,0],[0,0.5,0],[0,0,0.5]],color->planeColor);
             updatePlane():=(
-              A = cglSpherePos(idsA_1);
-              B = cglSpherePos(idsB_1);
-              C = cglSpherePos(idsC_1);
+              A = cglGetBounds(idsA_1)_"center";
+              B = cglGetBounds(idsB_1)_"center";
+              C = cglGetBounds(idsC_1)_"center";
               N = cross(A-C,B-C);
               o = N*A;
               vertices=[];
@@ -106,7 +106,7 @@
               newT = (movePlaneOffset - movePlaneNormal * viewPos) / (movePlaneNormal * newDirection);
               oldPos = viewPos + oldT*oldDirection;
               newPos = viewPos + newT*newDirection;
-              truePos = cglSpherePos(target);
+              truePos = cglGetBounds(target)_"center";
               newPos = apply(newPos+(truePos-oldPos),p,max(-1,min(p,1)));
               cglUpdateBounds(target,newPos,r0);
               updatePlane();
@@ -140,7 +140,7 @@
                     maxIndex = 3;
                   );
                   coordCols_maxIndex = coordColZ;
-                  targetPos = cglSpherePos(target);
+                  targetPos = cglGetBounds(target)_"center";
                   movePlaneNormal = [[1,0,0],[0,1,0],[0,0,1]]_maxIndex;
                   movePlaneOffset = movePlaneNormal*targetPos;
                   apply(xAxisIds,id,cglUpdate(id,UcglColor->coordCols_1));
@@ -151,7 +151,7 @@
               );
             );
             if(target != -1,
-              targetPos = cglSpherePos(target);
+              targetPos = cglGetBounds(target)_"center";
               apply(xAxisIds,id,cglUpdateBounds(id,[-1,targetPos_2,targetPos_3],[1,targetPos_2,targetPos_3],r3));
               apply(yAxisIds,id,cglUpdateBounds(id,[targetPos_1,-1,targetPos_3],[targetPos_1,1,targetPos_3],r3));
               apply(zAxisIds,id,cglUpdateBounds(id,[targetPos_1,targetPos_2,-1],[targetPos_1,targetPos_2,1],r3));

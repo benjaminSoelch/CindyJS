@@ -10,18 +10,18 @@ const BoundingBoxType = {
 }
 // TODO find better names for box generator functions
 Renderer.noBounds = function(){
-    return { type: BoundingBoxType.none };
+    return { 'type': BoundingBoxType.none };
 }
 Renderer.boundingSphere = function(center,radius){
     return {
-        type: BoundingBoxType.sphere,center: center, radius: radius
+        'type': BoundingBoxType.sphere,'center': center, 'radius': radius
     };
 }
 Renderer.boundingCylinder = function(center,direction,radius,overhang){
     let length=Math.sqrt(dot3(direction,direction));
     return {
-        type: BoundingBoxType.cylinder,center: center,direction: direction, radius: radius,
-        boxLengthScale: (length+overhang)/length
+        'type': BoundingBoxType.cylinder,'center': center,'direction': direction, 'radius': radius,
+        'boxLengthScale': (length+overhang)/length
     };
 }
 /**
@@ -36,12 +36,12 @@ Renderer.boundingTriangles = function(vertices,vModifiers){
     // triangles: array[ivec3] vertex indices (to reduce data consumption)
     // ? automatically create vertex indices to compress list of vertices
     return {
-        type: BoundingBoxType.triangles,vertices: vertices, vModifiers: vModifiers
+        'type': BoundingBoxType.triangles,'vertices': vertices, 'vModifiers': vModifiers
     };
 }
 Renderer.boundingCuboid = function(center,v1,v2,v3){
     return {
-        type: BoundingBoxType.cuboid,center: center,v1: v1, v2: v2, v3: v3
+        'type': BoundingBoxType.cuboid,'center': center,'v1': v1, 'v2': v2, 'v3': v3
     };
 }
 
@@ -187,17 +187,17 @@ Renderer.prototype.rebuild = function(forceRecompile) {
     }
     this.fragmentShaderCode += this.cb.generateShader(this.cpg,this.transparencyType === TransparencyType.Simple);
     if(this.mode3D){
-        if(this.boundingBox.type == BoundingBoxType.none) {
+        if(this.boundingBox['type'] == BoundingBoxType.none) {
             this.vertexShaderCode = cgl_resources["vshader3d"];
-        } else if(this.boundingBox.type==BoundingBoxType.sphere) {
+        } else if(this.boundingBox['type']==BoundingBoxType.sphere) {
             this.vertexShaderCode = cgl_resources["vshader3dSphere"];
-        } else if(this.boundingBox.type==BoundingBoxType.cylinder) {
+        } else if(this.boundingBox['type']==BoundingBoxType.cylinder) {
             this.vertexShaderCode = cgl_resources["vshader3dCylinder"];
-        } else if(this.boundingBox.type==BoundingBoxType.triangles) {
+        } else if(this.boundingBox['type']==BoundingBoxType.triangles) {
             let attributeVars = "";
             let attributeCopies = "";
             let index=0;
-            this.boundingBox.vModifiers.forEach((value,name)=>{
+            this.boundingBox['vModifiers'].forEach((value,name)=>{
                 // name given to this modifier by code-builder
                 let vname = this.modifierTypes.get(name).uniformName;
                 if(vname == undefined) {
@@ -213,10 +213,10 @@ Renderer.prototype.rebuild = function(forceRecompile) {
             this.vertexShaderCode = `${cgl_resources["vshader3dTrianglesHeader"]}${attributeVars}`+
             `void main(void){\n${attributeCopies}${cgl_resources["vshader3dTrianglesCode"]}}`;
             cglLogDebug(this.vertexShaderCode);
-        } else if(this.boundingBox.type==BoundingBoxType.cuboid) {
+        } else if(this.boundingBox['type']==BoundingBoxType.cuboid) {
             this.vertexShaderCode = cgl_resources["vshader3dCuboid"];
         } else {
-            cglLogError("unsupported bounding box type: ",this.boundingBox.type);
+            cglLogError("unsupported bounding box type: ",this.boundingBox['type']);
             this.vertexShaderCode = cgl_resources["vshader3d"];
         }
     }else{
@@ -229,13 +229,13 @@ Renderer.prototype.updateVertices = function() {
     // TODO? share vertex attributes between different shader objects
     if(this.mode3D) {
         let [x0,y0,x1,y1,z0,z1] = getZoomedViewPlane();
-        if(this.boundingBox.type == BoundingBoxType.none) {
+        if(this.boundingBox['type'] == BoundingBoxType.none) {
             this.vertices = new Float32Array([x0,y0,z1, x1,y0,z1, x0,y1,z1, x1,y1,z1]);
-        } else if(this.boundingBox.type==BoundingBoxType.sphere) {
+        } else if(this.boundingBox['type']==BoundingBoxType.sphere) {
             this.vertices = new Float32Array([-1, -1, 0, 1, -1, 0, -1, 1, 0, 1, 1, 0]);
-        } else if(this.boundingBox.type==BoundingBoxType.triangles) {
-            this.vertices = new Float32Array(this.boundingBox.vertices);
-        } else if(this.boundingBox.type==BoundingBoxType.cuboid || this.boundingBox.type==BoundingBoxType.cylinder) {
+        } else if(this.boundingBox['type']==BoundingBoxType.triangles) {
+            this.vertices = new Float32Array(this.boundingBox['vertices']);
+        } else if(this.boundingBox['type']==BoundingBoxType.cuboid || this.boundingBox['type']==BoundingBoxType.cylinder) {
             // copied from Cindy3D
             // TODO? use vertex-indices
             this.vertices = new Float32Array([
@@ -244,7 +244,7 @@ Renderer.prototype.updateVertices = function() {
                 -1.0, 1.0, 1.0, 1.0, 1.0,-1.0, 1.0, 1.0, 1.0, 1.0,-1.0, 1.0
             ]);
         } else {
-            cglLogError("unsupported bounding box type: ",this.boundingBox.type);
+            cglLogError("unsupported bounding box type: ",this.boundingBox['type']);
             this.vertices = new Float32Array([x0,y0,z1, x1,y0,z1, x0,y1,z1, x1,y1,z1]);
         }
     } else {
@@ -322,8 +322,8 @@ Renderer.computeAttributeData = function (eltType,values){
 }
 // TODO? seperate version for triangles
 Renderer.prototype.updateAttributes = function() {
-    Renderer.prevBoundingBoxType=this.boundingBox.type;
-    if (this.boundingBox.type === BoundingBoxType.cylinder || this.boundingBox.type === BoundingBoxType.cuboid) {
+    Renderer.prevBoundingBoxType=this.boundingBox['type'];
+    if (this.boundingBox['type'] === BoundingBoxType.cylinder || this.boundingBox['type'] === BoundingBoxType.cuboid) {
         gl.enable(gl.CULL_FACE); // TODO? does orientation of cylinder in space change how faces are culled
         gl.cullFace(gl.FRONT); // cull front faces to allow view-pos inside cuboid
     } else {
@@ -336,9 +336,9 @@ Renderer.prototype.updateAttributes = function() {
     var texCoordOffset = this.vertices.byteLength;
     let totalBufferSize = texCoordOffset;
     var texCoords;
-    if(this.boundingBox.type == BoundingBoxType.triangles) {
-        if(this.boundingBox.texCoords){
-            texCoords = this.boundingBox.texCoords;
+    if(this.boundingBox['type'] == BoundingBoxType.triangles) {
+        if(this.boundingBox['texCoords']){
+            texCoords = this.boundingBox['texCoords'];
         } else {
             // texCoords is used by random() operator
             // -> TODO? generate unique coordinates for each pixel
@@ -350,14 +350,14 @@ Renderer.prototype.updateAttributes = function() {
                 texCoords.push.apply(texCoords,baseCoords);
             }
             texCoords = new Float32Array(texCoords);
-            this.boundingBox.texCoords =texCoords;
+            this.boundingBox['texCoords'] =texCoords;
         }
         totalBufferSize+=texCoords.byteLength;
 
         let index=0;
         // TODO? compress vertex data using element index table
         // find name and location of vertex modifier attributes
-        this.boundingBox.vModifiers.forEach((value)=>{
+        this.boundingBox['vModifiers'].forEach((value)=>{
             // compute name if it does not curently exist
             let aName = value.aName || Renderer.vModifierPrefixV+index;
             let aLoc = gl.getAttribLocation(this.shaderProgram.handle, aName);
@@ -375,7 +375,7 @@ Renderer.prototype.updateAttributes = function() {
             totalBufferSize += value.aData.byteLength;
             index ++;
         });
-    } else if(this.boundingBox.type == BoundingBoxType.cylinder || this.boundingBox.type == BoundingBoxType.cuboid) {
+    } else if(this.boundingBox['type'] == BoundingBoxType.cylinder || this.boundingBox['type'] == BoundingBoxType.cuboid) {
         // TODO find good texture coords for cuboid
         texCoords = new Float32Array([0, 0, 1, 0, 0, 1, 1, 1,0, 0, 1, 0, 0, 1, 1, 1,0, 0, 1, 0, 0, 1, 1, 1,0,0,1,0]);
         totalBufferSize+=texCoords.byteLength;
@@ -400,8 +400,8 @@ Renderer.prototype.updateAttributes = function() {
         gl.bufferSubData(gl.ARRAY_BUFFER, texCoordOffset, texCoords);
         gl.vertexAttribPointer(aTexLoc, 2, gl.FLOAT, false, 0, texCoordOffset);
     }
-    if(this.boundingBox.type == BoundingBoxType.triangles) {
-        this.boundingBox.vModifiers.forEach((value)=>{
+    if(this.boundingBox['type'] == BoundingBoxType.triangles) {
+        this.boundingBox['vModifiers'].forEach((value)=>{
             if(value.aData === undefined || value.aLoc < 0 || value.aSize <= 0)
                 return; // no attribute / no data
             gl.bufferSubData(gl.ARRAY_BUFFER, value.aOffset, value.aData);
@@ -468,41 +468,41 @@ Renderer.prototype.setCoordinateUniforms3D = function() {
 }
 Renderer.prototype.setBoundingBoxUniforms = function() {
     if (this.shaderProgram.uniform.hasOwnProperty('uCenter')){
-        if(this.boundingBox.center !== undefined) {
+        if(this.boundingBox['center'] !== undefined) {
             this.shaderProgram.uniform["uCenter"]
-                (this.boundingBox.center);
+                (this.boundingBox['center']);
         }else{
             cglLogError("uCenter is not supported for current bounding box type");
         }
     }
     if (this.shaderProgram.uniform.hasOwnProperty('uRadius')){
-        if(this.boundingBox.radius !== undefined) {
+        if(this.boundingBox['radius'] !== undefined) {
             this.shaderProgram.uniform["uRadius"]
-                ([this.boundingBox.radius]);
+                ([this.boundingBox['radius']]);
         }else{
             cglLogError("uRadius is not supported for current bounding box type");
         }
     }
     if (this.shaderProgram.uniform.hasOwnProperty('uBoxLengthScale')){
-        if(this.boundingBox.boxLengthScale !== undefined) {
+        if(this.boundingBox['boxLengthScale'] !== undefined) {
             this.shaderProgram.uniform["uBoxLengthScale"]
-                ([this.boundingBox.boxLengthScale]);
+                ([this.boundingBox['boxLengthScale']]);
         }else{
             cglLogError("uBoxLengthScale is not supported for current bounding box type");
         }
     }
     if (this.shaderProgram.uniform.hasOwnProperty('uOrientation')){
-        if(this.boundingBox.type==BoundingBoxType.cylinder) {
+        if(this.boundingBox['type']==BoundingBoxType.cylinder) {
             this.shaderProgram.uniform["uOrientation"]
-                (this.boundingBox.direction);
+                (this.boundingBox['direction']);
         }else{
             cglLogError("uOrientation is not supported for current bounding box type");
         }
     }
     if (this.shaderProgram.uniform.hasOwnProperty('uCubeAxes')){
-        if(this.boundingBox.type==BoundingBoxType.cuboid) {
+        if(this.boundingBox['type']==BoundingBoxType.cuboid) {
             this.shaderProgram.uniform["uCubeAxes"]
-                (transpose3([this.boundingBox.v1,this.boundingBox.v2,this.boundingBox.v3].flat()));
+                (transpose3([this.boundingBox['v1'],this.boundingBox['v2'],this.boundingBox['v3']].flat()));
         }else{
             cglLogError("uCubeAxes is not supported for current bounding box type");
         }
@@ -776,7 +776,7 @@ Renderer.prototype.render2d = function(a, b, sizeX, sizeY, boundingBox, plotModi
     this.setModifierUniforms(plotModifiers);
 
     // TODO should 2D-renderer use 3D-bounding box?
-    if(this.boundingBox.type != BoundingBoxType.triangles) {
+    if(this.boundingBox['type'] != BoundingBoxType.triangles) {
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, this.vertices.length/3);
     } else {
         gl.drawArrays(gl.TRIANGLES, 0, this.vertices.length/3);
@@ -797,7 +797,7 @@ Renderer.prototype.render3d = function(sizeX, sizeY, boundingBox, plotModifiers,
         cglLogWarning("3D-render of 2D expression");
     }
     let shaderChanged = Renderer.prevShader !== this.shaderProgram;
-    let needsRebuild = this.boundingBox.type !== boundingBox.type || (this.transparencyType !== Renderer.transparencyType);
+    let needsRebuild = this.boundingBox['type'] !== boundingBox['type'] || (this.transparencyType !== Renderer.transparencyType);
     this.boundingBox = boundingBox;
     if (shaderChanged && (!this.functionGenerationsOk())) { // only check functions once per shader program per drawCycle
         this.rebuild(true);
@@ -807,10 +807,10 @@ Renderer.prototype.render3d = function(sizeX, sizeY, boundingBox, plotModifiers,
         this.updateVertices();
         Renderer.prevProjection=CindyGL.projectionMatrix;
         Renderer.prevTrafo=undefined;
-    } else if(shaderChanged || this.boundingBox.type === BoundingBoxType.triangles) {
+    } else if(shaderChanged || this.boundingBox['type'] === BoundingBoxType.triangles) {
         // TODO? don't update vertices for every shader change
         this.updateVertices();
-    } else if(this.boundingBox.type !== Renderer.prevBoundingBoxType) {
+    } else if(this.boundingBox['type'] !== Renderer.prevBoundingBoxType) {
         this.updateAttributes();
     }
 
@@ -835,7 +835,7 @@ Renderer.prototype.render3d = function(sizeX, sizeY, boundingBox, plotModifiers,
     this.setBoundingBoxUniforms();
     this.setModifierUniforms(plotModifiers);
 
-    if(this.boundingBox.type != BoundingBoxType.triangles) {
+    if(this.boundingBox['type'] != BoundingBoxType.triangles) {
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, this.vertices.length/3);
     } else {
         gl.drawArrays(gl.TRIANGLES, 0, this.vertices.length/3);

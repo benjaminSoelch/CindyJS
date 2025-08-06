@@ -139,10 +139,10 @@
             );
             findIntersection():=findIntersectionNormalLine();
             updateLines():=(
-              A = cglSpherePos(idA);
-              B = cglSpherePos(idB);
-              C = cglSpherePos(idC);
-              D = cglSpherePos(idD);
+              A = cglGetBounds(idA)_"center";
+              B = cglGetBounds(idB)_"center";
+              C = cglGetBounds(idC)_"center";
+              D = cglGetBounds(idD)_"center";
               viewRect = cglViewRect(); // [x0,y0,x1,y1]
               x0 = viewRect_1;
               y0 = viewRect_2;
@@ -192,7 +192,7 @@
               newT = (movePlaneOffset - movePlaneNormal * viewPos) / (movePlaneNormal * newDirection);
               oldPos = viewPos + oldT*oldDirection;
               newPos = viewPos + newT*newDirection;
-              truePos = cglSpherePos(target);
+              truePos = cglGetBounds(target)_"center";
               newPos = newPos+(truePos-oldPos);
               cglUpdateBounds(target,newPos,r0);
               updateLines();
@@ -229,7 +229,7 @@
                     maxIndex = 3;
                   );
                   coordCols_maxIndex = coordColZ;
-                  targetPos = cglSpherePos(target);
+                  targetPos = cglGetBounds(target)_"center";
                   movePlaneNormal = axes_maxIndex;
                   movePlaneOffset = movePlaneNormal*targetPos;
                   cglUpdate(xAxisIds,UcglColor->coordCols_1);
@@ -240,7 +240,7 @@
               );
             );
             if(target != -1,
-              targetPos = cglSpherePos(target);
+              targetPos = cglGetBounds(target)_"center";
               cglUpdateBounds(xAxisIds,targetPos-r2*axes_1,
                 targetPos+r2*axes_1,r1);
               cglUpdateBounds(yAxisIds,targetPos-r2*axes_2,

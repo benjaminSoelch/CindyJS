@@ -72,7 +72,7 @@
             updateSurface():=(
               regional(pts,pos3,pts2,M);
               // homogeneous coordinates
-              pts = apply(quadricPoints,pId,pos3=cglSpherePos(pId);[pos3_1,pos3_2,pos3_3,1]);
+              pts = apply(quadricPoints,pId,pos3=cglGetBounds(pId)_"center";[pos3_1,pos3_2,pos3_3,1]);
               // squared coordinates
               pts2 = apply(pts,p,[p_1*p_1,p_1*p_2,p_1*p_3,p_1*p_4,p_2*p_2,p_2*p_3,p_2*p_4,p_3*p_3,p_3*p_4,p_4*p_4]);
               // pad to square matrix
@@ -91,7 +91,7 @@
               );
             );
             updatePlane():=(
-              pts = apply(planePoints,pId,cglSpherePos(pId));
+              pts = apply(planePoints,pId,cglGetBounds(pId)_"center");
               planeNormal = cross(pts_2-pts_1,pts_3-pts_1);
               planeCoeffs = (planeNormal_1,planeNormal_2,planeNormal_3,-planeNormal*pts_1);
               planeOffset = -(planeCoeffs_4/(planeNormal*planeNormal))*planeNormal;
@@ -273,7 +273,7 @@
               newT = (movePlaneOffset - movePlaneNormal * viewPos) / (movePlaneNormal * newDirection);
               oldPos = viewPos + oldT*oldDirection;
               newPos = viewPos + newT*newDirection;
-              truePos = cglSpherePos(target);
+              truePos = cglGetBounds(target)_"center";
               newPos = newPos+(truePos-oldPos);
               cglUpdateBounds(target,newPos,r0);
               updateSurface();
@@ -310,7 +310,7 @@
                     maxIndex = 3;
                   );
                   coordCols_maxIndex = coordColZ;
-                  targetPos = cglSpherePos(target);
+                  targetPos = cglGetBounds(target)_"center";
                   movePlaneNormal = [[1,0,0],[0,1,0],[0,0,1]]_maxIndex;
                   movePlaneOffset = movePlaneNormal*targetPos;
                   cglUpdate(xAxisIds,UcglColor->coordCols_1);
@@ -321,7 +321,7 @@
               );
             );
             if(target != -1,
-              targetPos = cglSpherePos(target);
+              targetPos = cglGetBounds(target)_"center";
               cglUpdateBounds(xAxisIds,[targetPos_1-r2,targetPos_2,targetPos_3],
                 [targetPos_1+r2,targetPos_2,targetPos_3],r1);
               cglUpdateBounds(yAxisIds,[targetPos_1,targetPos_2-r2,targetPos_3],
