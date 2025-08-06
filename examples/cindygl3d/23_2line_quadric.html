@@ -50,10 +50,10 @@
             B = [0,1,0];
             C = [0,0,1];
             D = [1,1,1];
-            idA = sphere3d(A,r0,color->col,tags->["movable"])_1;
-            idB = sphere3d(B,r0,color->col,tags->["movable"])_1;
-            idC = sphere3d(C,r0,color->col,tags->["movable"])_1;
-            idD = sphere3d(D,r0,color->col,tags->["movable"])_1;
+            idA = sphere3d(A,r0,color->col,tags->["movable"],onUpdate->A=newBounds_"center";updateSurface())_1;
+            idB = sphere3d(B,r0,color->col,tags->["movable"],onUpdate->B=newBounds_"center";updateSurface())_1;
+            idC = sphere3d(C,r0,color->col,tags->["movable"],onUpdate->C=newBounds_"center";updateSurface())_1;
+            idD = sphere3d(D,r0,color->col,tags->["movable"],onUpdate->D=newBounds_"center";updateSurface())_1;
             xAxisIds = cylinder3d([-s,0,0],[s,0,0],r1,color->coordColInactive);
             yAxisIds = cylinder3d([0,-s,0],[0,s,0],r1,color->coordColInactive);
             zAxisIds = cylinder3d([0,0,-s],[0,0,s],r1,color->coordColInactive);
@@ -118,16 +118,6 @@
               truePos = cglGetBounds(target)_"center";
               newPos = newPos+(truePos-oldPos);
               cglUpdateBounds(target,newPos,r0);
-              if(target==idA,
-                A = newPos;
-              ,if(target==idB,
-                B = newPos;
-              ,if(target==idC,
-                C = newPos;
-              ,if(target==idD,
-                D = newPos;
-              ))));
-              updateSurface();
             );
             sx = mouse().x;
             sy = mouse().y;
