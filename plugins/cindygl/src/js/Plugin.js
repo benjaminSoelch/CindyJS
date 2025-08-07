@@ -1606,8 +1606,9 @@ let CindyGL = function(api) {
     // avoid evaluating non-lazy expressions when possible
     // TODO? is there a way to try evaluating an expression without producing any side effects
     function tryResolveLazy(value) {
-        // cglLazy can only be the result of evaluating a variable or function
-        if(value['ctype'] === "variable" || value['ctype'] === "function")
+        // cglLazy can only be the result of evaluating a variable, function, user-data or element-access
+        if(value['ctype'] === "variable" || value['ctype'] === "function" || value['ctype'] === "userdata"
+                || (value['ctype'] === "infix" && value['oper'] === '_'))
             value = tryEvaluate(value,api,value);
         if(value['ctype'] === 'cglLazy') {
             return value;
