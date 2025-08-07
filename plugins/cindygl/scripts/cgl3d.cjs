@@ -1476,9 +1476,6 @@ cglMergeDicts(dict1,dict2):=(
 // input: oldMousePos, newMousePos (auto-compute), targetObjectId (internal variable?)
 //  output: -> new Position for object
 // ? bounds checking inside or outside movement function (? optional lambda-parameter)
-// TODO orthogonal projection
-// -> fix visual artifacts in orthogonal mode (? is adjusting viewPosition depending on pixel enough)
-// -> once stable: add function for switching from/to orthogonal mode
 // TODO? intersection of surfaces as primitive operation
 // TODO? global clipping region
 // TODO? better ligthing system

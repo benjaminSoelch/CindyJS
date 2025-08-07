@@ -251,6 +251,12 @@ let CindyGL = function(api) {
         if(typeof(value) === "number"){
             return toCjsNumber(value);
         }
+        if(typeof(value) === "boolean"){
+            return {
+                ctype: "boolean",
+                value: value
+            };
+        }
         if(value instanceof Array){
             return {
                 ctype: 'list',
@@ -1003,6 +1009,11 @@ let CindyGL = function(api) {
             }
         };
         return nada;
+    });
+    api.defineFunction("cglOrthogonalMode", 1, (args, modifs) => {
+        let arg = coerce.toBool(api.evaluateAndVal(args[0]),false);
+        CindyGL.renderOrthogonal = arg;
+        return toCjs(arg);
     });
     api.defineFunction("cglEvalOnRender", 1, (args, modifs) => {
         createCglEval(0);
