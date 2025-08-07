@@ -58,8 +58,12 @@ The intended use of this function is a way to "freeze" the iteration variable of
 * `cglTryDetermineDegree(<lazy-expr>)` similar to `cglTryDetermineDegree(2)`, tries to determine the degree of a lazy-expression in its parameters
 * `cglLogError` `cglLogWarning` `cglLogInfo` print a string at different logging levels, makes error messages easier to find in the JavaScript console
 * `cglAxes()` returns the current coordinate axes as a list of vec3
-* `cglDirection(x,y)` returns the view-direction for the screen pixel `(x,y)` seen from the viewPosition
+* `cglDirection(x,y)` returns the current view-direction for the screen pixel `(x,y)`
+* `cglSpacePoint(x,y)` returns the point on the view-plane corresponding to the screen pixel `(x,y)`
 * `cglGetBounds(<objId>)` returns the bounding box of the object with the given id as a JSON object, the midpoint of spheres will be stored in the entry `"center"`
+* `cglListObjects()` list all visible objects, the modifiers can be used to filter objects depending on their tags:
+    if a modifier is set to true the tag with the same name has to appear, if a modifier is set to false the tag must not appear.
+* `cglOrthogonalMode(<bool>)` toggle orthogonal mode on/off
 
 ## Built-in variables
 

@@ -1149,36 +1149,67 @@ let CindyGL = function(api) {
         csctx.drawImage(glcanvas, 0, 0, iw, ih, x0, y0, x1, y1);
         csctx.restore();
     };
+    function getSpacePoint(x,y) {
+        // FIXME use correct coord-system for x,y position
+        let zoom = CindyGL.coordinateSystem.zoom;
+        let screenPoint=[zoom*x,zoom*y,zoom*CindyGL.coordinateSystem.z1,1];
+        return mvmult4(CindyGL.invTrafoMatrix,screenPoint).slice(0,3);
+    }
+    /**
+     * Returns the position on the view-plane for the pixel (args[0],args[1])
+     */
+    api.defineFunction("cglSpacePoint", 2, (args, modifs) => {
+        let x = api.evaluateAndVal(args[0])["value"]["real"];
+        let y = api.evaluateAndVal(args[1])["value"]["real"];
+        return toCjs(getSpacePoint(x,y));
+    });
     /**
      * Returns the current viewDirection for the pixel (args[0],args[1])
      */
     api.defineFunction("cglDirection", 2, (args, modifs) => {
-        // FIXME use correct coord-system for x,y position
-        let zoom = CindyGL.coordinateSystem.zoom;
-        let x = zoom*api.evaluateAndVal(args[0])["value"]["real"];
-        let y = zoom*api.evaluateAndVal(args[1])["value"]["real"];
-        let screenPoint=[x,y,zoom*CindyGL.coordinateSystem.z1,1];
-        let spacePoint = mvmult4(CindyGL.invTrafoMatrix,screenPoint);
+        let x = api.evaluateAndVal(args[0])["value"]["real"];
+        let y = api.evaluateAndVal(args[1])["value"]["real"];
+        let spacePoint = getSpacePoint(x,y);
+        // TODO support orthogonal projection
         let viewPos = CindyGL.coordinateSystem.transformedViewPos;
         let direction = subv3(spacePoint,viewPos);
-        return { // convert to CindyJS list
-            ctype: 'list',
-            value: direction.map(toCjsNumber)
-        };
+        return toCjs(direction);
     });
+    /**
+     * List all currently visible objects
+     * modifiers can be used to filter objects depending on their tags
+     * - if a modifier is set to `true` all returned objects will have the corresponging tag
+     * - if a modifier is set to `false` no returned object will have the corresponding tag
+     */
+    api.defineFunction("cglListObjects", 0, (args, modifs) => {
+        let modValues = {};
+        Object.keys(modifs).forEach(key=>{
+            let val = coerce.toBool(api.evaluateAndVal(modifs[key]),null);
+            if(val===null)return;
+            modValues[key] = val;
+        });
+        let res = [];
+        let searchObject = (obj3d)=>{
+            if(Object.keys(modValues).some(key=>(modValues[key] != obj3d.tags.has(key))))
+                return;
+            res.push(obj3d.id);
+        };
+        CindyGL.objectBuffer.opaque.forEach(searchObject);
+        // TODO? parameter to select if translucent objects should be checked
+        CindyGL.objectBuffer.translucent.forEach(searchObject);
+        return toCjs(res);
+    });
+    
     /**
      * Finds the 3D object on the view-ray through the screen position (args[0],args[1]) that is closest to the camera.
      * If the `tags` modifier is set only objects that have at least one of the specified tags are considered
      */
     api.defineFunction("cglFindObject", 2, (args, modifs) => {
-        // FIXME use correct coord-system for x,y position
-        let zoom = CindyGL.coordinateSystem.zoom;
-        let x = zoom*api.evaluateAndVal(args[0])["value"]["real"];
-        let y = zoom*api.evaluateAndVal(args[1])["value"]["real"];
-        // TODO? is this the correct z position
-        let screenPoint=[x,y,zoom*CindyGL.coordinateSystem.z1,1];
+        let x = api.evaluateAndVal(args[0])["value"]["real"];
+        let y = api.evaluateAndVal(args[1])["value"]["real"];
+        let spacePoint = getSpacePoint(x,y);
+        // TODO support orthogonal projection
         let tags = get3DPlotTags(modifs);
-        let spacePoint = mvmult4(CindyGL.invTrafoMatrix,screenPoint);
         let viewPos = CindyGL.coordinateSystem.transformedViewPos;
         let direction = subv3(spacePoint,viewPos);
         let minDst = Infinity;
