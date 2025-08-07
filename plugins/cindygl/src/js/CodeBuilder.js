@@ -94,7 +94,7 @@ CodeBuilder.builtIns=new Map([
     [BUILTIN_EVAL_LAZY,{type:"function",code:"",expr:"",valueType:undefined,args:undefined,writable:false}],
     // 3D- only
     // TODO make cglViewPos a function for consitency with interpreted CindyScript code
-    ["cglViewPos",{type:"uniform",code:"",expr:"cgl_viewPos",valueType:type.vec3,writable:false}],
+    ["cglViewPos",{type:"uniform",code:"",expr:"pixelViewPos",valueType:type.vec3,writable:false}],
     ["cglViewNormal",{type:"uniform",code:"",expr:"cgl_viewNormal",valueType:type.vec3,writable:false}],
     [BUILTIN_VIEW_RECT,{type:"function",code:"",expr:"cgl_viewRect",args:[],valueType:type.vec4,writable:false}],
     ["cglViewDirection",{type:"pixelAttribute",code:"",expr:"cgl_viewDirection0",valueType:type.vec3,writable:false}],

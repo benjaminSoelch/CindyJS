@@ -5,7 +5,10 @@ in vec2 aTexCoord;
 out   vec2 cgl_pixel;
 out   vec3 cgl_viewDirection;
 out   vec2 plain_pixel;
+out   vec3 pixelViewPos;
 
+uniform   bool orthogonal;
+uniform   vec3 cgl_viewNormal;
 uniform   vec3 cgl_viewPos;
 uniform   mat3 transformMatrix;
 
@@ -14,9 +17,15 @@ uniform   mat4 projectionMatrix;
 
 void main(void) {
    gl_Position = projectionMatrix*vec4(aPos, 1.);
-   vec4 pos4=inverseSpaceTransformMatrix*vec4(aPos, 1.);
-   cgl_viewDirection=(pos4.xyz/pos4.w)-cgl_viewPos;
-
+   vec4 pos4 = inverseSpaceTransformMatrix*vec4(aPos, 1.);
+   vec3 pos3 = pos4.xyz/pos4.w;
+   if(orthogonal) {
+      cgl_viewDirection = normalize(cgl_viewNormal);
+      pixelViewPos = pos3 - (dot(pos3,cgl_viewDirection))*cgl_viewDirection - cgl_viewNormal;
+   } else {
+      cgl_viewDirection = pos3 - cgl_viewPos;
+      pixelViewPos = cgl_viewPos;
+   }
    // backwards compatability with 2D mode
    plain_pixel = aTexCoord;
    vec3 r = transformMatrix*vec3(plain_pixel,1);

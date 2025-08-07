@@ -6,7 +6,10 @@ out   vec2 cgl_pixel;
 out   vec3 cgl_viewDirection;
 out   vec2 plain_pixel;
 out   vec3 cgl_spacePos;
+out   vec3 pixelViewPos;
 
+uniform   bool orthogonal;
+uniform   vec3 cgl_viewNormal;
 uniform   vec3 cgl_viewPos;
 uniform   mat4 projAndTrafoMatrix;
 uniform   mat3 transformMatrix;

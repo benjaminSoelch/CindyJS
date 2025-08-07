@@ -8,6 +8,8 @@ in vec2 cgl_pixel;
 in vec2 plain_pixel;
 in vec3 cgl_viewDirection;
 in vec3 cgl_spacePos;
+in vec3 pixelViewPos;
+
 out vec4 fragColor;
 
 uniform vec3 cgl_viewPos;

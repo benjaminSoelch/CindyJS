@@ -1477,10 +1477,8 @@ cglMergeDicts(dict1,dict2):=(
 //  output: -> new Position for object
 // ? bounds checking inside or outside movement function (? optional lambda-parameter)
 // TODO orthogonal projection
-// * support orthogonal projection, smooth moving between linear and orth projection
-// ? how much does internal coordinate system need to be changed to support different projection
-// a) make view-pos pixel dependent in orthogonal mode (feels a bit hacky)
-// b) replace view-pos with view-direction + viewDepth + clip-depth(s)
+// -> fix visual artifacts in orthogonal mode (? is adjusting viewPosition depending on pixel enough)
+// -> once stable: add function for switching from/to orthogonal mode
 // TODO? intersection of surfaces as primitive operation
 // TODO? global clipping region
 // TODO? better ligthing system

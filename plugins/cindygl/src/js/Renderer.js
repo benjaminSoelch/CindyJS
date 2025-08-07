@@ -440,15 +440,18 @@ Renderer.prototype.setTransformMatrix = function(a, b, c) {
  * sets uniform space transformation matrices
  */
 Renderer.prototype.setCoordinateUniforms3D = function() {
+    let projMatrix = CindyGL.renderOrthogonal?CindyGL.orthProjectionMatrix:CindyGL.projectionMatrix;
+    if (this.shaderProgram.uniform.hasOwnProperty('orthogonal'))
+        this.shaderProgram.uniform["orthogonal"]([CindyGL.renderOrthogonal]);
     if (this.shaderProgram.uniform.hasOwnProperty('spaceTransformMatrix'))
         this.shaderProgram.uniform["spaceTransformMatrix"](transposeM4(CindyGL.trafoMatrix).flat());
     if (this.shaderProgram.uniform.hasOwnProperty('inverseSpaceTransformMatrix'))
         this.shaderProgram.uniform["inverseSpaceTransformMatrix"](transposeM4(CindyGL.invTrafoMatrix).flat());
     if (this.shaderProgram.uniform.hasOwnProperty('projectionMatrix'))
-        this.shaderProgram.uniform["projectionMatrix"](transposeM4(CindyGL.projectionMatrix).flat());
+        this.shaderProgram.uniform["projectionMatrix"](transposeM4(projMatrix).flat());
     if (this.shaderProgram.uniform.hasOwnProperty('projAndTrafoMatrix'))
         this.shaderProgram.uniform["projAndTrafoMatrix"]
-            (transposeM4(mmult4(CindyGL.projectionMatrix,CindyGL.trafoMatrix)).flat());
+            (transposeM4(mmult4(projMatrix,CindyGL.trafoMatrix)).flat());
     if (this.shaderProgram.uniform.hasOwnProperty('cgl_viewPos')){
         if(typeof(CindyGL.coordinateSystem.transformedViewPos)==="undefined"){
             CindyGL.coordinateSystem.transformedViewPos=

@@ -4,7 +4,13 @@
    // transform to screen space
    gl_Position = projAndTrafoMatrix*vec4(aPos,1);
    //   ? is distance from viewPosition constant?
-   cgl_viewDirection = aPos - cgl_viewPos;
+   if(orthogonal) {
+      cgl_viewDirection = normalize(cgl_viewNormal);
+      pixelViewPos = aPos - (dot(aPos,cgl_viewDirection))*cgl_viewDirection - cgl_viewNormal;
+   } else {
+      cgl_viewDirection = aPos - cgl_viewPos;
+      pixelViewPos = cgl_viewPos;
+   }
    // 2D coordinates
    plain_pixel = aTexCoord;
    // TODO? transform texture coordinates

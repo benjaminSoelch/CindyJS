@@ -868,6 +868,13 @@ let CindyGL = function(api) {
             [0, 0, 1/(z1-z0), - z0/(z1-z0) -1],
             [0, 0, -1/z0, 1]
         ];
+        // TODO check matrix
+        CindyGL.orthProjectionMatrix=[
+            [2/(x1-x0), 0, 0, - 2*x0/(x1-x0) -1],
+            [0, 2/(y1-y0), 0, - 2*y0/(y1-y0) -1],
+            [0, 0, 1/(z1-z0), - z0/(z1-z0) -1],
+            [0, 0, 0, 1]
+        ];
         CindyGL.coordinateSystem.viewPosition = [(x0+x1)/2,(y0+y1)/2,z0,1];
         CindyGL.coordinateSystem.transformedViewNormal = mvmult4(CindyGL.invTrafoMatrix,[0,0,(z1-z0),1]);
         CindyGL.coordinateSystem.transformedViewPos =
@@ -1797,6 +1804,7 @@ CindyGL.coordinateSystem = {
     x0:0 , x1: 0, y0: 0, y1: 0,  z0: 0, z1:0, zoom: 1,
     viewPosition: [0,0,0,0], transformedViewPos: [0,0,0,0]
 };
+CindyGL.renderOrthogonal = false;
 CindyGL.generateCanvasWrapperIfRequired = generateCanvasWrapperIfRequired;
 CindyGL.initGLIfRequired = initGLIfRequired;
 CindyJS.registerPlugin(1, "CindyGL", CindyGL);
