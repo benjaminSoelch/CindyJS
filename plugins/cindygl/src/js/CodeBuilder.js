@@ -472,6 +472,7 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
             self.initvariable(pname, false);
             bindings[rfun] = pname;
 
+            // TODO? allow functions to have multiple signatures
             let localbindungs = {};
             for (let i in myfunctions[rfun]['arglist']) {
                 let localname = myfunctions[rfun]['arglist'][i]['name'];
@@ -527,6 +528,8 @@ CodeBuilder.prototype.determineTypes = function() {
                             //cglLogDebug(`variable ${v} got type ${typeToString(newtype)} (oltype/othertype is ${typeToString(oldtype)}/${typeToString(othertype)})`);
                             this.typetime++;
                             changed = true;
+                        } else if(!newtype) {
+                            cglLogWarning("incompatible types for ",v,":",oldtype," and ",othertype);
                         }
                     }
                 }

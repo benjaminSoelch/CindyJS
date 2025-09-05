@@ -1501,6 +1501,8 @@ cglMergeDicts(dict1,dict2):=(
 // TODO? cglLogLevel(...) built-in for setting log-level
 
 // bug TODO:
+// FIXME better error message for dynamic array access
+// ? does opengl support dynamic indexing
 // TODO! cglLazy-modifiers can be undefined when evaluating texture code
 // TODO rendering of mesh with overlapping transparent textures is partially broken
 //    (when multiple transparent triangles are rendered in single call WebGL ignores lower ones)
