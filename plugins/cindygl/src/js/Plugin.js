@@ -1810,6 +1810,30 @@ let CindyGL = function(api) {
         }
         return nada;
     });
+    // gets the raw pixels data of the given image
+    // unlike `readpixles` this function will not adjust the order of the images rows
+    // this makes this function faster in usecases where the order of rows is not relevant
+    // TODO: it makes more sence to add a `allowReverseRows` modifer to `readpixels` instead of creating a seperate function at plugin level
+    api.defineFunction("cglReadRawPixels", 1, (args, modifs) => {
+        var name = coerce.toString(api.evaluateAndVal(args[0]));
+        if (!name) return nada;
+        let imageobject = api.getImage(name, true);
+        //let canvaswrapper = generateWriteCanvasWrapperIfRequired(imageobject, api);
+        let canvaswrapper = generateCanvasWrapperIfRequired(imageobject, api, false);
+
+        if ( name && canvaswrapper) {
+           let pixels = canvaswrapper.readRawPixels(0, 0, imageobject.width, imageobject.height);
+           let res = new Array(pixels.length/4);
+           for(let i=0;i<res.length;i++){
+            res[i] = toCjs(toFloat([pixels[4*i],pixels[4*i+1],pixels[4*i+2],pixels[4*i+3]]));
+           }
+           return {
+             "ctype": "list",
+             "value":res
+           };
+        }
+        return nada;
+    });
 
 
     // --- CindyXR support ---

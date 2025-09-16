@@ -298,17 +298,24 @@ CanvasWrapper.prototype.drawTo = function(context, x, y) {
 
 /**
  * reads a rectangular block of pixels from the upper left corner.
- * The colors are representent as a 4 component RGBA vector with entries in [0,1]
+ * return the raw pixel data where the order of rows is reversed relative to CindyScript
  */
-CanvasWrapper.prototype.readPixels = function(x, y, width, height) {
+CanvasWrapper.prototype.readRawPixels = function(x, y, width, height) {
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffers[this.it]);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.textures[this.it], 0);
 
     var pixels = createPixelArray(width * height * 4);
 
-    //gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1); does not affect readPixels :(, hence this mess:
     gl.readPixels(x, this.sizeY - y - height, width, height, gl.RGBA, getPixelType(), pixels);
-
+    return pixels;
+}
+/**
+ * reads a rectangular block of pixels from the upper left corner.
+ * The colors are represented as a 4 component RGBA vector with entries in [0,1]
+ */
+CanvasWrapper.prototype.readPixels = function(x, y, width, height) {
+    //gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1); does not affect readPixels :(, hence this mess:
+    let pixels = this.readRawPixels(x,y,width,height);
     //reverse row order
     let res = [];
     for (let i = height - 1; i >= 0; i--)
