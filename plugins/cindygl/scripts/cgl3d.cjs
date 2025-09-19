@@ -21,7 +21,7 @@ cglSetDepth(rawDepth,direction):=(
 cglMod1plus(n,k):=(
   mod(n-1,k)+1;
 );
-// returns undefined // cindyscript TODO? is there a less hacky way to reliably set a variable to undefined?
+// returns undefined
 cglUndefinedVal():=(regional(nada);nada);
 
 /////////////////////
@@ -375,7 +375,6 @@ cglCapAngleVoidRoundShaderBack = cglLazy((direction,cylinderDepths,delta,U,cutVe
   if((delta*(v2*cutVector)>1) % (delta*(v2*U)<1),cglDiscard());
   res
 );
-// feature TODO? add open and closed version of capAngle...Round
 
 cglCutOrthogonal = cglLazy((delta,v),delta);
 cglCutVector1 = cglLazy((delta,v),v*cglCutDir1);
@@ -1026,7 +1025,7 @@ cglSurfaceBisectf(direction, x0, x1) := (
     regional(v0, v1, m, vm);
     v0 = cglEval(cglSurfaceExpr,cglRay(direction, x0));
     v1 = cglEval(cglSurfaceExpr,cglRay(direction, x1));
-    repeat(11, // algorithm TODO? why 11, would a larger number be more precise?
+    repeat(11,
         m = (x0 + x1) / 2; vm = cglEval(cglSurfaceExpr,cglRay(direction, m));
         if (min(v0,vm) <= 0 & 0 <= max(v0, vm), // sgn(v0)!=sgn(vm); avoid products due numerics
             (x1 = m; v1 = vm;),
@@ -1079,7 +1078,7 @@ cglSurfaceUpdateColor(direction, dst, color) := (
 cglSurfaceRootItrGetS(id) := (
   regional(s);
   s = 1;
-  repeat(10, // algorithm TODO? is there a reason why 10 is used
+  repeat(10,
     if(2*s<=id,
       s = 2*s;
     )
@@ -1444,7 +1443,6 @@ cglRestoreDefaults() := (
   if(length(cglDefaultStack)>0,
     // pop previous defaults from default-stack
     cglDefaults = cglDefaultStack_(length(cglDefaultStack));
-    // cindyscript FIXME is there realy no direct way to remove the last element of a list
     cglDefaultStack = apply(1..(length(cglDefaultStack)-1),i,cglDefaultStack_i);
   ,
     cglResetDefaults();
@@ -1459,8 +1457,6 @@ cglResetDefaults(); // initialisation of code complete -> can initialize default
 cglValOrDefault(val,default):=(
   if(isundefined(val),default,val)
 );
-// cindyscript TODO is there realy no built-in for this
-// ? implement in javascript
 // add all entries in second dictionary to first dictionary
 cglMergeDicts(dict1,dict2):=(
   res = dict1;
@@ -1538,7 +1534,6 @@ cglMergeDicts(dict1,dict2):=(
 // pick the first defined color expression return undefined if there is none
 // code TODO? to which extend can this function be shortened by extracting code
 
-// TODO? replace explicit blend function with colors mode:
 CglColorsIgnore = 0; // ignore colors field
 CglColorsInterpolate = 1; // interpolate between colors_1 and colors_2 usign texPos_2 (cylinder)
 CglColorsVertex = 2; // one color per vertex
@@ -1750,7 +1745,7 @@ cglResolveColorExpr(hasAlpha,colorsMode):=(
 cglNormalColor(color):=( // code TODO better name
   if(length(color)==1,
     (color,color,color)
-  ,if(if(length(color)==4, color_4 == 1, false), // cindyscript TODO? is there really no short-circuit and
+  ,if(if(length(color)==4, color_4 == 1, false),
     (color_1,color_2,color_3)
   ,
     color
@@ -2019,8 +2014,6 @@ cglJoint(prev,current,next,jointType):=(
     CglCylinderCapOpen
   )));
 );
-// ! calling cylinder3d can mess up modifiers
-// code TODO? create wrapper to correctly pass through modifiers
 cglInterface("connect3d",cglConnect3d,(points),(color,colors,texture,textureRGB,textureRGBA,interpolateTexture,repeatTexture,
   colorExpr:(texturePos,spacePos,normal),colorExprRGB:(texturePos,spacePos,normal),
   colorExprRGBA:(texturePos,spacePos,normal),colorBack,colorsBack,textureBack,textureRGBBack,textureRGBABack,

@@ -229,7 +229,6 @@ let CindyGL = function(api) {
             cglLogDebug("create new Renderer for modifiers: ",modifierTypes);
             renderer = new Renderer(api, prog, boundingBox, modifierTypes,mode3D);
             prog.renderers.push(renderer);
-            // TODO? sort renderes by number of instances
             modifierTypes.forEach((value,key)=>{
                 if(!value.used){
                     cglLogInfo(`modifier ${key} is never used`)
@@ -670,7 +669,6 @@ let CindyGL = function(api) {
         }
         expr = replaceVariables(expr,obj3d.plotModifiers);
         const value = tryEvaluate(expr,api,nada);
-        // TODO? allow non-boolean expressions
         if(value['ctype']!=='boolean'){
             delete obj3d.opaque;
             return;
@@ -887,7 +885,7 @@ let CindyGL = function(api) {
             mvmult4(CindyGL.invTrafoMatrix,CindyGL.coordinateSystem.viewPosition);
     };
     let resetRotation = function(){
-        CindyGL.trafoMatrix = [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]];// TODO? switch to Cindy3D matrix operations instead of writing library from scratch
+        CindyGL.trafoMatrix = [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]];
         CindyGL.invTrafoMatrix = [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]];
         CindyGL.coordinateSystem.transformedViewPos = CindyGL.coordinateSystem.viewPosition;
         let [x0,y0,x1,y1,z0,z1] = getZoomedViewPlane();
@@ -988,7 +986,6 @@ let CindyGL = function(api) {
         }
         return nada;
     });
-    // TODO? directly set zoom or update relative to previous value
     api.defineFunction("zoom3d", 1, (args, modifs) => {
         let zoom = api.evaluateAndVal(args[0])["value"]["real"];
         CindyGL.coordinateSystem.zoom = zoom;
@@ -1119,7 +1116,6 @@ let CindyGL = function(api) {
             });
         });
         sceneRenderer.renderOpaque(CindyGL.objectBuffer.opaque);
-        // TODO? split cleanup& rendering of translucent objects
         sceneRenderer.renderTranslucent(CindyGL.objectBuffer.translucent);
         // TODO? extract to function on sceneRenderer
         let wrongOpacity = sceneRenderer.wrongOpacity;
@@ -1592,7 +1588,7 @@ let CindyGL = function(api) {
             ctype: "cglLazy",
             params: params,
             expr: cloneExpression(args[1]),
-            modifs: Object.entries(modifs).map(([key,value])=>[key,api.evaluate(value)]) // TODO? convert to map
+            modifs: Object.entries(modifs).map(([key,value])=>[key,api.evaluate(value)])
         };
     });
     // convenience function for lazy expression without parameters
@@ -1602,7 +1598,7 @@ let CindyGL = function(api) {
             ctype: "cglLazy",
             params: [],
             expr: cloneExpression(args[0]),
-            modifs: Object.entries(modifs).map(([key,value])=>[key,api.evaluate(value)]) // TODO? convert to map
+            modifs: Object.entries(modifs).map(([key,value])=>[key,api.evaluate(value)])
         };
     });
     api.defineFunction("cglIsLazy", 1, (args, modifs) => {
@@ -1645,8 +1641,7 @@ let CindyGL = function(api) {
             }
         ));
     }
-    // avoid evaluating non-lazy expressions when possible
-    // TODO? is there a way to try evaluating an expression without producing any side effects
+    // avoid evaluating non-lazy expressions when possible to prevent unintended side effects
     function tryResolveLazy(value) {
         // cglLazy can only be the result of evaluating a variable, function, user-data or element-access
         if(value['ctype'] === "variable" || value['ctype'] === "function" || value['ctype'] === "userdata"
@@ -1665,14 +1660,13 @@ let CindyGL = function(api) {
         if(tryUnwrap) {
             let value = tryResolveLazy(expr);
             if(value['ctype'] === 'cglLazy') {
-                // TODO? warning if parameter names do not match
                 if(value.params.length === params.length) {
                     return value;
                 }
                 cglLogError("lazy expression has wrong number of arguments: "+
                     `got: ${value.params.length} expected: ${params.length} (${params.map(p=>p['name']).join(",")})`
                 );
-                // TODO? add dummy parameter if given lazy does not have enough paramters
+                // TODO? add dummy parameters if given lazy does not have enough paramters
             }
         }
         return {
@@ -1729,7 +1723,6 @@ let CindyGL = function(api) {
             }
             callMods["cglParamExprs"]={ctype:"JSON",value:paramExprs};
             callMods["cglModifExprs"]={ctype:"JSON",value:modifExprs};
-            // TODO? pass modifiers as seperate JSON object
             Object.entries(modifs).forEach(([name, value])=>{
                 if(callMods.hasOwnProperty(name))
                     return;
