@@ -2371,14 +2371,30 @@ cglInterface("triangles3d",cglTriangles3d,(triangles),(color,colors,texture,text
   colorExprRGBABack:(texturePos,spacePos,normal),thickness,alpha,light:(color,direction,normal),uv,normals,
   normalExpr:(spacePos,texturePos),plotModifiers,vertexModifiers,tags,onUpdate:(newBounds)));
 cglTriangles3d(triangles):=(
-  regional(modifiers,vModifiers,defNormal,hasAlpha,usesAlpha,exprData,pixelExpr,colLen,opacityExpr,tri,n,cols);
+  regional(modifiers,vModifiers,defNormal,hasAlpha,usesAlpha,exprData,pixelExpr,colLen,opacityExpr,v1,v2,v3,triuv,n,cols,vertices,triangleCount);
   color = cglValOrDefault(color,cglDefaults_"triangleColor");
   light = cglValOrDefault(light,cglDefaults_"light");
-  uv = if(isundefined(uv),
-    flatten(apply(1..(length(triangles)),[(0,0),(1,0),(0,1)]))
+  vertices = if(islist(triangles_1_1),
+    flatten(triangles)
   ,
-    cglCheckSize(uv,length(triangles),"uv should contain one element for each triangle");
-    flatten(apply(1..(length(triangles)),i,
+    triangles
+  );
+  triangleCount = length(vertices)/3;
+  // feature TODO? allow giving normals/uv per vertex
+  uv = if(isundefined(uv),
+    apply(1..length(vertices),i,
+      tri = mod(i,3);
+      if(tri==1,
+        (0,0)
+      ,if(tri==2,
+        (1,0)
+      ,
+        (0,1)
+      ))
+    )
+  ,
+    cglCheckSize(uv,triangleCount,"uv should contain one element for each triangle");
+    flatten(apply(1..triangleCount,i,
       if(i<length(uv),
         triuv = uv_i;
         if(length(triuv)==3,
@@ -2408,11 +2424,13 @@ cglTriangles3d(triangles):=(
     if(isundefined(normals),
       normals = [];
     ,
-      cglCheckSize(normals,length(triangles),"normals should contain one element for each triangle");
+      cglCheckSize(normals,triangleCount,"normals should contain one element for each triangle");
     );
-    normals = flatten(apply(1..(length(triangles)),i,
-      tri = triangles_i;
-      defNormal = normalize(cross(tri_2-tri_1,tri_3-tri_1));
+    normals = flatten(apply(0..(triangleCount-1),i,
+      v1 = vertices_(3*i+1);
+      v2 = vertices_(3*i+2);
+      v3 = vertices_(3*i+3);
+      defNormal = normalize(cross(v2-v1,v3-v1));
       if(i<length(normals),
         n = normals_i;
         if(islist(n_1),
@@ -2437,9 +2455,9 @@ cglTriangles3d(triangles):=(
   modifiers_"cglTextureMapping" = cglLazy((pos3d,direction),cglTexCoords);
   vModifiers_"cglTexCoords" = uv;
   if(!isundefined(colors),
-    if(length(colors)!=3*length(triangles),
-      cglCheckSize(colors,length(triangles),"colors should contain one element pre vertex or one element per triangle");
-      colors = flatten(apply(1..(length(triangles)),i,
+    if(length(colors)!=length(vertices),
+      cglCheckSize(colors,triangleCount,"colors should contain one element pre vertex or one element per triangle");
+      colors = flatten(apply(1..triangleCount,i,
         if(i<length(colors),
           cols = colors_i;
           if(islist(cols_1) % islist(cols_2) % islist(cols_3), // entry has list as element -> use sub-entries for vertices
