@@ -1704,6 +1704,7 @@ let CindyGL = function(api) {
                 }
             }
             let callMods = {};
+            let modValues = {};
             for(let i=0;i<fn_modifs.length;i++) {
                 const modName = fn_modifs[i].name;
                 let mod = modifs[modName];
@@ -1715,14 +1716,17 @@ let CindyGL = function(api) {
                     modifExprs[modName]=wrapLazy(mod,[],false);
                     // convert function-arguments (marked with parameter-list as user-data) to cglLazy
                     callMods[modName]=wrapLazy(mod,fn_modifs[i].args,true);
+                    modValues[modName]=callMods[modName];
                     createCglEval(fn_modifs[i].args.length);
                 } else {
                     callMods[modName]=mod;
+                    modValues[modName]=api.evaluate(mod);
                     modifExprs[modName]=wrapLazy(mod,[],false);
                 }
             }
             callMods["cglParamExprs"]={ctype:"JSON",value:paramExprs};
             callMods["cglModifExprs"]={ctype:"JSON",value:modifExprs};
+            callMods["cglModifs"]={ctype:"JSON",value:modValues};
             Object.entries(modifs).forEach(([name, value])=>{
                 if(callMods.hasOwnProperty(name))
                     return;

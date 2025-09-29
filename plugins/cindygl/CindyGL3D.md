@@ -54,6 +54,10 @@ The intended use of this function is a way to "freeze" the iteration variable of
 * `cglInterface(<name>:name,<implName>:name,<args>:list<name>,<modifs>:list<name>)` can be used to wrap CindyScript functions in a more convenient user-interface:
     - missing modifiers are set to nada (even if there is a global with the same name)
     - adding a parameter list as user-data to the name of an argument or modifier will wrap the expression given to that argument in a `cglLazy` function with that parameter list
+    - creates three additional modifiers:
+      `cglModifs` the set of all modifiers passed to the given function
+      `cglParamExprs` expressions for all passed in parameters (as cglLazys)
+      `cglModifExprs` expressions for all passed in modifiers (as cglLazys)
 * `cglTryDetermineDegree(<expr>,<vars>:list<name>)` tries to determine the degree of the given expression in the given values, if the degree is infinite `-1` is returned. When determining the degree is not possible the function returns `undefined`
 * `cglTryDetermineDegree(<lazy-expr>)` similar to `cglTryDetermineDegree(2)`, tries to determine the degree of a lazy-expression in its parameters
 * `cglLogError` `cglLogWarning` `cglLogInfo` print a string at different logging levels, makes error messages easier to find in the JavaScript console
