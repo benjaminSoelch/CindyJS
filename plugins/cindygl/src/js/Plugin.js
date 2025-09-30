@@ -1773,20 +1773,19 @@ let CindyGL = function(api) {
         return nada;
     });
     // functions for printing error/warning messages from within cindy-script code
-    // TODO cindy-script style printing for values
     api.defineFunction("cglLogError", 1, (args, modifs) => {
         let str = api.evaluateAndVal(args[0]);
-        cglLogError(str['value']!==undefined?str['value']:"___");
+        cglLogError(api.instance["niceprint"](str,modifs));
         return nada;
     });
     api.defineFunction("cglLogWarning", 1, (args, modifs) => {
         let str = api.evaluateAndVal(args[0]);
-        cglLogWarning(str['value']!==undefined?str['value']:"___");
+        cglLogWarning(api.instance["niceprint"](str,modifs));
         return nada;
     });
     api.defineFunction("cglLogInfo", 1, (args, modifs) => {
         let str = api.evaluateAndVal(args[0]);
-        cglLogInfo(str['value']!==undefined?str['value']:"___");
+        cglLogInfo(api.instance["niceprint"](str,modifs));
         return nada;
     });
 
