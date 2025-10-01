@@ -153,9 +153,9 @@ let CindyGL = function(api) {
     /**
      * argument canvaswrapper is optional. If it is not given, it will render on glcanvas
      */
-    function compileAndRender(prog,a, b, width, height,boundingBox, canvaswrapper) {
-        let renderer=compile(prog,boundingBox,new Map(),new Map(),false);
-        renderer.render2d(a, b, width, height, boundingBox, new Map(), canvaswrapper);
+    function compileAndRender(prog,a, b, width, height,boundingBox, canvaswrapper,plotModifiers) {
+        let renderer=compile(prog,boundingBox,plotModifiers,new Map(),false);
+        renderer.render2d(a, b, width, height, boundingBox, plotModifiers, canvaswrapper);
         if (canvaswrapper)
             canvaswrapper.generation = Math.max(canvaswrapper.generation, canvaswrapper.canvas.generation + 1);
     }
@@ -383,11 +383,12 @@ let CindyGL = function(api) {
         initGLIfRequired();
 
         var prog = args[0];
+        let plotModifiers=get3DPlotModifiers(modifs);
 
         let iw = api.instance['canvas']['width']; //internal measures. might be multiple of api.instance['canvas']['clientWidth'] on HiDPI-Displays
         let ih = api.instance['canvas']['height'];
 
-        compileAndRender(prog,computeLowerLeftCorner(api), computeLowerRightCorner(api), iw, ih,Renderer.noBounds(),null);
+        compileAndRender(prog,computeLowerLeftCorner(api), computeLowerRightCorner(api), iw, ih,Renderer.noBounds(),null,plotModifiers);
         let csctx = api.instance['canvas'].getContext('2d');
 
         csctx.save();
@@ -406,6 +407,7 @@ let CindyGL = function(api) {
         initGLIfRequired();
 
         var prog = args[0];
+        let plotModifiers=get3DPlotModifiers(modifs);
         var a = api.extractPoint(api.evaluateAndVal(args[1]));
         var b = api.extractPoint(api.evaluateAndVal(args[2]));
 
@@ -431,7 +433,7 @@ let CindyGL = function(api) {
         let fx = Math.abs((a.x - b.x) / (clr.x - cul.x)); //x-ratio of screen that is used
         let fy = Math.abs((a.y - b.y) / (clr.y - cul.y)); //y-ratio of screen that is used
 
-        compileAndRender(prog,ll, lr, iw * fx, ih * fy,Renderer.noBounds(), null);
+        compileAndRender(prog,ll, lr, iw * fx, ih * fy,Renderer.noBounds(), null,plotModifiers);
         let csctx = api.instance['canvas'].getContext('2d');
 
         let pt = {
@@ -455,6 +457,7 @@ let CindyGL = function(api) {
      */
     api.defineFunction("colorplot", 4, (args, modifs) => {
         initGLIfRequired();
+        let plotModifiers=get3DPlotModifiers(modifs);
 
         var a = api.extractPoint(api.evaluateAndVal(args[0]));
         var b = api.extractPoint(api.evaluateAndVal(args[1]));
@@ -469,7 +472,7 @@ let CindyGL = function(api) {
         let canvaswrapper = generateCanvasWrapperIfRequired(imageobject, api, false);
         var cw = imageobject.width;
         var ch = imageobject.height;
-        compileAndRender(prog, a, b, cw, ch,Renderer.noBounds(), canvaswrapper);
+        compileAndRender(prog, a, b, cw, ch,Renderer.noBounds(), canvaswrapper,plotModifiers);
 
         return nada;
     });
@@ -479,6 +482,7 @@ let CindyGL = function(api) {
      */
     api.defineFunction("colorplot", 2, (args, modifs) => {
         initGLIfRequired();
+        let plotModifiers=get3DPlotModifiers(modifs);
 
         var a = computeLowerLeftCorner(api);
         var b = computeLowerRightCorner(api);
@@ -494,7 +498,7 @@ let CindyGL = function(api) {
         let canvaswrapper = generateCanvasWrapperIfRequired(imageobject, api, false);
         var cw = imageobject.width;
         var ch = imageobject.height;
-        compileAndRender(prog, a, b, cw, ch, Renderer.noBounds() ,canvaswrapper);
+        compileAndRender(prog, a, b, cw, ch, Renderer.noBounds() ,canvaswrapper,plotModifiers);
 
 
         return nada;
