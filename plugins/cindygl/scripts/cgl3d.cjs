@@ -6,7 +6,9 @@ use("CindyGL");
 normalize(v):=(
   regional(l);
   l = |v|;
-  if(l>0,v/l,v);
+  if(l!=l,(0,0,0), // NaN
+    if(l>0,v/l,v)
+  );
 );
 /** maps the raw depth value given in the interval [0,inf) to a concrete depth in [-1,1) and sets cglDepth accordingly */
 cglSetDepth(rawDepth,direction):=(
