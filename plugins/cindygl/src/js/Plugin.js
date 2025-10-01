@@ -1822,15 +1822,31 @@ let CindyGL = function(api) {
         let canvaswrapper = generateCanvasWrapperIfRequired(imageobject, api, false);
 
         if ( name && canvaswrapper) {
-           let pixels = canvaswrapper.readRawPixels(0, 0, imageobject.width, imageobject.height);
-           let res = new Array(pixels.length/4);
-           for(let i=0;i<res.length;i++){
-            res[i] = toCjs(toFloat([pixels[4*i],pixels[4*i+1],pixels[4*i+2],pixels[4*i+3]]));
-           }
-           return {
-             "ctype": "list",
-             "value":res
-           };
+          let pixels = canvaswrapper.readRawPixels(0, 0, imageobject.width, imageobject.height);
+          let res = new Array(pixels.length/4);
+          let is_rgb = api.evaluateAndVal(modifs["rgb"]);
+          // directly map pixels to rgb values
+          // for large arrays this is sigificantly faster (and more memory efficent) than doing the transformation in CindyScript
+          if(is_rgb["ctype"] === "boolean" && is_rgb["value"]) {
+            let mod_skipTransparent = api.evaluateAndVal(modifs["skipTransparent"]);
+            let skip_transparent = mod_skipTransparent["ctype"] === "boolean" && mod_skipTransparent["value"];
+            let j=0;
+            for(let i=0;i<res.length;i++){
+                if(skip_transparent && pixels[4*i+3]==0){
+                    continue;
+                }
+                res[j++] = toCjs(toFloat([pixels[4*i],pixels[4*i+1],pixels[4*i+2]]));
+            }
+            res.length = j;
+          } else {
+            for(let i=0;i<res.length;i++){
+              res[i] = toCjs(toFloat([pixels[4*i],pixels[4*i+1],pixels[4*i+2],pixels[4*i+3]]));
+            }
+          }
+          return {
+            "ctype": "list",
+            "value":res
+          };
         }
         return nada;
     });

@@ -196,9 +196,9 @@ triangulateCube(x0,y0,z0,x1,y1,z1,N):=(
     });
     // readpixels needs to reverse the row-order when source image is generated using CindyGL
     //   not reversing the pixels leads to a significant speedup
-    // TODO: add modifier to readpixels instead of separate function at plugin level
-    vertices = cglReadRawPixels("buffer"); // readpixels("buffer"); // 
-    triangles = getTriangles(vertices);
+    // TODO?: add modifiers to readpixels instead of separate function at plugin level
+    vertices = cglReadRawPixels("buffer",rgb->true,skipTransparent->true);
+    //triangles = getTriangles(readpixels("buffer"));
 );
 
 cglInterface(triangulate3d,"cglTriangulate",(expr:(x,y,z),p0,p1,N),(gpu));

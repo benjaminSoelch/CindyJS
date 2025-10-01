@@ -68,6 +68,10 @@ The intended use of this function is a way to "freeze" the iteration variable of
 * `cglListObjects()` list all visible objects, the modifiers can be used to filter objects depending on their tags:
     if a modifier is set to true the tag with the same name has to appear, if a modifier is set to false the tag must not appear.
 * `cglOrthogonalMode(<bool>)` toggle orthogonal mode on/off
+* `cglReadRawPixels(<image>)` reads pixels from an image as a 1D array, optimized for speed:
+  - Compared to `readpixels` the order of the image rows is reversed (to match internal order used by CindyGL)
+  - Add modifiers `rgb` -> only return first 3 components of each pixel and `skipTransparent` -> don't emit pixels with alpha value 0, currently `skipTransparent` is only supported in RGB mode.
+  The `skipTransparent` modifier exists as an optimization for the marching-cubes triangulator
 
 ## Built-in variables
 
