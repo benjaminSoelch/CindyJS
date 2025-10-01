@@ -2395,6 +2395,9 @@ cglTriangles3d(triangles):=(
       ))
     )
   ,
+    if(length(uv) == 3*triangleCount,
+      uv // uv per vertex
+    ,
     cglCheckSize(uv,triangleCount,"uv should contain one element for each triangle");
     flatten(apply(1..triangleCount,i,
       if(i<length(uv),
@@ -2413,6 +2416,7 @@ cglTriangles3d(triangles):=(
         [(0,0),(1,0),(0,1)]
       );
     ))
+    )
   );
   alpha = cglValOrDefault(alpha,cglDefaults_"triangleAlpha");
   hasAlpha = !isundefined(alpha);
@@ -2481,7 +2485,7 @@ cglTriangles3d(triangles):=(
   modifiers_"cglPixelExpr" = exprData_"pixelExpr";
   tags = cglValOrDefault(tags,[]);
   opacityExpr = if(usesAlpha,false,if(hasAlpha,cglLazy(cglAlpha>=1),true));
-  colorplot3d(cgl3dTriangleShaderCode(#),flatten(triangles),
+  colorplot3d(cgl3dTriangleShaderCode(#),vertices,
     plotModifiers->modifiers,vModifiers->vModifiers,tags->["triangles"]++tags,opaqueIf->opacityExpr);
 );
 
