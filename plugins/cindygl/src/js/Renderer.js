@@ -6,9 +6,7 @@ const BoundingBoxType = {
     cylinder: 3, // draw in bounding cuboid of cylinder [vec3,vec3,float]
     triangles: 4, // draw on triangular mesh (given as list of triangles [3*vec3]
     cuboid: 5, // draw shapw within cuboid, cull back faces
-    // TODO? rectangle orientated towarsd camera: [center: vec3, width: float, heigth: float]
 }
-// TODO find better names for box generator functions
 Renderer.noBounds = function(){
     return { 'type': BoundingBoxType.none };
 }
@@ -171,7 +169,6 @@ Renderer.prototype.rebuild = function(forceRecompile) {
         cglLogError("cpg is undefined");
         return;
     }
-    // TODO? use different header for fshader depending on box type
     this.transparencyType = Renderer.transparencyType;
     if (this.transparencyType === TransparencyType.Simple) {
         this.fragmentShaderCode = cgl_resources["standardFragmentHeader"];
@@ -180,7 +177,7 @@ Renderer.prototype.rebuild = function(forceRecompile) {
         this.fragmentShaderCode = this.opaque ? cgl_resources["fragHeaderOpaqueLayer"+typeSuffix] : cgl_resources["fragHeaderSingleLayer"+typeSuffix];
     } else if ( this.transparencyType === TransparencyType.MultiLayer) {
         const typeSuffix = can_use_texture_float ? "" : "2I8";
-        this.fragmentShaderCode = cgl_resources["fragHeaderOpaqueLayer"+typeSuffix]; // TODO better name for fShader? ('writeHeader')
+        this.fragmentShaderCode = cgl_resources["fragHeaderOpaqueLayer"+typeSuffix];
     } else {
         cglLogError("unexpected transparencyType ",this.transparencyType);
         return;
@@ -320,16 +317,16 @@ Renderer.computeAttributeData = function (eltType,values){
             new Int8Array(data);
     return {aData: aData, aSize: aData.length/values.length, aType: attributeType};
 }
-// TODO? seperate version for triangles
+// TODO? separate function for triangle attributes
 Renderer.prototype.updateAttributes = function() {
     Renderer.prevBoundingBoxType=this.boundingBox['type'];
     if (this.boundingBox['type'] === BoundingBoxType.cylinder || this.boundingBox['type'] === BoundingBoxType.cuboid) {
-        gl.enable(gl.CULL_FACE); // TODO? does orientation of cylinder in space change how faces are culled
+        gl.enable(gl.CULL_FACE);
         gl.cullFace(gl.FRONT); // cull front faces to allow view-pos inside cuboid
     } else {
         gl.disable(gl.CULL_FACE);
     }
-    // TODO reuse same vertex buffer for multiple calls instead of creating a new buffer for every object
+    // TODO? reuse same vertex buffer for multiple calls instead of creating a new buffer for every object
     var posBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
 
@@ -339,11 +336,10 @@ Renderer.prototype.updateAttributes = function() {
     if(this.boundingBox['type'] == BoundingBoxType.triangles) {
         if(this.boundingBox['texCoords']){
             texCoords = this.boundingBox['texCoords'];
-        } else {
+        } else { // TODO? better way to determine `texCoords` for triangle mesh
             // texCoords is used by random() operator
-            // -> TODO? generate unique coordinates for each pixel
-            // -> TODO? use uv-mapping vmodifier from cgl3d.cjs as source for values
-            // TODO? compress using index table
+            // -> ? generate unique coordinates for each pixel
+            // -> ? use uv-mapping vmodifier from cgl3d.cjs as source for values
             let baseCoords = [0, 0, 1, 0, 0, 1];
             texCoords = []; // ! no let here, this is the function-level variable
             for(let i=0;i<this.vertices.length;i+=9){ // 3floats / vertex * 3 vertex / triangle
@@ -376,7 +372,6 @@ Renderer.prototype.updateAttributes = function() {
             index ++;
         });
     } else if(this.boundingBox['type'] == BoundingBoxType.cylinder || this.boundingBox['type'] == BoundingBoxType.cuboid) {
-        // TODO find good texture coords for cuboid
         texCoords = new Float32Array([0, 0, 1, 0, 0, 1, 1, 1,0, 0, 1, 0, 0, 1, 1, 1,0, 0, 1, 0, 0, 1, 1, 1,0,0,1,0]);
         totalBufferSize+=texCoords.byteLength;
     } else {
@@ -675,7 +670,7 @@ Renderer.prototype.loadTextures = function(initCount) {
         let cw = tr.returnCanvaswrapper();
 
         cw.reloadIfRequired();
-        // TODO is there a way to avoid rebinding texture every frame
+        // TODO? is there a way to avoid rebinding texture every frame
         cw.bindTexture();
         [
             [`_sampler${tname}`, [cnt]],
@@ -710,7 +705,7 @@ Renderer.prototype.prepareUniforms = function(targetLayer) {
         // set uniforms for rendering to targetLayer
         if(this.shaderProgram.uniform.hasOwnProperty('screenSize'))
             this.shaderProgram.uniform['screenSize']([targetLayer.iw,targetLayer.ih]);
-        // TODO is there a way to avoid rebinding textures every frame
+        // TODO? is there a way to avoid rebinding textures every frame
         if(this.shaderProgram.uniform.hasOwnProperty('oldColorTex')) {
             gl.activeTexture(gl.TEXTURE0+texCount);
             gl.bindTexture(gl.TEXTURE_2D, targetLayer.colorTexture);
@@ -778,7 +773,6 @@ Renderer.prototype.render2d = function(a, b, sizeX, sizeY, boundingBox, plotModi
     this.setBoundingBoxUniforms();
     this.setModifierUniforms(plotModifiers);
 
-    // TODO should 2D-renderer use 3D-bounding box?
     if(this.boundingBox['type'] != BoundingBoxType.triangles) {
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, this.vertices.length/3);
     } else {
@@ -1271,7 +1265,6 @@ function sortLayers(layer1,layer2,merge){
     renderShader.uniform['src2Depth']([3]);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     gl.flush();
-    // TODO swap source and target textures
 }
 /** @param {CglSceneLayer} layerData  */
 function copyLayer(layerData){

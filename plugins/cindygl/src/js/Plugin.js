@@ -964,7 +964,6 @@ let CindyGL = function(api) {
             trafoMatrix=[[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]];
         }
         // TODO? rotate relative to center of view-rect
-        // TODO? are this the correct axes/directions
         let rotZ=[
           [1,0,0,0],
           [0,Math.cos(beta),-Math.sin(beta),0],

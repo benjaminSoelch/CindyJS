@@ -122,8 +122,6 @@ webgl['apply'] = argtypes => (argtypes.length == 2 || argtypes.length == 3) && (
 }) : false;
 
 // TODO? add append & preprend functions
-// TODO figure out if this code evaluates vector-arguments once of each element
-// if yes, write arguments to temporary variables before concatenating list
 webgl['++'] = argtypes => {
     if(generalize(argtypes[0]).type !== 'list')
         return false;
@@ -580,7 +578,7 @@ webgl["ceil"] = first([
 webgl["mod"] = first([
     [
         [type.int, type.int], type.int, (a, cb) => (`int(${usefunction('mod')('float(' + a[0] + '), float(' + a[1] + ')', cb)})`)
-    ], //useinfix('%') '%' : integer modulus operator supported in GLSL ES 3.00 only
+    ],// built-in %-operator does not agree with mod if first argument is negative
     [
         [type.float, type.float], type.float, usefunction('mod')
     ],
