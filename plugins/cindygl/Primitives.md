@@ -44,8 +44,6 @@ for normals per triangle the top-left and bottom right corners are used. <!--TOD
 * `cglRestoreDefaults()` restore saved default values
 * `cglResetDefaults()` reset defaults to initial values
 
-* `find3d(x,y)` find the closest object(s) to the camera on the view-ray behind the pixel at `(x,y)`
-
 ## Common modifiers
 
 The following modifiers are present on all geometric primitives

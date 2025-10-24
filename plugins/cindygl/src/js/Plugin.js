@@ -927,6 +927,13 @@ let CindyGL = function(api) {
             value: viewPos.map(toCjsNumber)
         };
     });
+    api.defineFunction("cglViewNormal", 0, (args, modifs) => {
+        let viewPos = CindyGL.coordinateSystem.transformedViewNormal.slice(0,3);
+        return { // convert to CindyJS list
+            ctype: 'list',
+            value: viewPos.map(toCjsNumber)
+        };
+    });
     api.defineFunction("cglViewRect", 0, (args, modifs) => {
         let [x0,y0,x1,y1,z0,z1] = getZoomedViewPlane();
         return { // convert to CindyJS list

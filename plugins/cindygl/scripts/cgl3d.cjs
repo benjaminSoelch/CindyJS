@@ -1467,13 +1467,10 @@ cglMergeDicts(dict1,dict2):=(
 );
 
 // feature TODO:
-// TODO port code for movable objects to library
-//  -> ? callback to get movement axes depending on pointId (default is coord-axes)
-//      * reduced number of points if some axes are fixed, update axes after every motion
-// -> ? restore axis-display ids when cglReset3d is called
-// input: oldMousePos, newMousePos (auto-compute), targetObjectId (internal variable?)
-//  output: -> new Position for object
-// ? bounds checking inside or outside movement function (? optional lambda-parameter)
+
+// TODO? object groups
+//  * cglGroupStart(); // -> start new group, returns groupId
+//  * cglGroupEnd(); // -> end current group, returns groupId
 // TODO? intersection of surfaces as primitive operation
 // TODO? global clipping region
 // TODO? better ligthing system
