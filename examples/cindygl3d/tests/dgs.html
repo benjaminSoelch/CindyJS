@@ -23,18 +23,28 @@
                 zoom3d(zoom);
                 dgs3dHandleZoom(zoom);
             );
+            cglDefaults_"sphereSize" = 0.1;
+            cglDefaults_"cylinderSize" = 0.05;
 
             A = point3d((0,0,0));
             B = point3d((1,0,0));
             C = point3d((0,1,0));
             D = point3d((0,0,1));
-            l1 = dgs3dJoin2P(A,B);
-            l2 = dgs3dJoin2P(A,C);
-            l3 = dgs3dJoin2P(A,D);
-            l4 = dgs3dJoin2P(B,C);
-            l5 = dgs3dJoin2P(B,D);
-            l6 = dgs3dJoin2P(C,D);
-            pointOnLine3d((0.5,0,0),l1);
+            l1 = join3d(A,B);
+            l2 = join3d(A,C);
+            l3 = join3d(A,D);
+            l4 = join3d(B,C);
+            l5 = join3d(B,D);
+            l6 = join3d(C,D);
+            E = pointOnLine3d((0.5,0,0),l1);
+            P1 = join3d(E,C,D);
+            P2 = join3d(l2,B);
+            l7 = meet3d(P1,P2);
+            F = pointOnPlane3d((0.5,0.5,0.5),P1);
+            P3 = join3d(A,D,F);
+            l8 = join3d(F,D);
+            G = meet3d(P2,l8);
+            H = meet3d(P1,P2,P3);
         </script>
         <script id="csdraw" type="text/x-cindyscript">
             dgs3dPreFrame();
