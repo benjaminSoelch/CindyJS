@@ -493,7 +493,7 @@ dgs3dMeet3P(P1,P2,P3):=(
   obj
 );
 
-// ? global lists of all: points, lines, planes, quadrics, ...
+// TODO option to hide intermediate objects
 
 // TODO? euclidean operations
 // * parallel plane through point
