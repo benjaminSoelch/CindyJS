@@ -2773,8 +2773,8 @@ cglSurface3d(fun) := (
       ))));
     ,
       if(layers<0,layers=N,layers=min(layers,N));
-      while(layers>0,
-        modifiers_"K"=layers;
+      apply(0..(layers-1),i,
+        modifiers_"K"=layers-i;
         if(bounds_"type" == "unbounded",
           colorplot3d(cgl3dSurfaceLayerShaderCode(#),plotModifiers->modifiers,opaqueIf->opacityExpr)
         ,if(bounds_"type" == "sphere",
@@ -2786,7 +2786,6 @@ cglSurface3d(fun) := (
         ,
           cglLogError("unknown bounding box type: "+text(bounds_"type"));
         ))));
-        layers=layers-1;
       );
     );
 );
