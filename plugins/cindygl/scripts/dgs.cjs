@@ -1,9 +1,9 @@
+// TODO move internal global variables to namespace
 dgs3dPrepare():=(
     sx = mouse().x;
     sy = mouse().y;
     rotating = false;
     dragging = false;
-    zoom = 1.0;
     oldTarget = cglUndefinedVal();
 );
 dgs3dHandleMouseDown():=(
@@ -29,7 +29,9 @@ dgs3dUpdateCutoff():=(
 );
 dgs3dHandleZoom(zoom):=(
   dgs3dUpdateCutoff();
-  // TODO update line&plane cutoff / visible points depending on zoom level
+  forall(dgs3dPoints,p,cglEval(p:"redraw",p));
+  forall(dgs3dLines,l,cglEval(l:"redraw",l));
+  forall(dgs3dPlanes,p,cglEval(p:"redraw",p));
 );
 dgs3dUpdateCutoff();
 
@@ -81,7 +83,7 @@ dgs3dPreFrame():=(
         newPos = newPos+(truePos-oldPos);
         // update position
         target:"coords" = (newPos_1,newPos_2,newPos_3,1);
-        dgs3dRenderPoint(target);
+        cglEval(target:"redraw",target);
         // TODO more efficient data-structure for queue
         updateQueue = updateQueue ++ target:"children";
       ,if(axes:"type" == "parallel",
@@ -196,11 +198,23 @@ dgs3dIntersectLineQuadric(l,Q):=(
 );
 
 dgs3dMovablePoints = [];
+dgs3dPoints = [];
+dgs3dLines = [];
+dgs3dPlanes = [];
 
-// TODO? split rendering from computation
 dgs3dNewObject(type,parents):=(
   regional(obj);
-  obj = {"type":type, "drawId": -1, "parents": parents, "children": [], "recompute": cglLazy(self,)};
+  obj = {"type":type, "drawId": -1, "parents": parents, "children": [], "recompute": cglLazy(self,), "redraw": cglLazy(self,)};
+  // TODO? give each object a unique id, allow removing objects by id
+  if(type == "point",
+    dgs3dPoints = append(dgs3dPoints,obj);
+  ,if(type == "line",
+    dgs3dLines = append(dgs3dLines,obj);
+  ,if(type == "plane",
+    dgs3dPlanes = append(dgs3dPlanes,obj);
+  ,
+    cglLogWarning("unknown object type");
+  )));
   forall(parents,parent,
     parent:"children" = append(parent:"children",obj);
   );
@@ -261,7 +275,7 @@ dgs3dPoint4(p):=(
   ));
 );
 
-// p: vec4 -> (x,y,z,w) ; size: read -> radius, pinned: bool -> fixed position?
+// p: vec3|vec4 = (x,y,z)|(x,y,z,w) ; size: real = radius, pinned: bool = fixed position?
 cglInterface(point3d,dgs3dNewPoint,(p),(size,pinned));
 dgs3dNewPoint(p):=(
   regional(obj);
@@ -269,12 +283,25 @@ dgs3dNewPoint(p):=(
   obj:"coords" = dgs3dPoint4(p);
   obj:"radius" = cglValOrDefault(size,cglDefaults:"sphereSize");
   dgs3dRenderPoint(obj);
+  obj:"redraw" = cglLazy(self,dgs3dRenderPoint(self));
   if(cglValOrDefault(pinned,false),
     obj:"movable" = false;
   ,
     obj:"movable" = true;
     dgs3dMovablePoints = append(dgs3dMovablePoints,obj);
   );
+  obj
+);
+// TODO? line3d !collides with line3d in CindyGL3D
+
+// p: vec4 -> (x,y,z,w) 
+cglInterface(plane3d,dgs3dNewPlane,(p),());
+dgs3dNewPlane(p):=(
+  regional(obj);
+  obj = dgs3dNewObject("plane",[]);
+  obj:"coords" = p;
+  dgs3dRenderPlane(obj);
+  obj:"redraw" = cglLazy(self,dgs3dRenderPlane(self));
   obj
 );
 
@@ -302,8 +329,9 @@ dgs3dJoin2P(p1,p2):=(
     a = (self:"parents"_1):"coords";
     b = (self:"parents"_2):"coords";
     self:"coords" = dgs3dEpsilon44(a,b);
-    dgs3dRenderLine(self);
+    cglEval(self:"redraw",self);
   );
+  obj:"redraw" = cglLazy(self,dgs3dRenderLine(self));
   cglEval(obj:"recompute",obj);
   obj
 );
@@ -317,8 +345,9 @@ dgs3dJoinPL(p1,l1):=(
     p = self:"parents"_1;
     l = self:"parents"_2;
     self:"coords" = dgs3dEpsilon46(p:"coords",dgs3dDualLine(l:"coords"));
-    dgs3dRenderPlane(self);
+    cglEval(self:"redraw",self);
   );
+  obj:"redraw" = cglLazy(self,dgs3dRenderPlane(self));
   cglEval(obj:"recompute",obj);
   obj
 );
@@ -339,8 +368,9 @@ dgs3dPointOnLine(p0,l):=(
     // project P into K
     p = sum(K,v,(p*v)*v);
     self:"coords" = p;
-    dgs3dRenderPoint(self);
+    cglEval(self:"redraw",self);
   );
+  obj:"redraw" = cglLazy(self,dgs3dRenderPoint(self));
   cglEval(obj:"recompute",obj);
   if(cglValOrDefault(pinned,false),
     obj:"movable" = false;
@@ -358,8 +388,9 @@ dgs3dJoin3P(p1,p2,p3):=(
   obj = dgs3dNewObject("plane",[p1,p2,p3]);
   obj:"recompute" = cglLazy(self,  
     self:"coords" = dgs3dEpsilon444(self:"parents"_1:"coords",self:"parents"_2:"coords",self:"parents"_3:"coords");
-    dgs3dRenderPlane(self);
+    cglEval(self:"redraw",self);
   );
+  obj:"redraw" = cglLazy(self,dgs3dRenderPlane(self));
   cglEval(obj:"recompute",obj);
   obj
 );
@@ -380,8 +411,9 @@ dgs3dPointOnPlane(p0,s):=(
     n = s_(1..3);
     p = p - n*(s_4+p*n)/(n*n);
     self:"coords" = (p_1,p_2,p_3,1);
-    dgs3dRenderPoint(self);
+    cglEval(self:"redraw",self);
   );
+  obj:"redraw" = cglLazy(self,dgs3dRenderPoint(self));
   cglEval(obj:"recompute",obj);
   if(cglValOrDefault(pinned,false),
     obj:"movable" = false;
@@ -417,8 +449,9 @@ dgs3dMeet2P(P1,P2):=(
     A = (self:"parents"_1):"coords";
     B = (self:"parents"_2):"coords";
     self:"coords" = dgs3dDualLine(dgs3dEpsilon44(A,B));
-    dgs3dRenderLine(self);
+    cglEval(self:"redraw",self);
   );
+  obj:"redraw" = cglLazy(self,dgs3dRenderLine(self));
   cglEval(obj:"recompute",obj);
   obj
 );
@@ -432,8 +465,9 @@ dgs3dMeetPL(P1,l1):=(
     p = self:"parents"_1;
     l = self:"parents"_2;
     self:"coords" = dgs3dEpsilon46(p:"coords",l:"coords");
-    dgs3dRenderPoint(self);
+    cglEval(self:"redraw",self);
   );
+  obj:"redraw" = cglLazy(self,dgs3dRenderPoint(self));
   cglEval(obj:"recompute",obj);
   obj
 );
@@ -452,8 +486,9 @@ dgs3dMeet3P(P1,P2,P3):=(
   obj:"radius" = cglValOrDefault(size,cglDefaults:"sphereSize");
   obj:"recompute" = cglLazy(self,  
     self:"coords" = dgs3dEpsilon444(self:"parents"_1:"coords",self:"parents"_2:"coords",self:"parents"_3:"coords");
-    dgs3dRenderPoint(self);
+    cglEval(self:"redraw",self);
   );
+  obj:"redraw" = cglLazy(self,dgs3dRenderPoint(self));
   cglEval(obj:"recompute",obj);
   obj
 );
@@ -461,10 +496,11 @@ dgs3dMeet3P(P1,P2,P3):=(
 // ? global lists of all: points, lines, planes, quadrics, ...
 
 // TODO? euclidean operations
-// * orthogonal line to plane through point
 // * parallel plane through point
 // * parallel line through point
+// * orthogonal line to plane through point
 // * orthogonal line to line through point
+// * orthogonal plane to line through point
 // * line orthogonal to two other lines 
 // TODO? transformations
 // TODO? add support for quadrics
