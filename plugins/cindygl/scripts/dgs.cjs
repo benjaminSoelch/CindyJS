@@ -203,6 +203,17 @@ dgs3dIntersectLineQuadric(l,Q):=(
   );
   (r/max(r,|#|),c/max(c,|#|));
 );
+// adjoint of 4x4 matrix
+adjoint4(M):=( // in CindyJS there does not seem to be a adjoint built-in ...
+  regional(Mij);
+  apply(1..4,i,apply(1..4,j,
+    det(apply(M_(remove(1..4,j)),#_(remove(1..4,i))))*(-1)^(i+j)
+  ));
+);
+// squared coordinates
+dgs3dSqCoords(p):=(
+  (p_1*p_1,p_1*p_2,p_1*p_3,p_1*p_4,p_2*p_2,p_2*p_3,p_2*p_4,p_3*p_3,p_3*p_4,p_4*p_4);
+);
 
 dgs3dMovablePoints = [];
 dgs3dPoints = [];
@@ -318,7 +329,7 @@ dgs3dPoint4(p):=(
   ));
 );
 
-// p: vec3|vec4 = (x,y,z)|(x,y,z,w) ; size: real = radius, pinned: bool = fixed position?, visible: should object be drawn
+// p: vec3|vec4 = (x,y,z)|(x,y,z,w) ; size: real = radius, pinned: bool = fixed position?, visible: bool = should object be drawn
 cglInterface(point3d,dgs3dNewPoint,(p),(size,pinned,visible));
 dgs3dNewPoint(p):=(
   regional(obj);
@@ -336,7 +347,7 @@ dgs3dNewPoint(p):=(
 );
 // TODO? line3d !collides with line3d in CindyGL3D
 
-// p: vec4 = (x,y,z,w) , visible: should object be drawn
+// p: vec4 = (x,y,z,w) , visible: bool = should object be drawn
 cglInterface(plane3d,dgs3dNewPlane,(p),(visible));
 dgs3dNewPlane(p):=(
   regional(obj);
@@ -345,7 +356,7 @@ dgs3dNewPlane(p):=(
   dgs3dRenderPlane(obj);
   obj
 );
-// p: mat4, visible: should object be drawn
+// p: mat4, visible: bool = should object be drawn
 cglInterface(quadric3d,dgs3dNewQuadric,(p),(visible));
 dgs3dNewQuadric(M):=(
   regional(obj);
@@ -355,7 +366,7 @@ dgs3dNewQuadric(M):=(
   obj
 );
 
-// p1: point, p2: point|line, size:real = radius, visible: should object be drawn
+// p1: point, p2: point|line, size:real = radius, visible: bool = should object be drawn
 cglInterface(join3d,dgs3dJoin2,(p1,p2),(size,visible));
 dgs3dJoin2(a,b):=(
   if(a:"type" == "point" & b:"type" == "point",
@@ -369,7 +380,7 @@ dgs3dJoin2(a,b):=(
   )));
 );
 
-// p1: point, p2: point, size:real = radius, visible: should object be drawn
+// p1: point, p2: point, size:real = radius, visible: bool = should object be drawn
 dgs3dJoin2P(p1,p2):=(
   regional(obj);
   obj = dgs3dNewObject("line",[p1,p2]);
@@ -385,7 +396,7 @@ dgs3dJoin2P(p1,p2):=(
   obj
 );
 
-// p1: point, l1: line, visible: should object be drawn
+// p1: point, l1: line, visible: bool = should object be drawn
 dgs3dJoinPL(p1,l1):=(
   regional(obj);
   obj = dgs3dNewObject("plane",[p1,l1]);
@@ -400,7 +411,7 @@ dgs3dJoinPL(p1,l1):=(
   obj
 );
 
-// p0: vec4 (x,y,z,w), l: line , size: real = radius, pinned:bool = fixed position, visible: should object be drawn
+// p0: vec4 (x,y,z,w), l: line , size: real = radius, pinned:bool = fixed position, visible: bool = should object be drawn
 cglInterface(pointOnLine3d,dgs3dPointOnLine,(p0,l),(size,pinned,visible));
 dgs3dPointOnLine(p0,l):=(
   regional(obj);
@@ -428,7 +439,7 @@ dgs3dPointOnLine(p0,l):=(
   obj
 );
 
-// p1: point, p2: point, p3: point  or  p1: line, p2: line, p3: line, visible: should object be drawn
+// p1: point, p2: point, p3: point  or  p1: line, p2: line, p3: line, visible: bool = should object be drawn
 cglInterface(join3d,dgs3dJoin3,(p1,p2,p3),(visible));
 dgs3dJoin3(a,b,c):=(
   if(a:"type" == "point" & b:"type" == "point" & c:"type" == "point",
@@ -439,7 +450,7 @@ dgs3dJoin3(a,b,c):=(
     cglLogWarning("cannot join "+a:"type"+", "+b:"type"+" and "+c:"type");
   ));
 );
-// p1: point, p2: point, p3: point, visible: should object be drawn
+// p1: point, p2: point, p3: point, visible: bool = should object be drawn
 dgs3dJoin3P(p1,p2,p3):=(
   regional(obj);
   obj = dgs3dNewObject("plane",[p1,p2,p3]);
@@ -450,7 +461,7 @@ dgs3dJoin3P(p1,p2,p3):=(
   cglEval(obj:"recompute",obj);
   obj
 );
-// l1: point, l2: point, l3: point, visible: should object be drawn
+// l1: point, l2: point, l3: point, visible: bool = should object be drawn
 dgs3dJoin3L(l1,l2,l3):=(
   regional(obj);
   obj = dgs3dNewObject("quadric",[l1,l2,l3]);
@@ -464,7 +475,7 @@ dgs3dJoin3L(l1,l2,l3):=(
   obj
 );
 
-// p0: vec3|vec4 = (x,y,z,w=1), s: plane , size: real = radius, pinned:bool = fixed position, visible: should object be drawn
+// p0: vec3|vec4 = (x,y,z,w=1), s: plane , size: real = radius, pinned:bool = fixed position, visible: bool = should object be drawn
 cglInterface(pointOnPlane3d,dgs3dPointOnPlane,(p0,s),(size,pinned,visible));
 dgs3dPointOnPlane(p0,s):=(
   regional(obj);
@@ -491,7 +502,7 @@ dgs3dPointOnPlane(p0,s):=(
   );
   obj
 );
-// p0: vec3|vec4 = (x,y,z,w=1), q: quadric , size: real = radius, pinned:bool = fixed position, visible: should object be drawn
+// p0: vec3|vec4 = (x,y,z,w=1), q: quadric , size: real = radius, pinned:bool = fixed position, visible: bool = should object be drawn
 cglInterface(pointOnQuadric3d,dgs3dPointOnQuadric,(p0,q),(size,pinned,visible));
 dgs3dPointOnQuadric(p0,q):=(
   regional(obj);
@@ -530,7 +541,7 @@ dgs3dPointOnQuadric(p0,q):=(
   obj
 );
 
-// p1: plane, p2: plane|line, size:real = radius, visible: should object be drawn
+// p1: plane, p2: plane|line, size:real = radius, visible: bool = should object be drawn
 cglInterface(meet3d,dgs3dMeet2,(P1,P2),(size,visible));
 dgs3dMeet2(a,b):=(
   if(a:"type" == "plane" & b:"type" == "plane",
@@ -549,7 +560,7 @@ dgs3dMeet2(a,b):=(
     cglLogWarning("cannot meet "+a:"type"+" and "+b:"type");
   ))))));
 );
-// P1: plane, P2: plane, size:real = radius, visible: should object be drawn
+// P1: plane, P2: plane, size:real = radius, visible: bool = should object be drawn
 dgs3dMeet2P(P1,P2):=(
   regional(obj);
   obj = dgs3dNewObject("line",[P1,P2]);
@@ -564,7 +575,7 @@ dgs3dMeet2P(P1,P2):=(
   cglEval(obj:"recompute",obj);
   obj
 );
-// P1: plane, l1: line, size:real = radius, visible: should object be drawn
+// P1: plane, l1: line, size:real = radius, visible: bool = should object be drawn
 dgs3dMeetPL(P1,l1):=(
   regional(obj);
   obj = dgs3dNewObject("point",[P1,l1]);
@@ -579,14 +590,14 @@ dgs3dMeetPL(P1,l1):=(
   cglEval(obj:"recompute",obj);
   obj
 );
-// l1: line, l2: line, size:real = radius, visible: should object be drawn
+// l1: line, l2: line, size:real = radius, visible: bool = should object be drawn
 dgs3dMeet2L(l1,l2):=(
   // TODO line intersection
   // point by two lines, there is no projectively invariant equation
   // one possible equation that seems to work for finite points is (0,0,0,1)*L1*L2 )  TODO where does this break
   cglLogError("unimplemented");
 );
-// Q1: quadric, l1: line, size:real = radius, visible: should object be drawn
+// Q1: quadric, l1: line, size:real = radius, visible: bool = should object be drawn
 dgs3dMeetQL(Q1,l1):=(
   regional(obj);
   obj = dgs3dNewObject("pointPair",[Q1,l1]);
@@ -610,7 +621,7 @@ dgs3dMeetQL(Q1,l1):=(
   );
   obj
 );
-// P1: plane, P2: plane, P3: plane, size:real = radius, visible: should object be drawn
+// P1: plane, P2: plane, P3: plane, size:real = radius, visible: bool = should object be drawn
 cglInterface(meet3d,dgs3dMeet3P,(P1,P2,P3),(size,visible));
 dgs3dMeet3P(P1,P2,P3):=(
   regional(obj);
@@ -624,7 +635,7 @@ dgs3dMeet3P(P1,P2,P3):=(
   obj
 );
 
-// Q: quadric, x: point|line|plane => plane size:real = radius, visible: should object be drawn
+// Q: quadric, x: point|line|plane => plane size:real = radius, visible: bool = should object be drawn
 cglInterface(polar3d,dgs3dPolar,(Q,x),(size,visible));
 dgs3dPolar(Q,x):=(
   if(x:"type" == "point",
@@ -637,7 +648,7 @@ dgs3dPolar(Q,x):=(
     cglLogWarning("cannot compute polar of "+x:"type");
   ));
 );
-// Q: quadric, p: point => plane, visible: should object be drawn
+// Q: quadric, p: point => plane, visible: bool = should object be drawn
 dgs3dPolarPlane(Q,p):=(
   regional(obj);
   obj = dgs3dNewObject("plane",[Q,p]);
@@ -649,20 +660,49 @@ dgs3dPolarPlane(Q,p):=(
   cglEval(obj:"recompute",obj);
   obj
 );
-// adjoint of 4x4 matrix
-adjoint4(M):=( // in CindyJS there does not seem to be a adjoint built-in ...
-  regional(Mij);
-  apply(1..4,i,apply(1..4,j,
-    det(apply(M_(remove(1..4,j)),#_(remove(1..4,i))))*(-1)^(i+j)
-  ));
-);
-// Q: quadric, P: plane => point, visible: should object be drawn
+// Q: quadric, P: plane => point, visible: bool = should object be drawn
 dgs3dPolarPoint(Q,P):=(
   regional(obj);
   obj = dgs3dNewObject("point",[Q,P]);
   obj:"radius" = cglValOrDefault(size,cglDefaults:"sphereSize");
   obj:"recompute" = cglLazy(self,  
     self:"coords" = adjoint4(self:"parents"_1:"coords") * self:"parents"_2:"coords";
+    cglEval(self:"redraw",self);
+  );
+  cglEval(obj:"recompute",obj);
+  obj
+);
+
+// pts: [point; 9] => quadric, visible: bool = should object be drawn
+cglInterface(quadricBy9Points,dgs3dQuadric9point,(pts),(visible));
+dgs3dQuadric9point(pts):=(
+  if(length(pts)!=9,
+    cglLogWarning("wrong number of points expected 9 got "+length(pts));
+  );
+  obj = dgs3dNewObject("quadric",pts);
+  obj:"recompute" = cglLazy(self,
+    regional(pts,v);
+    pts = apply(self:"parents",p,dgs3dSqCoords(p:"coords"));
+    v = transpose(kernel(pts++[(0,0,0,0,0,0,0,0,0,0)]))_1;
+    self:"coords" = ((2*v_1,v_2,v_3,v_4),(v_2,2*v_5,v_6,v_7),(v_3,v_6,2*v_8,v_9),(v_4,v_7,v_9,2*v_10));
+    cglEval(self:"redraw",self);
+  );
+  cglEval(obj:"recompute",obj);
+  obj
+);
+// pts: [plane; 9] => quadric, visible: bool = should object be drawn
+cglInterface(quadricBy9Planes,dgs3dQuadric9plane,(planes),(visible));
+dgs3dQuadric9plane(planes):=(
+  if(length(planes)!=9,
+    cglLogWarning("wrong number of planes expected 9 got "+length(planes));
+  );
+  obj = dgs3dNewObject("quadric",planes);
+  obj:"recompute" = cglLazy(self,
+    regional(planes,v,M);
+    planes = apply(self:"parents",p,dgs3dSqCoords(p:"coords"));
+    v = transpose(kernel(planes++[(0,0,0,0,0,0,0,0,0,0)]))_1;
+    M = ((2*v_1,v_2,v_3,v_4),(v_2,2*v_5,v_6,v_7),(v_3,v_6,2*v_8,v_9),(v_4,v_7,v_9,2*v_10));
+    self:"coords" = adjoint4(M);
     cglEval(self:"redraw",self);
   );
   cglEval(obj:"recompute",obj);
@@ -679,8 +719,6 @@ dgs3dPolarPoint(Q,P):=(
 // * orthogonal plane to line through point
 // * line orthogonal to two other lines 
 // TODO? transformations
-// * quadric by 9 points
-// * quadric by 9 planes
 // ? quadric by mix of points, lines and planes
 // ? plane+quadric
 // ? quadric+quadric
