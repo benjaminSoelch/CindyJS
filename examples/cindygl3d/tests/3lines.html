@@ -41,38 +41,13 @@
             Q = meet3d(join3d(P,l2),l3);
             l = join3d(P,Q);
             R = meet3d(l,join3d(l2,B));
-
+            Q = join3d(l1,l2,l3);
 
             pos3d(p):=(p:"coords"_(1..3));
             pts = ();
-
-            oldL1 = l1:"coords";
-            oldL2 = l2:"coords";
-            oldL3 = l3:"coords";
-
-            sId = -1;
-            update():=(
-                // TODO move quadric by three lines to dgs.cjs
-                M = dgs3dLineMatrix(l1:"coords")*dgs3dLineMatrix(dgs3dDualLine(l2:"coords"))*dgs3dLineMatrix(l3:"coords");
-                M = M + transpose(M);
-                if(sId != -1,
-                    cglUpdate(sId,UM->M);
-                ,
-                    sId = surface3d((x,y,z,1)*M*(x,y,z,1),alpha->0.75,degree->2,plotModifiers->{"M":M},
-                    color->(1,0,.5),layers->2);
-                );
-            );
-            update();
         </script>
         <script id="csdraw" type="text/x-cindyscript">
             dgs3dPreFrame();
-
-            if(oldL1 != l1:"coords" % oldL2 != l2:"coords" % oldL3 != l3:"coords",
-                oldL1 = l1:"coords";
-                oldL2 = l2:"coords";
-                oldL3 = l3:"coords";
-                update();
-            );
 
             cglRender3d();
         </script>

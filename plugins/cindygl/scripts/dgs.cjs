@@ -32,6 +32,7 @@ dgs3dHandleZoom(zoom):=(
   forall(dgs3dPoints,p,cglEval(p:"redraw",p));
   forall(dgs3dLines,l,cglEval(l:"redraw",l));
   forall(dgs3dPlanes,p,cglEval(p:"redraw",p));
+  forall(dgs3dQuadrics,q,cglEval(q:"redraw",q));
 );
 dgs3dUpdateCutoff();
 
@@ -45,9 +46,11 @@ dgs3dMovementAxes(point):=(
         {"type":"parallel","v":(PQ_1 * PQ_2_4 - PQ_2*PQ_1_4)_(1..3)}
       ,if(l:"type" == "plane",
         {"type":"normal","n":(l:"coords")_(1..3)}
+      ,if(l:"type" == "quadric",
+        {"type":"normal","n":((l:"coords"*point:"coords")_(1..3))}
       ,
         cglLogError("unimplemented: moving point depending on "+(l:"type"));
-      ));
+      )));
     ,
       cglLogError("unimplemented: restricted movement");
     )
@@ -83,7 +86,7 @@ dgs3dPreFrame():=(
         newPos = newPos+(truePos-oldPos);
         // update position
         target:"coords" = (newPos_1,newPos_2,newPos_3,1);
-        cglEval(target:"redraw",target);
+        cglEval(target:"recompute",target);
         // TODO more efficient data-structure for queue
         updateQueue = updateQueue ++ target:"children";
       ,if(axes:"type" == "parallel",
@@ -170,7 +173,7 @@ dgs3dDiv0(a,b):=(
 );
 // l: vec6 (point-like), Q: mat4 => vec4 x 2
 dgs3dIntersectLineQuadric(l,Q):=(
-  regional(mL,M,d12,d13,d14,d23,d24,d34,a,r,c0,c);
+  regional(mL,M,d12,d13,d14,d23,d24,d34,a,r,c0,c,rMax,cMax);
   mL = dgs3dLineMatrix(l);
   M = mL*Q*mL;
   // 1. find non-zero 2x2 minor in M
@@ -184,50 +187,64 @@ dgs3dIntersectLineQuadric(l,Q):=(
   a = sqrt(append(remove((d12,d13,d14,d23,d24,d34),0),0)_1);
   // 2. add multiple of mL to make minor 0
   M = M+a*mL;
+  rMax = -1;
+  cMax = -1;
   // 3. pick non-zero row and column
   forall(1..4,i,
-    if(M_i*M_i>0,
-      r = M_i
+    if(abs(M_i*M_i)>rMax,
+      r = M_i;
+      rMax = abs(M_i*M_i);
     );
     c0 = (M_1_i,M_2_i,M_3_i,M_4_i);
-    if(c0*c0>0,
+    if(abs(c0*c0)>cMax,
       c = c0;
+      cMax = abs(c0*c0);
     )
   );
-  (r,c);
+  (r/max(r,|#|),c/max(c,|#|));
 );
 
 dgs3dMovablePoints = [];
 dgs3dPoints = [];
 dgs3dLines = [];
 dgs3dPlanes = [];
+dgs3dQuadrics = [];
 
 dgs3dNewObject(type,parents):=(
   regional(obj);
-  obj = {"type":type, "drawId": -1, "parents": parents, "children": [], "recompute": cglLazy(self,), "redraw": cglLazy(self,)};
+  obj = {"type":type, "drawId": -1, "parents": parents, "children": [], "recompute": cglLazy(self,cglEval(self:"redraw",self)), "redraw": cglLazy(self,)};
   // TODO? give each object a unique id, allow removing objects by id
   if(type == "point",
     dgs3dPoints = append(dgs3dPoints,obj);
+    obj:"redraw" = cglLazy(self,dgs3dRenderPoint(self));
   ,if(type == "line",
     dgs3dLines = append(dgs3dLines,obj);
+    obj:"redraw" = cglLazy(self,dgs3dRenderLine(self));
   ,if(type == "plane",
     dgs3dPlanes = append(dgs3dPlanes,obj);
+    obj:"redraw" = cglLazy(self,dgs3dRenderPlane(self));
+  ,if(type == "quadric",
+    dgs3dQuadrics = append(dgs3dQuadrics,obj);
+    obj:"redraw" = cglLazy(self,dgs3dRenderQuadric(self));
+  ,if(type == "pointPair",
+    // nothing to do
   ,
     cglLogWarning("unknown object type");
-  )));
+  )))));
   forall(parents,parent,
     parent:"children" = append(parent:"children",obj);
   );
   obj;
 );
 
+// FIXME: do not render objects with complex coordinates
 // TODO? only render points within drawing region
 dgs3dRenderPoint(self):=(
   regional(p);
   p = self:"coords";
   if(p_4 != 0,
     if(self:"drawId"==-1,
-      self:"drawId" = draw3d(p_(1..3)/p_4,size->size);
+      self:"drawId" = draw3d(p_(1..3)/p_4,size->self:"radius");
     ,
       cglUpdateBounds(self:"drawId",p_(1..3)/p_4,self:"radius")
     );
@@ -262,6 +279,16 @@ dgs3dRenderPlane(self):=(
     cglUpdate(self:"drawId",Un->self:"coords");
   );
 );
+dgs3dRenderQuadric(self):=(
+  regional(M); // make M visible in callee scopes
+  if(self:"drawId"==-1,
+    M = self:"coords";
+    // TODO? use custom cutoff-region instead of default
+    self:"drawId" = surface3d((x,y,z,1)*M*(x,y,z,1),plotModifiers->{"M":self:"coords"},alpha->0.75,color->(1,0,0.5));
+  ,
+    cglUpdate(self:"drawId",UM->self:"coords");
+  );
+);
 
 // p: vec3 | vec4 => vec4
 dgs3dPoint4(p):=(
@@ -283,7 +310,6 @@ dgs3dNewPoint(p):=(
   obj:"coords" = dgs3dPoint4(p);
   obj:"radius" = cglValOrDefault(size,cglDefaults:"sphereSize");
   dgs3dRenderPoint(obj);
-  obj:"redraw" = cglLazy(self,dgs3dRenderPoint(self));
   if(cglValOrDefault(pinned,false),
     obj:"movable" = false;
   ,
@@ -294,18 +320,26 @@ dgs3dNewPoint(p):=(
 );
 // TODO? line3d !collides with line3d in CindyGL3D
 
-// p: vec4 -> (x,y,z,w) 
+// p: vec4 = (x,y,z,w) 
 cglInterface(plane3d,dgs3dNewPlane,(p),());
 dgs3dNewPlane(p):=(
   regional(obj);
   obj = dgs3dNewObject("plane",[]);
   obj:"coords" = p;
   dgs3dRenderPlane(obj);
-  obj:"redraw" = cglLazy(self,dgs3dRenderPlane(self));
+  obj
+);
+// p: mat4
+cglInterface(quadric3d,dgs3dNewQuadric,(p),());
+dgs3dNewQuadric(M):=(
+  regional(obj);
+  obj = dgs3dNewObject("quadric",[]);
+  obj:"coords" = M;
+  dgs3dRenderQuadric(obj);
   obj
 );
 
-// p1: point, p2: point|line, size:real -> radius
+// p1: point, p2: point|line, size:real = radius
 cglInterface(join3d,dgs3dJoin2,(p1,p2),(size));
 dgs3dJoin2(a,b):=(
   if(a:"type" == "point" & b:"type" == "point",
@@ -319,7 +353,7 @@ dgs3dJoin2(a,b):=(
   )));
 );
 
-// p1: point, p2: point, size:real -> radius
+// p1: point, p2: point, size:real = radius
 dgs3dJoin2P(p1,p2):=(
   regional(obj);
   obj = dgs3dNewObject("line",[p1,p2]);
@@ -331,7 +365,6 @@ dgs3dJoin2P(p1,p2):=(
     self:"coords" = dgs3dEpsilon44(a,b);
     cglEval(self:"redraw",self);
   );
-  obj:"redraw" = cglLazy(self,dgs3dRenderLine(self));
   cglEval(obj:"recompute",obj);
   obj
 );
@@ -347,12 +380,11 @@ dgs3dJoinPL(p1,l1):=(
     self:"coords" = dgs3dEpsilon46(p:"coords",dgs3dDualLine(l:"coords"));
     cglEval(self:"redraw",self);
   );
-  obj:"redraw" = cglLazy(self,dgs3dRenderPlane(self));
   cglEval(obj:"recompute",obj);
   obj
 );
 
-// p0: vec4 (x,y,z,w), l: line , size: real -> radius, pinned:bool -> fixed position
+// p0: vec4 (x,y,z,w), l: line , size: real = radius, pinned:bool = fixed position
 cglInterface(pointOnLine3d,dgs3dPointOnLine,(p0,l),(size,pinned));
 dgs3dPointOnLine(p0,l):=(
   regional(obj);
@@ -370,7 +402,6 @@ dgs3dPointOnLine(p0,l):=(
     self:"coords" = p;
     cglEval(self:"redraw",self);
   );
-  obj:"redraw" = cglLazy(self,dgs3dRenderPoint(self));
   cglEval(obj:"recompute",obj);
   if(cglValOrDefault(pinned,false),
     obj:"movable" = false;
@@ -381,8 +412,18 @@ dgs3dPointOnLine(p0,l):=(
   obj
 );
 
+// p1: point, p2: point, p3: point  or  p1: line, p2: line, p3: line
+cglInterface(join3d,dgs3dJoin3,(p1,p2,p3),());
+dgs3dJoin3(a,b,c):=(
+  if(a:"type" == "point" & b:"type" == "point" & c:"type" == "point",
+    dgs3dJoin3P(a,b,c);
+  ,if(a:"type" == "line" & b:"type" == "line" & c:"type" == "line",
+    dgs3dJoin3L(a,b,c);
+  ,
+    cglLogWarning("cannot join "+a:"type"+", "+b:"type"+" and "+c:"type");
+  ));
+);
 // p1: point, p2: point, p3: point
-cglInterface(join3d,dgs3dJoin3P,(p1,p2,p3),());
 dgs3dJoin3P(p1,p2,p3):=(
   regional(obj);
   obj = dgs3dNewObject("plane",[p1,p2,p3]);
@@ -390,13 +431,25 @@ dgs3dJoin3P(p1,p2,p3):=(
     self:"coords" = dgs3dEpsilon444(self:"parents"_1:"coords",self:"parents"_2:"coords",self:"parents"_3:"coords");
     cglEval(self:"redraw",self);
   );
-  obj:"redraw" = cglLazy(self,dgs3dRenderPlane(self));
+  cglEval(obj:"recompute",obj);
+  obj
+);
+// l1: point, l2: point, l3: point
+dgs3dJoin3L(l1,l2,l3):=(
+  regional(obj);
+  obj = dgs3dNewObject("quadric",[l1,l2,l3]);
+  obj:"recompute" = cglLazy(self,
+    regional(M);
+    M = dgs3dLineMatrix(l1:"coords")*dgs3dLineMatrix(dgs3dDualLine(l2:"coords"))*dgs3dLineMatrix(l3:"coords");
+    self:"coords" = M + transpose(M);
+    cglEval(self:"redraw",self);
+  );
   cglEval(obj:"recompute",obj);
   obj
 );
 
-// p0: vec4 (x,y,z), s: plane , size: real -> radius, pinned:bool -> fixed position
-cglInterface(pointOnPlane3d,dgs3dPointOnPlane,(p0,l),(size,pinned));
+// p0: vec3|vec4 = (x,y,z,w=1), s: plane , size: real = radius, pinned:bool = fixed position
+cglInterface(pointOnPlane3d,dgs3dPointOnPlane,(p0,s),(size,pinned));
 dgs3dPointOnPlane(p0,s):=(
   regional(obj);
   obj = dgs3dNewObject("point",[s]);
@@ -413,7 +466,46 @@ dgs3dPointOnPlane(p0,s):=(
     self:"coords" = (p_1,p_2,p_3,1);
     cglEval(self:"redraw",self);
   );
-  obj:"redraw" = cglLazy(self,dgs3dRenderPoint(self));
+  cglEval(obj:"recompute",obj);
+  if(cglValOrDefault(pinned,false),
+    obj:"movable" = false;
+  ,
+    obj:"movable" = true;
+    dgs3dMovablePoints = append(dgs3dMovablePoints,obj);
+  );
+  obj
+);
+// p0: vec3|vec4 = (x,y,z,w=1), q: quadric , size: real = radius, pinned:bool = fixed position
+cglInterface(pointOnQuadric3d,dgs3dPointOnQuadric,(p0,q),(size,pinned));
+dgs3dPointOnQuadric(p0,q):=(
+  regional(obj);
+  obj = dgs3dNewObject("point",[q]);
+  obj:"radius" = cglValOrDefault(size,cglDefaults:"sphereSize");
+  obj:"coords" = dgs3dPoint4(p0);
+  obj:"recompute" = cglLazy(self,
+    regional(p,Q,n,l,AB,a,b);
+    p = self:"coords";
+    Q = (self:"parents"_1):"coords";
+    // FIXME there seems to be a bug in the projection code:
+    //  * point is stuck close to center
+    //  * point can leave surface when moving to fast
+    // 1. get line through point normal to surface
+    n = Q * p;
+    l = dgs3dEpsilon44(p,p+(n_1,n_2,n_3,0));
+    // 2. intersect line with quadric
+    AB = dgs3dIntersectLineQuadric(dgs3dDualLine(l),Q);
+    // 3. choose intersection closer to current pos
+    a = (p-AB_1)*(p-AB_1);
+    b = (p-AB_2)*(p-AB_2);
+    // TODO? does this need tracing
+    // assignment inside branches to avoid assigning value when comparison is undefined
+    if(a<b,
+      self:"coords" = AB_1
+    ,
+      self:"coords" = AB_2
+    );
+    cglEval(self:"redraw",self);
+  );
   cglEval(obj:"recompute",obj);
   if(cglValOrDefault(pinned,false),
     obj:"movable" = false;
@@ -424,7 +516,7 @@ dgs3dPointOnPlane(p0,s):=(
   obj
 );
 
-// p1: plane, p2: plane|line, size:real -> radius
+// p1: plane, p2: plane|line, size:real = radius
 cglInterface(meet3d,dgs3dMeet2,(P1,P2),(size));
 dgs3dMeet2(a,b):=(
   if(a:"type" == "plane" & b:"type" == "plane",
@@ -435,11 +527,15 @@ dgs3dMeet2(a,b):=(
     dgs3dMeetPL(b,a);
   ,if(a:"type" == "line" & b:"type" == "line",
     dgs3dMeet2L(a,b);
+  ,if(a:"type" == "quadric" & b:"type" == "line",
+    dgs3dMeetQL(a,b);
+  ,if(a:"type" == "line" & b:"type" == "quadric",
+    dgs3dMeetQL(b,a);
   ,
-    cglLogWarning("cannot join "+a:"type"+" and "+b:"type");
-  ))));
+    cglLogWarning("cannot meet "+a:"type"+" and "+b:"type");
+  ))))));
 );
-// P1: plane, P2: plane, size:real -> radius
+// P1: plane, P2: plane, size:real = radius
 dgs3dMeet2P(P1,P2):=(
   regional(obj);
   obj = dgs3dNewObject("line",[P1,P2]);
@@ -451,11 +547,10 @@ dgs3dMeet2P(P1,P2):=(
     self:"coords" = dgs3dDualLine(dgs3dEpsilon44(A,B));
     cglEval(self:"redraw",self);
   );
-  obj:"redraw" = cglLazy(self,dgs3dRenderLine(self));
   cglEval(obj:"recompute",obj);
   obj
 );
-// P1: plane, l1: line, size:real -> radius
+// P1: plane, l1: line, size:real = radius
 dgs3dMeetPL(P1,l1):=(
   regional(obj);
   obj = dgs3dNewObject("point",[P1,l1]);
@@ -467,18 +562,41 @@ dgs3dMeetPL(P1,l1):=(
     self:"coords" = dgs3dEpsilon46(p:"coords",l:"coords");
     cglEval(self:"redraw",self);
   );
-  obj:"redraw" = cglLazy(self,dgs3dRenderPoint(self));
   cglEval(obj:"recompute",obj);
   obj
 );
-// l1: line, l2: line, size:real -> radius
+// l1: line, l2: line, size:real = radius
 dgs3dMeet2L(l1,l2):=(
   // TODO line intersection
   // point by two lines, there is no projectively invariant equation
-  // on possible equation that seems to work for finite points -> (0,0,0,1)*L1*L2 )  TODO where does this break
+  // one possible equation that seems to work for finite points is (0,0,0,1)*L1*L2 )  TODO where does this break
   cglLogError("unimplemented");
 );
-// P1: plane, P2: plane, P3: plane, size:real -> radius
+// Q1: quadric, l1: line, size:real = radius
+dgs3dMeetQL(Q1,l1):=(
+  regional(obj);
+  obj = dgs3dNewObject("pointPair",[Q1,l1]);
+  obj:"children" = [dgs3dNewObject("point",[obj]),dgs3dNewObject("point",[obj])];
+  obj:"recompute" = cglLazy(self,
+    regional(Q,l,AB);
+    Q = self:"parents"_1:"coords";
+    l = self:"parents"_2:"coords";
+    AB = dgs3dIntersectLineQuadric(dgs3dDualLine(l),Q);
+    self:"coords"=AB;
+    // TODO: tracing
+    self:"children"_1:"coords" = AB_1;
+    self:"children"_2:"coords" = AB_2;
+  );
+  cglEval(obj:"recompute",obj);
+  forall(obj:"children",child,
+    child:"radius" = cglValOrDefault(size,cglDefaults:"sphereSize");
+    print(child:"coords"_(1..3)/child:"coords"_4);
+    cglEval(child:"recompute",child);
+    dgs3dRenderPoint(child);
+  );
+  obj
+);
+// P1: plane, P2: plane, P3: plane, size:real = radius
 cglInterface(meet3d,dgs3dMeet3P,(P1,P2,P3),(size));
 dgs3dMeet3P(P1,P2,P3):=(
   regional(obj);
@@ -488,12 +606,58 @@ dgs3dMeet3P(P1,P2,P3):=(
     self:"coords" = dgs3dEpsilon444(self:"parents"_1:"coords",self:"parents"_2:"coords",self:"parents"_3:"coords");
     cglEval(self:"redraw",self);
   );
-  obj:"redraw" = cglLazy(self,dgs3dRenderPoint(self));
+  cglEval(obj:"recompute",obj);
+  obj
+);
+
+// Q: quadric, x: point|line|plane => plane size:real = radius
+cglInterface(polar3d,dgs3dPolar,(Q,x),(size));
+dgs3dPolar(Q,x):=(
+  if(x:"type" == "point",
+    dgs3dPolarPlane(Q,x);
+  // TODO? is there a geometrically meaningful way to polarize a line
+  ,if(x:"type" == "plane",
+    dgs3dPolarPoint(Q,x);
+  // TODO? polar quadric
+  ,
+    cglLogWarning("cannot compute polar of "+x:"type");
+  ));
+);
+// Q: quadric, p: point => plane
+dgs3dPolarPlane(Q,p):=(
+  regional(obj);
+  obj = dgs3dNewObject("plane",[Q,p]);
+  obj:"radius" = cglValOrDefault(size,cglDefaults:"sphereSize");
+  obj:"recompute" = cglLazy(self,  
+    self:"coords" = self:"parents"_1:"coords" * self:"parents"_2:"coords";
+    cglEval(self:"redraw",self);
+  );
+  cglEval(obj:"recompute",obj);
+  obj
+);
+// adjoint of 4x4 matrix
+adjoint4(M):=( // in CindyJS there does not seem to be a adjoint built-in ...
+  regional(Mij);
+  apply(1..4,i,apply(1..4,j,
+    det(apply(M_(remove(1..4,j)),#_(remove(1..4,i))))*(-1)^(i+j)
+  ));
+);
+// Q: quadric, P: plane => point
+dgs3dPolarPoint(Q,P):=(
+  regional(obj);
+  obj = dgs3dNewObject("point",[Q,P]);
+  obj:"radius" = cglValOrDefault(size,cglDefaults:"sphereSize");
+  obj:"recompute" = cglLazy(self,  
+    self:"coords" = adjoint4(self:"parents"_1:"coords") * self:"parents"_2:"coords";
+    cglEval(self:"redraw",self);
+  );
   cglEval(obj:"recompute",obj);
   obj
 );
 
 // TODO option to hide intermediate objects
+
+// TODO? more intuitive names for functions
 
 // TODO? euclidean operations
 // * parallel plane through point
@@ -503,11 +667,12 @@ dgs3dMeet3P(P1,P2,P3):=(
 // * orthogonal plane to line through point
 // * line orthogonal to two other lines 
 // TODO? transformations
-// TODO? add support for quadrics
-// ? quadric by 9 points
-// ? point on quadric
-// * line+quadric
+// * quadric by 9 points
+// * quadric by 9 planes
+// ? quadric by mix of points, lines and planes
+// ? quadric by 3 dual lines (does this have any geometric meaning)
 // ? plane+quadric
+// ? quadric+quadric
 
 dgs3dFind(x,y):=(
   regional(root,dir,res,dist);
