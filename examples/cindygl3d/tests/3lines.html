@@ -26,7 +26,6 @@
             );
             cglDefaults_"sphereSize" = 0.1;
             cglDefaults_"cylinderSize" = 0.05;
-            dgs3dRenderPlane(p):=();//disable plane rendering
 
             A = point3d((1,0,0));
             B = point3d((0,1,0));
@@ -38,9 +37,9 @@
             l2 = join3d(C,D);
             l3 = join3d(E,F);
             P = pointOnLine3d((0,0,0),l1);
-            Q = meet3d(join3d(P,l2),l3);
+            Q = meet3d(join3d(P,l2,visible->false),l3);
             l = join3d(P,Q);
-            R = meet3d(l,join3d(l2,B));
+            R = meet3d(l,join3d(l2,B,visible->false));
             Q = join3d(l1,l2,l3);
 
             pos3d(p):=(p:"coords"_(1..3));
