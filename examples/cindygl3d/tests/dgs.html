@@ -48,9 +48,8 @@
             H = meet3d(P2,l8);
             K = meet3d(P1,P2,P3);
             // parallels
-            Pinf = plane3d((0,0,0,1));
-            l9 = join3d(G,meet3d(l1,Pinf));
-            P4 = join3d(G,meet3d(P1,Pinf));
+            l9 = parallel3d(l1,G);
+            P4 = parallel3d(P1,G);
         </script>
         <script id="csdraw" type="text/x-cindyscript">
             dgs3dPreFrame();

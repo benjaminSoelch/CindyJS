@@ -1,4 +1,7 @@
 // TODO move internal global variables to namespace
+////////////////
+// Controls
+////////////////
 dgs3dPrepare():=(
     sx = mouse().x;
     sy = mouse().y;
@@ -134,6 +137,9 @@ dgs3dPreFrame():=(
     );
 );
 
+////////////////
+// Tensor Math
+////////////////
 
 // a:vec4, b: vec4  => vec6
 dgs3dEpsilon44(a,b):=(
@@ -214,6 +220,10 @@ adjoint4(M):=( // in CindyJS there does not seem to be a adjoint built-in ...
 dgs3dSqCoords(p):=(
   (p_1*p_1,p_1*p_2,p_1*p_3,p_1*p_4,p_2*p_2,p_2*p_3,p_2*p_4,p_3*p_3,p_3*p_4,p_4*p_4);
 );
+
+////////////////
+// Objects + Rendering
+////////////////
 
 dgs3dMovablePoints = [];
 dgs3dPoints = [];
@@ -316,6 +326,10 @@ dgs3dRenderQuadric(self):=(
     );
   );
 );
+
+////////////////
+// Projective Primitives
+////////////////
 
 // p: vec3 | vec4 => vec4
 dgs3dPoint4(p):=(
@@ -709,11 +723,57 @@ dgs3dQuadric9plane(planes):=(
   obj
 );
 
+////////////////
+// Euclidean Operations
+////////////////
+
+// x: plane|line, p: point => line; size:real = radius, visible: bool = should object be drawn
+cglInterface(parallel3d,dgs3dParallel,(x,p),(size,visible));
+dgs3dParallel(x,p):=(
+  if(x:"type" == "line",
+    dgs3dParallelLine(x,p);
+  ,if(x:"type" == "plane",
+    dgs3dParallelPlane(x,p);
+  ,
+    cglLogWarning("cannot compute parallel to "+x:"type");
+  ));
+);
+// l: line, p: point => line; size:real = radius, visible: bool = should object be drawn
+dgs3dParallelLine(l,p):=(
+  regional(obj);
+  obj = dgs3dNewObject("line",[l,p]);
+  obj:"radius" = cglValOrDefault(size,cglDefaults:"cylinderSize");
+  obj:"recompute" = cglLazy(self,
+    regional(l,p);
+    l = self:"parents"_1:"coords";
+    p = self:"parents"_2:"coords";
+    self:"coords" = dgs3dEpsilon44(p,dgs3dEpsilon46((0,0,0,1),l));
+    cglEval(self:"redraw",self);
+  );
+  cglEval(obj:"recompute",obj);
+  obj
+);
+// P: plane, p: point => plane; size:real = radius, visible: bool = should object be drawn
+dgs3dParallelPlane(P,p):=(
+  regional(obj);
+  obj = dgs3dNewObject("plane",[P,p]);
+  obj:"radius" = cglValOrDefault(size,cglDefaults:"cylinderSize");
+  obj:"recompute" = cglLazy(self,
+    regional(P,p);
+    P = self:"parents"_1:"coords";
+    p = self:"parents"_2:"coords";
+    self:"coords" = dgs3dEpsilon46(p,dgs3dEpsilon44((0,0,0,1),P));
+    cglEval(self:"redraw",self);
+  );
+  cglEval(obj:"recompute",obj);
+  obj
+);
+
+
 // TODO? more intuitive names for functions
+// TODO? make colors customizable
 
 // TODO? euclidean operations
-// * parallel plane through point
-// * parallel line through point
 // * orthogonal line to plane through point
 // * orthogonal line to line through point
 // * orthogonal plane to line through point
