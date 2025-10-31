@@ -75,7 +75,7 @@ dgs3dPreFrame():=(
       if(axes:"type" == "normal",
         // compute intersections with movement plane for old and new view-ray
         movePlaneNormal = axes:"n";
-        center = target:"coords"_(1..3);
+        center = target:"coords"_(1..3)/target:"coords"_4;
         movePlaneOffset = movePlaneNormal * center;
         oldT = (movePlaneOffset - movePlaneNormal * viewPos) / (movePlaneNormal * oldDirection);
         newT = (movePlaneOffset - movePlaneNormal * viewPos) / (movePlaneNormal * newDirection);
@@ -502,18 +502,16 @@ dgs3dPointOnQuadric(p0,q):=(
     regional(p,Q,n,l,AB,a,b);
     p = self:"coords";
     Q = (self:"parents"_1):"coords";
-    // FIXME there seems to be a bug in the projection code:
-    //  * point is stuck close to center
-    //  * point can leave surface when moving to fast
     // 1. get line through point normal to surface
     n = Q * p;
     l = dgs3dEpsilon44(p,p+(n_1,n_2,n_3,0));
     // 2. intersect line with quadric
     AB = dgs3dIntersectLineQuadric(dgs3dDualLine(l),Q);
+    // TODO better tracing
+    //  point gets unstable when normal plane is close to orthogonal to view direction
     // 3. choose intersection closer to current pos
     a = (p-AB_1)*(p-AB_1);
     b = (p-AB_2)*(p-AB_2);
-    // TODO? does this need tracing
     // assignment inside branches to avoid assigning value when comparison is undefined
     if(a<b,
       self:"coords" = AB_1
@@ -598,8 +596,8 @@ dgs3dMeetQL(Q1,l1):=(
     Q = self:"parents"_1:"coords";
     l = self:"parents"_2:"coords";
     AB = dgs3dIntersectLineQuadric(dgs3dDualLine(l),Q);
-    self:"coords"=AB;
-    // TODO: tracing
+    self:"coords" = AB;
+    // FIXME: tracing
     self:"children"_1:"coords" = AB_1;
     self:"children"_2:"coords" = AB_2;
   );
