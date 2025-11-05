@@ -119,9 +119,10 @@ dgs3dPreFrame():=(
       target = dgs3dFind(mx,my);
       if(target!=oldTarget,
         if(!isundefined(oldTarget),
-          cglUpdate(oldTarget:"drawId",UcglColor->cglRed);
+          cglUpdate(oldTarget:"drawId",UcglColor->oldTarget:"color");
         );
         if(!isundefined(target),
+          // TODO make focus color customizable, ? set color depending on color of point
           cglUpdate(target:"drawId",UcglColor->cglGreen);
         );
         oldTarget = target;
@@ -231,6 +232,19 @@ dgs3dLines = [];
 dgs3dPlanes = [];
 dgs3dQuadrics = [];
 
+// obj3d = {type: string, coords: [number], visible: bool, size: real, color: vec3, alpha: real}
+
+//  TODO: switch to storing child/parent objects using their identifier
+//   -> makes load/store and undo/redo easier
+
+// TODO? add additional fields
+// + name: string -> unique identifier for object
+// +  algorithm: string -> identifier for algorithm used to construct object
+//    TODO? support running algorithm by name
+//      * dgs3dCreate(algorithm:"string",args:[obj3d])
+// + defined incidences / deduced incidences
+
+// type: string, parents: [obj3d] -> obj3d
 dgs3dNewObject(type,parents):=(
   regional(obj);
   obj = {
@@ -242,15 +256,23 @@ dgs3dNewObject(type,parents):=(
   // TODO? give each object a unique id, allow removing objects by id
   if(type == "point",
     dgs3dPoints = append(dgs3dPoints,obj);
+    obj:"color" = cglValOrDefault(color,cglRed);
+    obj:"alpha" = cglValOrDefault(alpha,1);
     obj:"redraw" = cglLazy(self,dgs3dRenderPoint(self));
   ,if(type == "line",
     dgs3dLines = append(dgs3dLines,obj);
+    obj:"color" = cglValOrDefault(color,cglBlack);
+    obj:"alpha" = cglValOrDefault(alpha,1);
     obj:"redraw" = cglLazy(self,dgs3dRenderLine(self));
   ,if(type == "plane",
     dgs3dPlanes = append(dgs3dPlanes,obj);
+    obj:"color" = cglValOrDefault(color,cglCyan);
+    obj:"alpha" = cglValOrDefault(alpha,0.67);
     obj:"redraw" = cglLazy(self,dgs3dRenderPlane(self));
   ,if(type == "quadric",
     dgs3dQuadrics = append(dgs3dQuadrics,obj);
+    obj:"color" = cglValOrDefault(color,(0.5,0,1));
+    obj:"alpha" = cglValOrDefault(alpha,0.67);
     obj:"redraw" = cglLazy(self,dgs3dRenderQuadric(self));
   ,if(type == "pointPair",
     // nothing to do
@@ -263,23 +285,31 @@ dgs3dNewObject(type,parents):=(
   obj;
 );
 
+// TODO? better name
+cglInterface(color3d,dgs3dUpdateColor,(obj),(visible,color,alpha));
+dgs3dUpdateColor(obj):=(
+  obj:"color" = cglValOrDefault(color,obj:"color");
+  obj:"alpha" = cglValOrDefault(alpha,obj:"alpha");
+  obj:"visible" = cglValOrDefault(alpha,obj:"visible");
+ cglEval(obj:"redraw",obj);
+);
+
 // TODO do not render objects with complex coordinates
 // TODO? only render points within drawing region
 dgs3dRenderPoint(self):=(
   regional(p);
-  if(self:"visible" == true, // treat undefined as falsy
-    p = self:"coords";
-    if(p_4 != 0,
-      if(self:"drawId"==-1,
-        self:"drawId" = draw3d(p_(1..3)/p_4,size->self:"radius");
-      ,
-        cglUpdateBounds(self:"drawId",p_(1..3)/p_4,self:"radius");
-        cglSetVisible(self:"drawId",true);
-      );
-    ,if(self:"drawId"!=-1,
-      cglSetVisible(self:"drawId",false);
-    ));
-  );
+  p = self:"coords";
+  if(self:"visible" == true & min(apply(p,isreal(#))) & p_4 != 0, // treat undefined as falsy
+    if(self:"drawId"==-1,
+      self:"drawId" = draw3d(p_(1..3)/p_4,size->self:"size",color->self:"color",alpha->self:"alpha");
+    ,
+      cglUpdate(self:"drawId",UcglColor->self:"color",UcglAlpha->self:"alpha");
+      cglUpdateBounds(self:"drawId",p_(1..3)/p_4,self:"size");
+      cglSetVisible(self:"drawId",true);
+    );
+  ,if(self:"drawId"!=-1,
+    cglSetVisible(self:"drawId",false);
+  ));
 );
 // TODO? line segments: use definition-points instead of sphere intersections if they are closer to center of clipping sphere
 dgs3dRenderLine(self):=(
@@ -289,15 +319,18 @@ dgs3dRenderLine(self):=(
     PQ = dgs3dIntersectLineQuadric(dgs3dDualLine(self:"coords"),((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,-dgs3dCutoffRadius*dgs3dCutoffRadius)));
     if(min(apply(PQ_1,isreal(#))),// real solution
       if(self:"drawId"==-1,
-        self:"drawId" = draw3d((PQ_1_(1..3))/PQ_1_4,(PQ_2_(1..3))/PQ_2_4,size->self:"radius")
+        self:"drawId" = draw3d((PQ_1_(1..3))/PQ_1_4,(PQ_2_(1..3))/PQ_2_4,size->self:"size",color->self:"color",alpha->self:"alpha")
       ,
-        cglUpdateBounds(self:"drawId",(PQ_1_(1..3))/PQ_1_4,(PQ_2_(1..3))/PQ_2_4,self:"radius");
+        cglUpdate(self:"drawId",UcglColor->self:"color",UcglAlpha->self:"alpha");
+        cglUpdateBounds(self:"drawId",(PQ_1_(1..3))/PQ_1_4,(PQ_2_(1..3))/PQ_2_4,self:"size");
         cglSetVisible(self:"drawId",true);
       );
     ,if(self:"drawId"!=-1,
       cglSetVisible(self:"drawId",false);
     ));
-  );
+  ,if(self:"drawId"!=-1,
+      cglSetVisible(self:"drawId",false);
+  ));
 );
 // TODO? polygons: render only region bounded by set of (potentially infinite) points
 dgs3dRenderPlane(self):=(
@@ -306,12 +339,14 @@ dgs3dRenderPlane(self):=(
     if(self:"drawId"==-1,
       n = self:"coords";
       // TODO? use custom cutoff-region instead of default
-      self:"drawId" = surface3d(x*n_1+y*n_2+z*n_3+n_4,plotModifiers->{"n":self:"coords"},alpha->0.75);
+      self:"drawId" = surface3d(x*n_1+y*n_2+z*n_3+n_4,plotModifiers->{"n":self:"coords"},color->self:"color",alpha->self:"alpha");
     ,
-      cglUpdate(self:"drawId",Un->self:"coords");
+      cglUpdate(self:"drawId",Un->self:"coords",UcglColor->self:"color",UcglAlpha->self:"alpha");
       cglSetVisible(self:"drawId",true);
     );
-  );
+  ,if(self:"drawId"!=-1,
+      cglSetVisible(self:"drawId",false);
+  ));
 );
 dgs3dRenderQuadric(self):=(
   regional(M); // make M visible in callee scopes
@@ -319,12 +354,14 @@ dgs3dRenderQuadric(self):=(
     if(self:"drawId"==-1,
       M = self:"coords";
       // TODO? use custom cutoff-region instead of default
-      self:"drawId" = surface3d((x,y,z,1)*M*(x,y,z,1),plotModifiers->{"M":self:"coords"},alpha->0.75,color->(1,0,0.5));
+      self:"drawId" = surface3d((x,y,z,1)*M*(x,y,z,1),plotModifiers->{"M":self:"coords"},alpha->self:"alpha",color->self:"color");
     ,
-      cglUpdate(self:"drawId",UM->self:"coords");
+      cglUpdate(self:"drawId",UM->self:"coords",UcglColor->self:"color",UcglAlpha->self:"alpha");
       cglSetVisible(self:"drawId",true);
     );
-  );
+  ,if(self:"drawId"!=-1,
+      cglSetVisible(self:"drawId",false);
+  ));
 );
 
 ////////////////
@@ -344,12 +381,12 @@ dgs3dPoint4(p):=(
 );
 
 // p: vec3|vec4 = (x,y,z)|(x,y,z,w) ; size: real = radius, pinned: bool = fixed position?, visible: bool = should object be drawn
-cglInterface(point3d,dgs3dNewPoint,(p),(size,pinned,visible));
+cglInterface(point3d,dgs3dNewPoint,(p),(size,pinned,visible,color,alpha));
 dgs3dNewPoint(p):=(
   regional(obj);
   obj = dgs3dNewObject("point",[]);
   obj:"coords" = dgs3dPoint4(p);
-  obj:"radius" = cglValOrDefault(size,cglDefaults:"sphereSize");
+  obj:"size" = cglValOrDefault(size,cglDefaults:"sphereSize");
   dgs3dRenderPoint(obj);
   if(cglValOrDefault(pinned,false),
     obj:"movable" = false;
@@ -362,7 +399,7 @@ dgs3dNewPoint(p):=(
 // TODO? line3d !collides with line3d in CindyGL3D
 
 // p: vec4 = (x,y,z,w) , visible: bool = should object be drawn
-cglInterface(plane3d,dgs3dNewPlane,(p),(visible));
+cglInterface(plane3d,dgs3dNewPlane,(p),(visible,color,alpha));
 dgs3dNewPlane(p):=(
   regional(obj);
   obj = dgs3dNewObject("plane",[]);
@@ -371,7 +408,7 @@ dgs3dNewPlane(p):=(
   obj
 );
 // p: mat4, visible: bool = should object be drawn
-cglInterface(quadric3d,dgs3dNewQuadric,(p),(visible));
+cglInterface(quadric3d,dgs3dNewQuadric,(p),(visible,color,alpha));
 dgs3dNewQuadric(M):=(
   regional(obj);
   obj = dgs3dNewObject("quadric",[]);
@@ -381,7 +418,7 @@ dgs3dNewQuadric(M):=(
 );
 
 // p1: point, p2: point|line, size:real = radius, visible: bool = should object be drawn
-cglInterface(join3d,dgs3dJoin2,(p1,p2),(size,visible));
+cglInterface(join3d,dgs3dJoin2,(p1,p2),(size,visible,color,alpha));
 dgs3dJoin2(a,b):=(
   if(a:"type" == "point" & b:"type" == "point",
     dgs3dJoin2P(a,b);
@@ -398,7 +435,7 @@ dgs3dJoin2(a,b):=(
 dgs3dJoin2P(p1,p2):=(
   regional(obj);
   obj = dgs3dNewObject("line",[p1,p2]);
-  obj:"radius" = cglValOrDefault(size,cglDefaults:"cylinderSize");
+  obj:"size" = cglValOrDefault(size,cglDefaults:"cylinderSize");
   obj:"recompute" = cglLazy(self,
     regional(a,b);
     a = (self:"parents"_1):"coords";
@@ -426,11 +463,11 @@ dgs3dJoinPL(p1,l1):=(
 );
 
 // p0: vec4 (x,y,z,w), l: line , size: real = radius, pinned:bool = fixed position, visible: bool = should object be drawn
-cglInterface(pointOnLine3d,dgs3dPointOnLine,(p0,l),(size,pinned,visible));
+cglInterface(pointOnLine3d,dgs3dPointOnLine,(p0,l),(size,pinned,visible,color,alpha));
 dgs3dPointOnLine(p0,l):=(
   regional(obj);
   obj = dgs3dNewObject("point",[l]);
-  obj:"radius" = cglValOrDefault(size,cglDefaults:"sphereSize");
+  obj:"size" = cglValOrDefault(size,cglDefaults:"sphereSize");
   obj:"coords" = dgs3dPoint4(p0);
   obj:"recompute" = cglLazy(self,
     regional(p,l,K);
@@ -454,7 +491,7 @@ dgs3dPointOnLine(p0,l):=(
 );
 
 // p1: point, p2: point, p3: point  or  p1: line, p2: line, p3: line, visible: bool = should object be drawn
-cglInterface(join3d,dgs3dJoin3,(p1,p2,p3),(visible));
+cglInterface(join3d,dgs3dJoin3,(p1,p2,p3),(visible,color,alpha));
 dgs3dJoin3(a,b,c):=(
   if(a:"type" == "point" & b:"type" == "point" & c:"type" == "point",
     dgs3dJoin3P(a,b,c);
@@ -490,11 +527,11 @@ dgs3dJoin3L(l1,l2,l3):=(
 );
 
 // p0: vec3|vec4 = (x,y,z,w=1), s: plane , size: real = radius, pinned:bool = fixed position, visible: bool = should object be drawn
-cglInterface(pointOnPlane3d,dgs3dPointOnPlane,(p0,s),(size,pinned,visible));
+cglInterface(pointOnPlane3d,dgs3dPointOnPlane,(p0,s),(size,pinned,visible,color,alpha));
 dgs3dPointOnPlane(p0,s):=(
   regional(obj);
   obj = dgs3dNewObject("point",[s]);
-  obj:"radius" = cglValOrDefault(size,cglDefaults:"sphereSize");
+  obj:"size" = cglValOrDefault(size,cglDefaults:"sphereSize");
   obj:"coords" = dgs3dPoint4(p0);
   obj:"recompute" = cglLazy(self,
     regional(p4,p,s,n);
@@ -517,11 +554,11 @@ dgs3dPointOnPlane(p0,s):=(
   obj
 );
 // p0: vec3|vec4 = (x,y,z,w=1), q: quadric , size: real = radius, pinned:bool = fixed position, visible: bool = should object be drawn
-cglInterface(pointOnQuadric3d,dgs3dPointOnQuadric,(p0,q),(size,pinned,visible));
+cglInterface(pointOnQuadric3d,dgs3dPointOnQuadric,(p0,q),(size,pinned,visible,color,alpha));
 dgs3dPointOnQuadric(p0,q):=(
   regional(obj);
   obj = dgs3dNewObject("point",[q]);
-  obj:"radius" = cglValOrDefault(size,cglDefaults:"sphereSize");
+  obj:"size" = cglValOrDefault(size,cglDefaults:"sphereSize");
   obj:"coords" = dgs3dPoint4(p0);
   obj:"recompute" = cglLazy(self,
     regional(p,Q,n,l,AB,a,b);
@@ -556,7 +593,7 @@ dgs3dPointOnQuadric(p0,q):=(
 );
 
 // p1: plane, p2: plane|line, size:real = radius, visible: bool = should object be drawn
-cglInterface(meet3d,dgs3dMeet2,(P1,P2),(size,visible));
+cglInterface(meet3d,dgs3dMeet2,(P1,P2),(size,visible,color,alpha));
 dgs3dMeet2(a,b):=(
   if(a:"type" == "plane" & b:"type" == "plane",
     dgs3dMeet2P(a,b);
@@ -578,7 +615,7 @@ dgs3dMeet2(a,b):=(
 dgs3dMeet2P(P1,P2):=(
   regional(obj);
   obj = dgs3dNewObject("line",[P1,P2]);
-  obj:"radius" = cglValOrDefault(size,cglDefaults:"cylinderSize");
+  obj:"size" = cglValOrDefault(size,cglDefaults:"cylinderSize");
   obj:"recompute" = cglLazy(self,
     regional(A,B);
     A = (self:"parents"_1):"coords";
@@ -593,7 +630,7 @@ dgs3dMeet2P(P1,P2):=(
 dgs3dMeetPL(P1,l1):=(
   regional(obj);
   obj = dgs3dNewObject("point",[P1,l1]);
-  obj:"radius" = cglValOrDefault(size,cglDefaults:"sphereSize");
+  obj:"size" = cglValOrDefault(size,cglDefaults:"sphereSize");
   obj:"recompute" = cglLazy(self,
     regional(p,l);
     p = self:"parents"_1;
@@ -628,7 +665,7 @@ dgs3dMeetQL(Q1,l1):=(
   );
   cglEval(obj:"recompute",obj);
   forall(obj:"children",child,
-    child:"radius" = cglValOrDefault(size,cglDefaults:"sphereSize");
+    child:"size" = cglValOrDefault(size,cglDefaults:"sphereSize");
     print(child:"coords"_(1..3)/child:"coords"_4);
     cglEval(child:"recompute",child);
     dgs3dRenderPoint(child);
@@ -636,11 +673,11 @@ dgs3dMeetQL(Q1,l1):=(
   obj
 );
 // P1: plane, P2: plane, P3: plane, size:real = radius, visible: bool = should object be drawn
-cglInterface(meet3d,dgs3dMeet3P,(P1,P2,P3),(size,visible));
+cglInterface(meet3d,dgs3dMeet3P,(P1,P2,P3),(size,visible,color,alpha));
 dgs3dMeet3P(P1,P2,P3):=(
   regional(obj);
   obj = dgs3dNewObject("point",[P1,P2,P3]);
-  obj:"radius" = cglValOrDefault(size,cglDefaults:"sphereSize");
+  obj:"size" = cglValOrDefault(size,cglDefaults:"sphereSize");
   obj:"recompute" = cglLazy(self,  
     self:"coords" = dgs3dEpsilon444(self:"parents"_1:"coords",self:"parents"_2:"coords",self:"parents"_3:"coords");
     cglEval(self:"redraw",self);
@@ -650,7 +687,7 @@ dgs3dMeet3P(P1,P2,P3):=(
 );
 
 // Q: quadric, x: point|line|plane => plane size:real = radius, visible: bool = should object be drawn
-cglInterface(polar3d,dgs3dPolar,(Q,x),(size,visible));
+cglInterface(polar3d,dgs3dPolar,(Q,x),(size,visible,color,alpha));
 dgs3dPolar(Q,x):=(
   if(x:"type" == "point",
     dgs3dPolarPlane(Q,x);
@@ -666,7 +703,7 @@ dgs3dPolar(Q,x):=(
 dgs3dPolarPlane(Q,p):=(
   regional(obj);
   obj = dgs3dNewObject("plane",[Q,p]);
-  obj:"radius" = cglValOrDefault(size,cglDefaults:"sphereSize");
+  obj:"size" = cglValOrDefault(size,cglDefaults:"sphereSize");
   obj:"recompute" = cglLazy(self,  
     self:"coords" = self:"parents"_1:"coords" * self:"parents"_2:"coords";
     cglEval(self:"redraw",self);
@@ -678,7 +715,7 @@ dgs3dPolarPlane(Q,p):=(
 dgs3dPolarPoint(Q,P):=(
   regional(obj);
   obj = dgs3dNewObject("point",[Q,P]);
-  obj:"radius" = cglValOrDefault(size,cglDefaults:"sphereSize");
+  obj:"size" = cglValOrDefault(size,cglDefaults:"sphereSize");
   obj:"recompute" = cglLazy(self,  
     self:"coords" = adjoint4(self:"parents"_1:"coords") * self:"parents"_2:"coords";
     cglEval(self:"redraw",self);
@@ -688,7 +725,7 @@ dgs3dPolarPoint(Q,P):=(
 );
 
 // pts: [point; 9] => quadric, visible: bool = should object be drawn
-cglInterface(quadricBy9Points,dgs3dQuadric9point,(pts),(visible));
+cglInterface(quadricBy9Points,dgs3dQuadric9point,(pts),(visible,color,alpha));
 dgs3dQuadric9point(pts):=(
   if(length(pts)!=9,
     cglLogWarning("wrong number of points expected 9 got "+length(pts));
@@ -705,7 +742,7 @@ dgs3dQuadric9point(pts):=(
   obj
 );
 // pts: [plane; 9] => quadric, visible: bool = should object be drawn
-cglInterface(quadricBy9Planes,dgs3dQuadric9plane,(planes),(visible));
+cglInterface(quadricBy9Planes,dgs3dQuadric9plane,(planes),(visible,color,alpha));
 dgs3dQuadric9plane(planes):=(
   if(length(planes)!=9,
     cglLogWarning("wrong number of planes expected 9 got "+length(planes));
@@ -728,7 +765,7 @@ dgs3dQuadric9plane(planes):=(
 ////////////////
 
 // x: plane|line, p: point => line; size:real = radius, visible: bool = should object be drawn
-cglInterface(parallel3d,dgs3dParallel,(x,p),(size,visible));
+cglInterface(parallel3d,dgs3dParallel,(x,p),(size,visible,color,alpha));
 dgs3dParallel(x,p):=(
   if(x:"type" == "line",
     dgs3dParallelLine(x,p);
@@ -742,7 +779,7 @@ dgs3dParallel(x,p):=(
 dgs3dParallelLine(l,p):=(
   regional(obj);
   obj = dgs3dNewObject("line",[l,p]);
-  obj:"radius" = cglValOrDefault(size,cglDefaults:"cylinderSize");
+  obj:"size" = cglValOrDefault(size,cglDefaults:"cylinderSize");
   obj:"recompute" = cglLazy(self,
     regional(l,p);
     l = self:"parents"_1:"coords";
@@ -757,7 +794,7 @@ dgs3dParallelLine(l,p):=(
 dgs3dParallelPlane(P,p):=(
   regional(obj);
   obj = dgs3dNewObject("plane",[P,p]);
-  obj:"radius" = cglValOrDefault(size,cglDefaults:"cylinderSize");
+  obj:"size" = cglValOrDefault(size,cglDefaults:"cylinderSize");
   obj:"recompute" = cglLazy(self,
     regional(P,p);
     P = self:"parents"_1:"coords";
@@ -769,9 +806,9 @@ dgs3dParallelPlane(P,p):=(
   obj
 );
 
-
 // TODO? more intuitive names for functions
-// TODO? make colors customizable
+
+// TODO: support deleting objects, ? support redefining objects
 
 // TODO? euclidean operations
 // * orthogonal line to plane through point

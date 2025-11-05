@@ -31,6 +31,7 @@
             B = point3d((1,0,0));
             C = point3d((0,1,0));
             D = point3d((0,0,1));
+            color3d(A,color->cglYellow);
             l1 = join3d(A,B);
             l2 = join3d(A,C);
             l3 = join3d(A,D);
@@ -46,10 +47,9 @@
             P3 = join3d(A,F,G);
             l8 = join3d(F,D);
             H = meet3d(P2,l8);
-            K = meet3d(P1,P2,P3);
-            // parallels
             l9 = parallel3d(l1,G);
             P4 = parallel3d(P1,G);
+            K = meet3d(P4,P2,P3);
         </script>
         <script id="csdraw" type="text/x-cindyscript">
             dgs3dPreFrame();
