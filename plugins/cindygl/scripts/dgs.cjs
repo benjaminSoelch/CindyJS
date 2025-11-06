@@ -39,6 +39,8 @@ dgs3dHandleZoom(zoom):=(
 );
 dgs3dUpdateCutoff();
 
+// TODO make focus color customizable, ? set color depending on color of point
+dgs3dFocusColor = cglGreen;
 dgs3dMovementAxes(point):=(
   regional(normal,l);
   if(length(point:"parents")>0,
@@ -122,8 +124,7 @@ dgs3dPreFrame():=(
           cglUpdate(oldTarget:"drawId",UcglColor->oldTarget:"color");
         );
         if(!isundefined(target),
-          // TODO make focus color customizable, ? set color depending on color of point
-          cglUpdate(target:"drawId",UcglColor->cglGreen);
+          cglUpdate(target:"drawId",UcglColor->dgs3dFocusColor);
         );
         oldTarget = target;
       );
@@ -226,16 +227,29 @@ dgs3dSqCoords(p):=(
 // Objects + Rendering
 ////////////////
 
-dgs3dMovablePoints = [];
-dgs3dPoints = [];
-dgs3dLines = [];
-dgs3dPlanes = [];
-dgs3dQuadrics = [];
+// all objects
+dgs3dObjects = {};
+// objects separated by type
+dgs3dPoints = {};
+dgs3dLines = {};
+dgs3dPlanes = {};
+dgs3dQuadrics = {};
+// special objects
+dgs3dMovablePoints = {};
 
-// obj3d = {type: string, coords: [number], visible: bool, size: real, color: vec3, alpha: real}
+// create unique id for each object
+dgs3dUID = 0;
+dgs3dNewId() := (
+  regional(res);
+  res = text(dgs3dUID);
+  dgs3dUID = dgs3dUID + 1;
+  res;
+);
+dgs3dObjById(id) := if(isstring(id), dgs3dObjects:id, id);
+dgs3dIdForObj(obj) := if(isstring(obj), obj, obj:"id");
+// TODO? store/load -> convert to/from list of JSONs with ids instead of values for parents/children
 
-//  TODO: switch to storing child/parent objects using their identifier
-//   -> makes load/store and undo/redo easier
+// obj3d = {type: string, id: string, coords: [number], visible: bool, size: real, color: vec3, alpha: real}
 
 // TODO? add additional fields
 // + name: string -> unique identifier for object
@@ -246,31 +260,32 @@ dgs3dQuadrics = [];
 
 // type: string, parents: [obj3d] -> obj3d
 dgs3dNewObject(type,parents):=(
-  regional(obj);
+  regional(obj,objId);
+  objId = dgs3dNewId();
   obj = {
-    "type":type, "drawId": -1,
+    "type":type, "id": objId, "drawId": -1,
     "parents": parents, "children": [],
     "visible": cglValOrDefault(visible,true),
     "recompute": cglLazy(self,cglEval(self:"redraw",self)), "redraw": cglLazy(self,)
   };
-  // TODO? give each object a unique id, allow removing objects by id
+  dgs3dObjects:objId = obj;
   if(type == "point",
-    dgs3dPoints = append(dgs3dPoints,obj);
+    dgs3dPoints:objId = obj;
     obj:"color" = cglValOrDefault(color,cglRed);
     obj:"alpha" = cglValOrDefault(alpha,1);
     obj:"redraw" = cglLazy(self,dgs3dRenderPoint(self));
   ,if(type == "line",
-    dgs3dLines = append(dgs3dLines,obj);
+    dgs3dLines:objId = obj;
     obj:"color" = cglValOrDefault(color,cglBlack);
     obj:"alpha" = cglValOrDefault(alpha,1);
     obj:"redraw" = cglLazy(self,dgs3dRenderLine(self));
   ,if(type == "plane",
-    dgs3dPlanes = append(dgs3dPlanes,obj);
+    dgs3dPlanes:objId = obj;
     obj:"color" = cglValOrDefault(color,cglCyan);
     obj:"alpha" = cglValOrDefault(alpha,0.67);
     obj:"redraw" = cglLazy(self,dgs3dRenderPlane(self));
   ,if(type == "quadric",
-    dgs3dQuadrics = append(dgs3dQuadrics,obj);
+    dgs3dQuadrics:objId = obj;
     obj:"color" = cglValOrDefault(color,(0.5,0,1));
     obj:"alpha" = cglValOrDefault(alpha,0.67);
     obj:"redraw" = cglLazy(self,dgs3dRenderQuadric(self));
@@ -297,13 +312,14 @@ dgs3dUpdateColor(obj):=(
 // TODO do not render objects with complex coordinates
 // TODO? only render points within drawing region
 dgs3dRenderPoint(self):=(
-  regional(p);
+  regional(p,ptColor);
   p = self:"coords";
   if(self:"visible" == true & min(apply(p,isreal(#))) & p_4 != 0, // treat undefined as falsy
+    ptColor = if(self == target,dgs3dFocusColor,self:"color");
     if(self:"drawId"==-1,
-      self:"drawId" = draw3d(p_(1..3)/p_4,size->self:"size",color->self:"color",alpha->self:"alpha");
+      self:"drawId" = draw3d(p_(1..3)/p_4,size->self:"size",color->ptColor,alpha->self:"alpha");
     ,
-      cglUpdate(self:"drawId",UcglColor->self:"color",UcglAlpha->self:"alpha");
+      cglUpdate(self:"drawId",UcglColor->ptColor,UcglAlpha->self:"alpha");
       cglUpdateBounds(self:"drawId",p_(1..3)/p_4,self:"size");
       cglSetVisible(self:"drawId",true);
     );
@@ -392,7 +408,7 @@ dgs3dNewPoint(p):=(
     obj:"movable" = false;
   ,
     obj:"movable" = true;
-    dgs3dMovablePoints = append(dgs3dMovablePoints,obj);
+    dgs3dMovablePoints:(obj:"id") = obj;
   );
   obj
 );
@@ -485,7 +501,7 @@ dgs3dPointOnLine(p0,l):=(
     obj:"movable" = false;
   ,
     obj:"movable" = true;
-    dgs3dMovablePoints = append(dgs3dMovablePoints,obj);
+    dgs3dMovablePoints:(obj:"id") = obj;
   );
   obj
 );
@@ -549,7 +565,7 @@ dgs3dPointOnPlane(p0,s):=(
     obj:"movable" = false;
   ,
     obj:"movable" = true;
-    dgs3dMovablePoints = append(dgs3dMovablePoints,obj);
+    dgs3dMovablePoints:(obj:"id") = obj;
   );
   obj
 );
@@ -587,7 +603,7 @@ dgs3dPointOnQuadric(p0,q):=(
     obj:"movable" = false;
   ,
     obj:"movable" = true;
-    dgs3dMovablePoints = append(dgs3dMovablePoints,obj);
+    dgs3dMovablePoints:(obj:"id") = obj;
   );
   obj
 );
