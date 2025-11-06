@@ -2,26 +2,28 @@
 ////////////////
 // Controls
 ////////////////
+dgs3dMouseState = {};
 dgs3dPrepare():=(
-    sx = mouse().x;
-    sy = mouse().y;
-    rotating = false;
-    dragging = false;
-    oldTarget = cglUndefinedVal();
+    dgs3dMouseState:"sx" = mouse().x;
+    dgs3dMouseState:"sy" = mouse().y;
+    dgs3dMouseState:"rotating" = false;
+    dgs3dMouseState:"dragging" = false;
+    dgs3dMouseState:"oldTarget" = cglUndefinedVal();
 );
 dgs3dHandleMouseDown():=(
-    x0 = mouse().x;
-    y0 = mouse().y;
-    if(isundefined(oldTarget),
-      rotating = true;
+    dgs3dMouseState:"x0" = mouse().x;
+    dgs3dMouseState:"y0" = mouse().y;
+    if(isundefined(dgs3dMouseState:"target"),
+      dgs3dMouseState:"rotating" = true;
     ,
-      dragging = true;
+      dgs3dMouseState:"dragging" = true;
     )
 );
 dgs3dHandleMouseUp():=(
-    rotating = dragging = false;
+    dgs3dMouseState:"rotating" = dgs3dMouseState:"dragging" = false;
 );
 dgs3dUpdateCutoff():=(
+  regional(viewRect,x0,y0,x1,y1);
   viewRect = cglViewRect(); // [x0,y0,x1,y1]
   x0 = viewRect_1;
   y0 = viewRect_2;
@@ -42,7 +44,7 @@ dgs3dUpdateCutoff();
 // TODO make focus color customizable, ? set color depending on color of point
 dgs3dFocusColor = cglGreen;
 dgs3dMovementAxes(point):=(
-  regional(normal,l);
+  regional(normal,l,PQ);
   if(length(point:"parents")>0,
     if(length(point:"parents")==1,
       l = point:"parents"_1;
@@ -66,16 +68,17 @@ dgs3dMovementAxes(point):=(
   );
 );
 dgs3dPreFrame():=(
-    regional(mx,my,dx,dy,axes,viewPos,center,movePlaneOffset,movePlaneNormal,d2,oldDirection,newDirection,oldT,newT,oldPos,newPos,truePos,oldRadius,updateQueue);
+    regional(mx,my,dx,dy,target,oldTarget,axes,viewPos,center,movePlaneOffset,movePlaneNormal,d2,oldDirection,newDirection,oldT,newT,oldPos,newPos,truePos,oldRadius,updateQueue);
     updateQueue = [];
     mx = mouse().x;
     my = mouse().y;
-    if(dragging,
+    oldTarget = dgs3dMouseState:"oldTarget";
+    if(dgs3dMouseState:"dragging",
       target = oldTarget;
       axes = dgs3dMovementAxes(target);
       viewPos = cglViewPos();
       // view direction for given screen pixel
-      oldDirection = cglDirection(sx,sy);
+      oldDirection = cglDirection(dgs3dMouseState:"sx",dgs3dMouseState:"sy");
       newDirection = cglDirection(mx,my);
       if(axes:"type" == "normal",
         // compute intersections with movement plane for old and new view-ray
@@ -114,8 +117,8 @@ dgs3dPreFrame():=(
       ,
         cglLogError("unimplemented: "+axes:"type"+" movement direction");
       ));
-    ,if(rotating,
-      dx = 2 * (mx -sx); dy = 2 * (my -sy);
+    ,if(dgs3dMouseState:"rotating",
+      dx = 2 * (mx - dgs3dMouseState:"sx"); dy = 2 * (my - dgs3dMouseState:"sy");
       rotate3d(dx,dy);
     ,
       target = dgs3dFind(mx,my);
@@ -129,8 +132,10 @@ dgs3dPreFrame():=(
         oldTarget = target;
       );
     ));
-    sx = mx;
-    sy = my;
+    dgs3dMouseState:"target" = target;
+    dgs3dMouseState:"oldTarget" = oldTarget;
+    dgs3dMouseState:"sx" = mx;
+    dgs3dMouseState:"sy" = my;
     while(length(updateQueue)>0,
       next = updateQueue_1;
       // TODO don't add children that already are in queue
@@ -315,7 +320,7 @@ dgs3dRenderPoint(self):=(
   regional(p,ptColor);
   p = self:"coords";
   if(self:"visible" == true & min(apply(p,isreal(#))) & p_4 != 0, // treat undefined as falsy
-    ptColor = if(self == target,dgs3dFocusColor,self:"color");
+    ptColor = if(self == dgs3dMouseState:"target",dgs3dFocusColor,self:"color");
     if(self:"drawId"==-1,
       self:"drawId" = draw3d(p_(1..3)/p_4,size->self:"size",color->ptColor,alpha->self:"alpha");
     ,
