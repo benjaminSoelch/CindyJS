@@ -707,10 +707,21 @@ dgs3dMeetPL(P1,l1):=(
 );
 // l1: line, l2: line, size:real = radius, visible: bool = should object be drawn
 dgs3dMeet2L(l1,l2):=(
-  // TODO line intersection
-  // point by two lines, there is no projectively invariant equation
-  // one possible equation that seems to work for finite points is (0,0,0,1)*L1*L2 )  TODO where does this break
-  cglLogError("unimplemented");
+  regional(obj);
+  obj = dgs3dNewObject("point",[l1,l2]);
+  obj:"size" = cglValOrDefault(size,cglDefaults:"sphereSize");
+  obj:"recompute" = cglLazy(self,
+    regional(l1,l2);
+    l1 = dgs3dLineMatrix(dgs3dDualLine((self:"parents"_1):"coords"));
+    l2 = dgs3dLineMatrix((self:"parents"_2):"coords");
+    // there is no projectively invariant equation, use equation that works for (most?) finite points
+    // TODO: figure out where this equation breaks, choose good sample point
+    self:"coords" = (l1*l2)*(0,0,1,0);
+    DGS3DmOVEoK
+  );
+  cglEval(obj:"recompute",obj);
+  cglEval(obj:"redraw",obj);
+  obj
 );
 // Q1: quadric, l1: line, size:real = radius, visible: bool = should object be drawn
 dgs3dMeetQL(Q1,l1):=(
