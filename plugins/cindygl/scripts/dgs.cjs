@@ -12,7 +12,7 @@ dgs3dPrepare():=(
 dgs3dHandleMouseDown():=(
     dgs3dMouseState:"x0" = mouse().x;
     dgs3dMouseState:"y0" = mouse().y;
-    if(isundefined(dgs3dMouseState:"target"),
+    if(isUndefined(dgs3dMouseState:"target"),
       dgs3dMouseState:"rotating" = true;
     ,
       dgs3dMouseState:"dragging" = true;
@@ -119,10 +119,10 @@ dgs3dPreFrame():=(
     ,
       target = dgs3dFind(mx,my);
       if(target!=oldTarget,
-        if(!isundefined(oldTarget),
+        if(!isUndefined(oldTarget),
           cglUpdate(oldTarget:"drawId",UcglColor->oldTarget:"color");
         );
-        if(!isundefined(target),
+        if(!isUndefined(target),
           cglUpdate(target:"drawId",UcglColor->dgs3dFocusColor);
         );
         oldTarget = target;
@@ -135,7 +135,7 @@ dgs3dPreFrame():=(
 );
 DGS3DmOVEoK = 0;
 DGS3DmOVErETRY = 1;
-// TODO avoid duplicate work:
+// TODO? avoid duplicate work:
 //  * don't recompute children if parent fails (! ensure that only computed objects are reset)
 //  * do not redo calculations for objects where recomputing objects and all children succeeded
 dgs3dTryRecomputeChildren(obj):=(
@@ -353,7 +353,7 @@ dgs3dUpdateColor(obj):=(
 dgs3dRenderPoint(self):=(
   regional(p,ptColor);
   p = self:"coords";
-  if(self:"visible" == true & min(apply(p,isreal(#))) & p_4 != 0, // treat undefined as falsy
+  if(self:"visible" == true & min(apply(p,isReal(#))) & p_4 != 0, // treat undefined as falsy
     ptColor = if(self == dgs3dMouseState:"target",dgs3dFocusColor,self:"color");
     if(self:"drawId"==-1,
       self:"drawId" = draw3d(p_(1..3)/p_4,size->self:"size",color->ptColor,alpha->self:"alpha");
@@ -372,7 +372,7 @@ dgs3dRenderLine(self):=(
   if(self:"visible" == true, // treat undefined as falsy
     // compute intersections of line with clipping sphere
     PQ = dgs3dIntersectLineQuadric(dgs3dDualLine(self:"coords"),((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,-dgs3dCutoffRadius*dgs3dCutoffRadius)));
-    if(min(apply(PQ_1,isreal(#))),// real solution
+    if(min(apply(PQ_1,isReal(#))),// real solution
       if(self:"drawId"==-1,
         self:"drawId" = draw3d((PQ_1_(1..3))/PQ_1_4,(PQ_2_(1..3))/PQ_2_4,size->self:"size",color->self:"color",alpha->self:"alpha")
       ,
@@ -451,7 +451,7 @@ dgs3dNewPoint(p):=(
   );
   obj
 );
-// TODO? line3d !collides with line3d in CindyGL3D
+// TODO? line3d collides with line3d in CindyGL3D
 
 // p: vec4 = (x,y,z,w) , visible: bool = should object be drawn
 cglInterface(plane3d,dgs3dNewPlane,(p),(visible,color,alpha));
@@ -902,7 +902,7 @@ dgs3dFind(x,y):=(
   forall(dgs3dMovablePoints,pt,
     bounds = cglGetBounds(pt:"drawId");
     d = cglEvalOrDiscard(cglSphereDepths(root,dir,bounds_"center",bounds_"radius")_1);
-    if(!isundefined(d),
+    if(!isUndefined(d),
       if(d < dist,
         dist = d;
         res = pt;
