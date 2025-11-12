@@ -66,6 +66,7 @@ dgs3dMovementAxes(point):=(
     {"type":"normal","n":normal}
   );
 );
+// TODO? limit maximum movement distance (moving along nearly orthogonal plane leads to points getting lost)
 dgs3dPreFrame():=(
     regional(mx,my,dx,dy,target,newCoords,oldTarget,axes,viewPos,center,movePlaneOffset,movePlaneNormal,d2,oldDirection,newDirection,oldT,newT,oldPos,newPos,truePos,oldRadius,updateQueue);
     mx = mouse().x;
@@ -111,7 +112,7 @@ dgs3dPreFrame():=(
       ,
         cglLogError("unimplemented: "+axes:"type"+" movement direction");
       ));
-      dgs3dTracePoint(target,newCoords);
+      dgs3dTracePoint(target,newCoords,0);
       dgs3dRedrawChildren(target);
     ,if(dgs3dMouseState:"rotating",
       dx = 2 * (mx - dgs3dMouseState:"sx"); dy = 2 * (my - dgs3dMouseState:"sy");
@@ -164,17 +165,23 @@ dgs3dRedrawChildren(obj):=(
     dgs3dRedrawChildren(child);
   );
 );
-dgs3dTracePoint(p,newCoords):=(
-  regional(nextPos);
+DGS3DmAXlEVEL = 10;
+dgs3dTracePoint(p,newCoords,level):=(
+  regional(nextPos,mid);
   nextPos = newCoords;
   p:"oldCoords" = p:"coords";
   p:"coords" = nextPos;
-  // TODO how to handle partial move for pinned points
-  // ? compare expected-pos to actual pos and subtract difference from newCoords
+  // TODO? complex detour
   if(dgs3dTryRecomputeChildren(p),
     dgs3dResetChildren(p);
-    // TODO! implement tracing
-    cglLogError("unimplemented: tracing");
+    if(level<DGS3DmAXlEVEL,
+      mid = (p:"oldCoords" + newCoords)/2;
+      dgs3dTracePoint(p,mid,level+1);
+      // move relative to new-position 
+      dgs3dTracePoint(p,newCoords + (p:"coords"-mid),level+1);
+    ,
+      cglLogError("tracing failed");
+    );
   );
 );
 
@@ -622,7 +629,7 @@ dgs3dPointOnQuadric(p0,q):=(
   obj:"size" = cglValOrDefault(size,cglDefaults:"sphereSize");
   obj:"coords" = dgs3dPoint4(p0);
   obj:"recompute" = cglLazy(self,
-    regional(p,Q,n,l,AB,a,b);
+    regional(p,Q,n,l,AB,a,b,ab);
     p = self:"coords";
     Q = (self:"parents"_1):"coords";
     // 1. get line through point normal to surface
@@ -635,13 +642,19 @@ dgs3dPointOnQuadric(p0,q):=(
     // 3. choose intersection closer to current pos
     a = (p-AB_1)*(p-AB_1);
     b = (p-AB_2)*(p-AB_2);
+    ab = (AB_1-AB_2)*(AB_1-AB_2);
     // assignment inside branches to avoid assigning value when comparison is undefined
-    if(a<b,
-      self:"coords" = AB_1
+    if(if(a<=b,
+      self:"coords" = AB_1;
+      ab > a
     ,
-      self:"coords" = AB_2
+      self:"coords" = AB_2;
+      ab > b
+    ),
+      DGS3DmOVEoK
+    ,
+      DGS3DmOVErETRY
     );
-    DGS3DmOVEoK
   );
   cglEval(obj:"recompute",obj);
   cglEval(obj:"redraw",obj);
@@ -729,15 +742,41 @@ dgs3dMeetQL(Q1,l1):=(
   obj = dgs3dNewObject("pointPair",[Q1,l1]);
   obj:"children" = [dgs3dNewObject("point",[obj]),dgs3dNewObject("point",[obj])];
   obj:"recompute" = cglLazy(self,
-    regional(Q,l,AB);
+    regional(Q,l,AB,oldA,oldB,d11,d12,d21,d22);
     Q = self:"parents"_1:"coords";
     l = self:"parents"_2:"coords";
     AB = dgs3dIntersectLineQuadric(dgs3dDualLine(l),Q);
     self:"coords" = AB;
-    // FIXME: tracing
-    self:"children"_1:"coords" = AB_1;
-    self:"children"_2:"coords" = AB_2;
-    DGS3DmOVEoK
+    oldA = self:"children"_1:"coords";
+    oldB = self:"children"_2:"coords";
+    if(isundefined(oldA)% isundefined(oldB),
+        self:"children"_1:"coords" = AB_1;
+        self:"children"_2:"coords" = AB_2;
+        DGS3DmOVEoK
+    ,
+      // TODO better tracing
+      // * use "projective distance" (? normalize then distance) instead of euclidean distance
+      // * better way to detect if points are too close to each other
+      //  cindy-classic uses d(oldA,oldB)* s > d(oldA,newA)+d(oldB,newB)
+      d11 = |AB_1-oldA|;
+      d12 = |AB_1-oldB|;
+      d21 = |AB_2-oldA|;
+      d22 = |AB_2-oldB|;
+      // * ? retry if distance between points smaller that distance to new points
+      if(d11 <= d12 & d22 <= d21,
+        self:"children"_1:"coords" = AB_1;
+        self:"children"_2:"coords" = AB_2;
+        DGS3DmOVEoK
+      ,if(d12 < d11 & d21 < d22,
+        self:"children"_1:"coords" = AB_2;
+        self:"children"_2:"coords" = AB_1;
+        DGS3DmOVEoK
+      , // both solutions closer to same vertex
+        self:"children"_1:"coords" = AB_1;
+        self:"children"_2:"coords" = AB_2;
+        DGS3DmOVErETRY
+      ));
+    )
   );
   cglEval(obj:"recompute",obj);
   cglEval(obj:"redraw",obj);
