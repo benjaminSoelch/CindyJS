@@ -27,11 +27,14 @@
             cglDefaults_"sphereSize" = 0.1;
             cglDefaults_"cylinderSize" = 0.05;
 
-            A = point3d((1,1,1),color->cglYellow);
-            pts = apply(1..9,
-                point3d((random(),random(),random()))
+            pts1 = apply(1..9,
+                point3d((random(),random(),random()),size->0.05)
             );
-            Q = quadricBy9Points(pts);
+            Q1 = quadricBy9Points(pts1,color->cglYellow);
+            pts2 = apply(1..9,
+                point3d((random(),random(),random()),size->0.05)
+            );
+            Q2 = quadricBy9Points(pts2,color->cglGreen);
 
             // TODO? find better estimate for distance-function to quadric
             /*distanceToQuadric(pt,Quad):=(
@@ -61,15 +64,22 @@
               // 2. find distance to polar
               |pt*pol|
             );
-
-            A:"recompute" = cglLazy(self,
-              quadDistance = distanceToQuadric(self:"coords",Q:"coords");
-              print(quadDistance);
-              DGS3DmOVEoK
+            // TODO find better distance estimator for intersection curve
+            distance(coords):=(
+              regional(pol1,pol2,l,v,plane,P);
+              // 1. get polar planes
+              pol1 = (Q1:"coords")*coords;
+              pol2 = (Q2:"coords")*coords;
+              // 2. compute distance to intersection line
+              l = dgs3dDualLine(dgs3dEpsilon44(pol1,pol2));
+              v = dgs3dEpsilon46((0,0,0,1),l); // TODO? is this the direction vector
+              plane = (v_1*coords_4,v_2*coords_4,v_3*coords_4,-(v_1,v_2,v_3,0)*coords);
+              P = dgs3dEpsilon46(plane,l);
+              P = (P / P_4 - coords / coords_4);
+              P*P
             );
-            polar3d(Q,A);
-            cglEval(A:"recompute",A);
-            surface3d(distanceToQuadric((x,y,z,1),Q:"coords")-quadDistance,degree->8,alpha->0.75);
+
+            surface3d(distance((x,y,z,1))-0.01,degree->8,alpha->0.75);
         </script>
         <script id="csdraw" type="text/x-cindyscript">
             dgs3dPreFrame();
