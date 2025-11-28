@@ -928,16 +928,56 @@ dgs3dParallelPlane(P,p):=(
   cglEval(obj:"redraw",obj);
   obj
 );
+// x: plane|line, p: point => line|plane|; size:real = radius, visible: bool = should object be drawn
+cglInterface(normal3d,dgs3dNormal,(x,p),(size,visible,color,alpha));
+dgs3dNormal(x,p):=(
+  if(x:"type" == "plane",
+    dgs3dOrthogonalLine(x,p);
+  ,if(x:"type" == "line",
+    dgs3dOrthogonalPlane(x,p);
+  ,
+    cglLogWarning("cannot compute parallel to "+x:"type");
+  ));
+);
+// P: plane, p: point => line; size:real = radius, visible: bool = should object be drawn
+dgs3dOrthogonalLine(P,p):=(
+  regional(obj);
+  obj = dgs3dNewObject("line",[P,p]);
+  obj:"size" = cglValOrDefault(size,cglDefaults:"cylinderSize");
+  obj:"recompute" = cglLazy(self,
+    regional(P,p);
+    P = self:"parents"_1:"coords";
+    p = self:"parents"_2:"coords";
+    self:"coords" = dgs3dEpsilon44(p,p+(P_1,P_2,P_3,0));
+    DGS3DmOVEoK
+  );
+  cglEval(obj:"recompute",obj);
+  cglEval(obj:"redraw",obj);
+  obj
+);
+// P: plane, p: point => line; size:real = radius, visible: bool = should object be drawn
+dgs3dOrthogonalPlane(l,p):=(
+  regional(obj);
+  obj = dgs3dNewObject("plane",[l,p]);
+  obj:"size" = cglValOrDefault(size,cglDefaults:"cylinderSize");
+  obj:"recompute" = cglLazy(self,
+    regional(l,p,K,n);
+    l = self:"parents"_1:"coords";
+    p = self:"parents"_2:"coords";
+    K = transpose(kernel(dgs3dLineMatrix(l)));
+    n = (K_1 * K_2_4 - K_2*K_1_4)_(1..3);
+    print(n);
+    self:"coords" = (n_1*p_4,n_2*p_4,n_3*p_4,-(p_1,p_2,p_3)*n);
+    DGS3DmOVEoK
+  );
+  cglEval(obj:"recompute",obj);
+  cglEval(obj:"redraw",obj);
+  obj
+);
+// TODO? orthogonal line to line through line
+//  -> join(pt, meet(line,orth-plane(pt,line)))
+// TODO? line orthogonal to two other lines
 
-// TODO? more intuitive names for functions
-
-// TODO: support deleting objects, ? support redefining objects
-
-// TODO? euclidean operations
-// * orthogonal line to plane through point
-// * orthogonal line to line through point
-// * orthogonal plane to line through point
-// * line orthogonal to two other lines 
 // TODO? transformations
 // ? quadric by mix of points, lines and planes
 // ? plane+quadric
