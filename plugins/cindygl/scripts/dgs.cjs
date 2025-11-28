@@ -532,8 +532,8 @@ dgs3dJoinPL(p1,l1):=(
 );
 
 // p0: vec4 (x,y,z,w), l: line , size: real = radius, pinned:bool = fixed position, visible: bool = should object be drawn
-cglInterface(pointOnLine3d,dgs3dPointOnLine,(p0,l),(size,pinned,visible,color,alpha));
-dgs3dPointOnLine(p0,l):=(
+cglInterface(pointOnLine3d,dgs3dPointOnLine,(l,p0),(size,pinned,visible,color,alpha));
+dgs3dPointOnLine(l,p0):=(
   regional(obj);
   obj = dgs3dNewObject("point",[l]);
   obj:"size" = cglValOrDefault(size,cglDefaults:"sphereSize");
@@ -561,7 +561,7 @@ dgs3dPointOnLine(p0,l):=(
 );
 cglInterface(pointOnLine3d,dgs3dPointOnLine,(l),(size,pinned,visible,color,alpha));
 dgs3dPointOnLine(l):=(
-  dgs3dPointOnLine((0,0,0,1),l);
+  dgs3dPointOnLine(l,(0,0,0,1));
 );
 
 // p1: point, p2: point, p3: point  or  p1: line, p2: line, p3: line, visible: bool = should object be drawn
@@ -603,8 +603,8 @@ dgs3dJoin3L(l1,l2,l3):=(
 );
 
 // p0: vec3|vec4 = (x,y,z,w=1), s: plane , size: real = radius, pinned:bool = fixed position, visible: bool = should object be drawn
-cglInterface(pointOnPlane3d,dgs3dPointOnPlane,(p0,s),(size,pinned,visible,color,alpha));
-dgs3dPointOnPlane(p0,s):=(
+cglInterface(pointOnPlane3d,dgs3dPointOnPlane,(s,p0),(size,pinned,visible,color,alpha));
+dgs3dPointOnPlane(s,p0):=(
   regional(obj);
   obj = dgs3dNewObject("point",[s]);
   obj:"size" = cglValOrDefault(size,cglDefaults:"sphereSize");
@@ -632,11 +632,11 @@ dgs3dPointOnPlane(p0,s):=(
 );
 cglInterface(pointOnPlane3d,dgs3dPointOnPlane,(s),(size,pinned,visible,color,alpha));
 dgs3dPointOnPlane(s):=(
-  dgs3dPointOnPlane((0,0,0,1),s);
+  dgs3dPointOnPlane(s,(0,0,0,1));
 );
 // p0: vec3|vec4 = (x,y,z,w=1), q: quadric , size: real = radius, pinned:bool = fixed position, visible: bool = should object be drawn
-cglInterface(pointOnQuadric3d,dgs3dPointOnQuadric,(p0,q),(size,pinned,visible,color,alpha));
-dgs3dPointOnQuadric(p0,q):=(
+cglInterface(pointOnQuadric3d,dgs3dPointOnQuadric,(q,p0),(size,pinned,visible,color,alpha));
+dgs3dPointOnQuadric(q,p0):=(
   regional(obj);
   obj = dgs3dNewObject("point",[q]);
   obj:"size" = cglValOrDefault(size,cglDefaults:"sphereSize");
@@ -678,6 +678,11 @@ dgs3dPointOnQuadric(p0,q):=(
     dgs3dMovablePoints:(obj:"id") = obj;
   );
   obj
+);
+cglInterface(pointOnQuadric3d,dgs3dPointOnQuadric,(q),(size,pinned,visible,color,alpha));
+dgs3dPointOnQuadric(q):=(
+  // TODO? can this result in an infinite projected point
+  dgs3dPointOnQuadric(q,(0,0,0,1));
 );
 
 // p1: plane, p2: plane|line, size:real = radius, visible: bool = should object be drawn

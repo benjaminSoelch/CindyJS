@@ -37,11 +37,11 @@
             l4 = join3d(B,C);
             l5 = join3d(B,D);
             l6 = join3d(C,D);
-            E = pointOnLine3d((0.5,0,0),l1,color->cglYellow);
+            E = pointOnLine3d(l1,(0.5,0,0),color->cglYellow);
             P1 = join3d(E,C,D);
             P2 = join3d(l2,B);
             l7 = meet3d(P1,P2);
-            F = pointOnPlane3d((0.5,0.5,0.5),P1,color->cglYellow);
+            F = pointOnPlane3d(P1,(0.5,0.5,0.5),color->cglYellow);
             G = point3d((1,1,1));
             P3 = join3d(A,F,G);
             l8 = join3d(F,D);
