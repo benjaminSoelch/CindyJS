@@ -430,6 +430,7 @@ dgs3dRenderQuadric(self):=(
 // Projective Primitives
 ////////////////
 
+// TODO? accept point object as argument
 // p: vec3 | vec4 => vec4
 dgs3dPoint4(p):=(
   if(length(p)==4,
@@ -554,6 +555,10 @@ dgs3dPointOnLine(p0,l):=(
   );
   obj
 );
+cglInterface(pointOnLine3d,dgs3dPointOnLine,(l),(size,pinned,visible,color,alpha));
+dgs3dPointOnLine(l):=(
+  dgs3dPointOnLine((0,0,0,1),l);
+);
 
 // p1: point, p2: point, p3: point  or  p1: line, p2: line, p3: line, visible: bool = should object be drawn
 cglInterface(join3d,dgs3dJoin3,(p1,p2,p3),(visible,color,alpha));
@@ -620,6 +625,10 @@ dgs3dPointOnPlane(p0,s):=(
     dgs3dMovablePoints:(obj:"id") = obj;
   );
   obj
+);
+cglInterface(pointOnPlane3d,dgs3dPointOnPlane,(s),(size,pinned,visible,color,alpha));
+dgs3dPointOnPlane(s):=(
+  dgs3dPointOnPlane((0,0,0,1),s);
 );
 // p0: vec3|vec4 = (x,y,z,w=1), q: quadric , size: real = radius, pinned:bool = fixed position, visible: bool = should object be drawn
 cglInterface(pointOnQuadric3d,dgs3dPointOnQuadric,(p0,q),(size,pinned,visible,color,alpha));
@@ -729,6 +738,7 @@ dgs3dMeet2L(l1,l2):=(
     l2 = dgs3dLineMatrix((self:"parents"_2):"coords");
     // there is no projectively invariant equation, use equation that works for (most?) finite points
     // TODO: figure out where this equation breaks, choose good sample point
+    // FIXME: this seems to break when lines are close to intersecting
     self:"coords" = (l1*l2)*(0,0,1,0);
     DGS3DmOVEoK
   );
@@ -885,7 +895,7 @@ dgs3dQuadric9plane(planes):=(
 // Euclidean Operations
 ////////////////
 
-// x: plane|line, p: point => line; size:real = radius, visible: bool = should object be drawn
+// x: plane|line, p: point => plane|line; size:real = radius, visible: bool = should object be drawn
 cglInterface(parallel3d,dgs3dParallel,(x,p),(size,visible,color,alpha));
 dgs3dParallel(x,p):=(
   if(x:"type" == "line",
@@ -979,9 +989,15 @@ dgs3dOrthogonalPlane(l,p):=(
 // TODO? line orthogonal to two other lines
 
 // TODO? transformations
+
 // ? quadric by mix of points, lines and planes
 // ? plane+quadric
 // ? quadric+quadric
+
+// TODO? more intuitive names for functions
+// TODO: support deleting objects, ? support redefining objects
+
+// TODO: test-case for quadric by 9 planes
 
 dgs3dFind(x,y):=(
   regional(root,dir,res,dist);

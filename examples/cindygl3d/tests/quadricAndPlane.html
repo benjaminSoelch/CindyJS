@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>Cindy JS</title>
+        <script type="text/javascript" src="../../../build/js/Cindy.js"></script>
+        <script type="text/javascript" src="../../../build/js/CindyGL.js"></script>
+        <link rel="stylesheet" href="../../../css/cindy.css" />
+    </head>
+
+    <body style="font-family: Arial">
+        <script id="csmousedown" type="text/x-cindyscript">
+            dgs3dHandleMouseDown()
+        </script>
+        <script id="csmouseup" type="text/x-cindyscript">
+            dgs3dHandleMouseUp()
+        </script>
+        <script id="csinit" type="text/x-cindyscript">
+            dgs3dPrepare();
+            zoom = 1.0;
+            updateZoom():=(
+                if(zoom>5,zoom=5);
+                if(zoom<0.2,zoom=0.2);
+                zoom3d(zoom);
+                dgs3dHandleZoom(zoom);
+            );
+            cglDefaults_"sphereSize" = 0.1;
+            cglDefaults_"cylinderSize" = 0.05;
+
+            pts1 = apply(1..9,
+                point3d((random(),random(),random()),size->0.05)
+            );
+            Q = quadricBy9Points(pts1);
+            pts2 = apply(1..3,
+                point3d((random(),random(),random()),size->0.05)
+            );
+            Plane = join3d(pts2_1,pts2_2,pts2_3);
+
+            // TODO find better distance estimator for intersection curve
+            //  directly using plane seems to be of by factor of 2 along quadric
+            // error seems to depend on angle between conic and plane
+            distance(coords):=(
+              regional(pol,P2,v,plane,P);
+              // 1. get polar planes
+              pol = (Q:"coords")*coords;
+              P2 = Plane:"coords";
+              // 2. compute distance to intersection line
+              l = dgs3dDualLine(dgs3dEpsilon44(pol,P2));
+              v = dgs3dEpsilon46((0,0,0,1),l);
+              plane = (v_1*coords_4,v_2*coords_4,v_3*coords_4,-(v_1,v_2,v_3,0)*coords);
+              P = dgs3dEpsilon46(plane,l);
+              P = (P / P_4 - coords / coords_4);
+              P*P
+            );
+
+            surface3d(distance((x,y,z,1))-0.01,degree->8,alpha->0.75,color->(0,0.5,0));
+        </script>
+        <script id="csdraw" type="text/x-cindyscript">
+            dgs3dPreFrame();
+
+            cglRender3d();
+        </script>
+
+            <div id="CSCanvas" style="border: 0px"></div>
+
+        <script type="text/javascript">
+            // zoom using mouse wheel, inverted direction for compatability with old raycaster script
+            window.addEventListener("wheel", // use only sign as value range may differ depending on browser
+              event => cdy.evokeCS(`zoom=zoom*${Math.pow(0.95,Math.sign(event.deltaY))};updateZoom();`)
+            );
+            const cdy = CindyJS({
+                canvasname: "CSCanvas",
+                scripts: "cs*",
+                animation: { autoplay: true },
+                ports: [
+                    {
+                        id: "CSCanvas",
+                        width: 512,
+                        height: 512,
+                        transform: [{ visibleRect: [-3, -3, 3, 3] }],
+                    },
+                ],
+                import: {
+                    "init": ["../../../plugins/cindygl/scripts/cgl3d.cjs","../../../plugins/cindygl/scripts/dgs.cjs","../../../plugins/cindygl/scripts/surfaceInterpolate.cjs"]
+                }
+            });
+        </script>
+    </body>
+</html>

@@ -3,9 +3,9 @@
     <head>
         <meta charset="utf-8" />
         <title>Cindy JS</title>
-        <script type="text/javascript" src="../../../build/js/Cindy.js"></script>
-        <script type="text/javascript" src="../../../build/js/CindyGL.js"></script>
-        <link rel="stylesheet" href="../../../css/cindy.css" />
+        <script type="text/javascript" src="../../../../build/js/Cindy.js"></script>
+        <script type="text/javascript" src="../../../../build/js/CindyGL.js"></script>
+        <link rel="stylesheet" href="../../../../css/cindy.css" />
     </head>
 
     <body style="font-family: Arial">
@@ -27,29 +27,16 @@
             cglDefaults_"sphereSize" = 0.1;
             cglDefaults_"cylinderSize" = 0.05;
 
-            A = point3d((0,0,0));
-            B = point3d((1,0,0));
-            C = point3d((0,1,0));
-            D = point3d((0,0,1));
-            color3d(A,color->cglYellow);
-            l1 = join3d(A,B);
-            l2 = join3d(A,C);
-            l3 = join3d(A,D);
-            l4 = join3d(B,C);
-            l5 = join3d(B,D);
-            l6 = join3d(C,D);
-            E = pointOnLine3d((0.5,0,0),l1);
-            P1 = join3d(E,C,D);
-            P2 = join3d(l2,B);
-            l7 = meet3d(P1,P2);
-            F = pointOnPlane3d((0.5,0.5,0.5),P1);
-            G = point3d((1,1,1));
-            P3 = join3d(A,F,G);
-            l8 = join3d(F,D);
-            H = meet3d(P2,l8);
-            l9 = parallel3d(l1,G);
-            P4 = parallel3d(P1,G);
-            K = meet3d(P4,P2,P3);
+            A = point3d((1,0,0));
+            B = point3d((0,1,0));
+            C = point3d((1,1,0));
+            D = point3d((1,0,1));
+            E = point3d((0,0,1));
+            F = point3d((0,1,1));
+            G = point3d((0,-1,0));
+            H = point3d((0,-1,1));
+            I = point3d((1,1,1));
+            Q = quadricBy9Points((A,B,C,D,E,F,G,H,I));
         </script>
         <script id="csdraw" type="text/x-cindyscript">
             dgs3dPreFrame();
@@ -77,7 +64,7 @@
                     },
                 ],
                 import: {
-                    "init": ["../../../plugins/cindygl/scripts/cgl3d.cjs","../../../plugins/cindygl/scripts/dgs.cjs"]
+                    "init": ["../../../../plugins/cindygl/scripts/cgl3d.cjs","../../../../plugins/cindygl/scripts/dgs.cjs","../../../../plugins/cindygl/scripts/surfaceInterpolate.cjs"]
                 }
             });
         </script>

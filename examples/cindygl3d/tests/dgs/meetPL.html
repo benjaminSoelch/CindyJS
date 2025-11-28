@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>Cindy JS</title>
+        <script type="text/javascript" src="../../../../build/js/Cindy.js"></script>
+        <script type="text/javascript" src="../../../../build/js/CindyGL.js"></script>
+        <link rel="stylesheet" href="../../../../css/cindy.css" />
+    </head>
+
+    <body style="font-family: Arial">
+        <script id="csmousedown" type="text/x-cindyscript">
+            dgs3dHandleMouseDown()
+        </script>
+        <script id="csmouseup" type="text/x-cindyscript">
+            dgs3dHandleMouseUp()
+        </script>
+        <script id="csinit" type="text/x-cindyscript">
+            dgs3dPrepare();
+            zoom = 1.0;
+            updateZoom():=(
+                if(zoom>5,zoom=5);
+                if(zoom<0.2,zoom=0.2);
+                zoom3d(zoom);
+                dgs3dHandleZoom(zoom);
+            );
+            cglDefaults_"sphereSize" = 0.1;
+            cglDefaults_"cylinderSize" = 0.05;
+
+            A = point3d((1,0,0));
+            B = point3d((0,1,0));
+            C = point3d((1,1,0));
+            D = point3d((1,0,1));
+            E = point3d((0,0,1));
+            p = join3d(A,B,C);
+            l = join3d(D,E);
+            X = meet3d(p,l,color->cglYellow);
+        </script>
+        <script id="csdraw" type="text/x-cindyscript">
+            dgs3dPreFrame();
+
+            cglRender3d();
+        </script>
+
+            <div id="CSCanvas" style="border: 0px"></div>
+
+        <script type="text/javascript">
+            // zoom using mouse wheel, inverted direction for compatability with old raycaster script
+            window.addEventListener("wheel", // use only sign as value range may differ depending on browser
+              event => cdy.evokeCS(`zoom=zoom*${Math.pow(0.95,Math.sign(event.deltaY))};updateZoom();`)
+            );
+            const cdy = CindyJS({
+                canvasname: "CSCanvas",
+                scripts: "cs*",
+                animation: { autoplay: true },
+                ports: [
+                    {
+                        id: "CSCanvas",
+                        width: 512,
+                        height: 512,
+                        transform: [{ visibleRect: [-3, -3, 3, 3] }],
+                    },
+                ],
+                import: {
+                    "init": ["../../../../plugins/cindygl/scripts/cgl3d.cjs","../../../../plugins/cindygl/scripts/dgs.cjs","../../../plugins/cindygl/scripts/surfaceInterpolate.cjs"]
+                }
+            });
+        </script>
+    </body>
+</html>

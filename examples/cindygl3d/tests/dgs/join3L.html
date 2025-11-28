@@ -3,9 +3,9 @@
     <head>
         <meta charset="utf-8" />
         <title>Cindy JS</title>
-        <script type="text/javascript" src="../../../build/js/Cindy.js"></script>
-        <script type="text/javascript" src="../../../build/js/CindyGL.js"></script>
-        <link rel="stylesheet" href="../../../css/cindy.css" />
+        <script type="text/javascript" src="../../../../build/js/Cindy.js"></script>
+        <script type="text/javascript" src="../../../../build/js/CindyGL.js"></script>
+        <link rel="stylesheet" href="../../../../css/cindy.css" />
     </head>
 
     <body style="font-family: Arial">
@@ -33,15 +33,10 @@
             C = point3d((1,1,0));
             D = point3d((1,0,1));
             F = point3d((0,1,1));
-            X = point3d((0,0,0));
-            Y = point3d((1,1,1));
             l1 = join3d(A,B);
             l2 = join3d(C,D);
             l3 = join3d(E,F);
             Q = join3d(l1,l2,l3);
-            l4 = join3d(X,Y);
-            PQ = meet3d(Q,l4);
-            dgs3dUpdateColor(PQ:"children"_1,color->cglCyan);
         </script>
         <script id="csdraw" type="text/x-cindyscript">
             dgs3dPreFrame();
@@ -69,7 +64,7 @@
                     },
                 ],
                 import: {
-                    "init": ["../../../plugins/cindygl/scripts/cgl3d.cjs","../../../plugins/cindygl/scripts/dgs.cjs","../../../plugins/cindygl/scripts/surfaceInterpolate.cjs"]
+                    "init": ["../../../../plugins/cindygl/scripts/cgl3d.cjs","../../../../plugins/cindygl/scripts/dgs.cjs","../../../plugins/cindygl/scripts/surfaceInterpolate.cjs"]
                 }
             });
         </script>
