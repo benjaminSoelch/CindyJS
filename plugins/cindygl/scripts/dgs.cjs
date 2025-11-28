@@ -753,8 +753,10 @@ dgs3dMeet2L(l1,l2):=(
     l2 = dgs3dLineMatrix((self:"parents"_2):"coords");
     // there is no projectively invariant equation, use equation that works for (most?) finite points
     // TODO: figure out where this equation breaks, choose good sample point
-    // FIXME: this seems to break when lines are close to intersecting
-    self:"coords" = (l1*l2)*(0,0,1,0);
+    // breaks if:
+    //  * sample point lies on one of the lines
+    //  * 2nd line contained in plane through 1st line and sample point
+    self:"coords" = (l1*l2)*(1,pi,1,0);
     DGS3DmOVEoK
   );
   cglEval(obj:"recompute",obj);
@@ -1014,8 +1016,6 @@ dgs3dOrthogonalPlane(l,p):=(
   cglEval(obj:"redraw",obj);
   obj
 );
-// TODO? orthogonal line to line through line
-//  -> join(pt, meet(line,orth-plane(pt,line)))
 // TODO? line orthogonal to two other lines
 
 // TODO? transformations
