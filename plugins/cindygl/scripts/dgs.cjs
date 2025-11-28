@@ -430,7 +430,6 @@ dgs3dRenderQuadric(self):=(
 // Projective Primitives
 ////////////////
 
-// TODO? accept point object as argument
 // p: vec3 | vec4 => vec4
 dgs3dPoint4(p):=(
   if(length(p)==4,
@@ -438,8 +437,13 @@ dgs3dPoint4(p):=(
   ,if(length(p)==3,
     (p_1,p_2,p_3,1)
   ,
-    cglError("point should have length 3 or 4");
-    (0,0,0,1)
+    p = dgs3dObjById(p);
+    if(p:"type"=="point",
+      p:"coords"
+    ,
+      cglError("point should have length 3 or 4");
+      (0,0,0,1)
+    )
   ));
 );
 
