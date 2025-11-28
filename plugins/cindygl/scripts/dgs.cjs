@@ -143,7 +143,7 @@ dgs3dTryRecomputeChildren(obj):=(
   regional(retry);
   obj = dgs3dObjById(obj);
   retry = cglEval(obj:"recompute",obj) != DGS3DmOVEoK;
-  // try recalculating direct children 
+  // try recalculating direct children
   forall(obj:"children",child,
     child = dgs3dObjById(child);
     child:"oldCoords" = child:"coords";
@@ -177,7 +177,7 @@ dgs3dTracePoint(p,newCoords,level):=(
     if(level<DGS3DmAXlEVEL,
       mid = (p:"oldCoords" + newCoords)/2;
       dgs3dTracePoint(p,mid,level+1);
-      // move relative to new-position 
+      // move relative to new-position
       dgs3dTracePoint(p,newCoords + (p:"coords"-mid),level+1);
     ,
       cglLogError("tracing failed");
@@ -585,7 +585,7 @@ dgs3dJoin3(a,b,c):=(
 dgs3dJoin3P(p1,p2,p3):=(
   regional(obj);
   obj = dgs3dNewObject("plane",[p1,p2,p3]);
-  obj:"recompute" = cglLazy(self,  
+  obj:"recompute" = cglLazy(self,
     self:"coords" = dgs3dEpsilon444(self:"parents"_1:"coords",self:"parents"_2:"coords",self:"parents"_3:"coords");
     DGS3DmOVEoK
   );
@@ -821,7 +821,7 @@ dgs3dMeet3P(P1,P2,P3):=(
   regional(obj);
   obj = dgs3dNewObject("point",[P1,P2,P3]);
   obj:"size" = cglValOrDefault(size,cglDefaults:"sphereSize");
-  obj:"recompute" = cglLazy(self,  
+  obj:"recompute" = cglLazy(self,
     self:"coords" = dgs3dEpsilon444(self:"parents"_1:"coords",self:"parents"_2:"coords",self:"parents"_3:"coords");
     DGS3DmOVEoK
   );
@@ -849,7 +849,7 @@ dgs3dPolarPlane(Q,p):=(
   regional(obj);
   obj = dgs3dNewObject("plane",[Q,p]);
   obj:"size" = cglValOrDefault(size,cglDefaults:"sphereSize");
-  obj:"recompute" = cglLazy(self,  
+  obj:"recompute" = cglLazy(self,
     self:"coords" = self:"parents"_1:"coords" * self:"parents"_2:"coords";
     DGS3DmOVEoK
   );
@@ -862,7 +862,7 @@ dgs3dPolarLine(Q,l):=(
   regional(obj);
   obj = dgs3dNewObject("line",[Q,l]);
   obj:"size" = cglValOrDefault(size,cglDefaults:"cylinderSize");
-  obj:"recompute" = cglLazy(self,  
+  obj:"recompute" = cglLazy(self,
     regional(L,Q);
     Q = self:"parents"_1:"coords";
     L = dgs3dLineMatrix(self:"parents"_2:"coords");
@@ -878,7 +878,7 @@ dgs3dPolarPoint(Q,P):=(
   regional(obj);
   obj = dgs3dNewObject("point",[Q,P]);
   obj:"size" = cglValOrDefault(size,cglDefaults:"sphereSize");
-  obj:"recompute" = cglLazy(self,  
+  obj:"recompute" = cglLazy(self,
     self:"coords" = adjoint4(self:"parents"_1:"coords") * self:"parents"_2:"coords";
     DGS3DmOVEoK
   );

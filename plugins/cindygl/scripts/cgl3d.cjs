@@ -107,7 +107,7 @@ cglLight2(direction, dst, color,normal) := (
   color = (1 - al) * color;
 
   forall(1..length(lightdirs),
-    col=cglLight2colors_#;                
+    col=cglLight2colors_#;
     //illuminate if the normal and lightdir point in the same direction
     illumination = max(0, (lightdirs_# / abs(lightdirs_#)) * normal);
     col = (illumination ^ cglLight2gamma_#)* col;
