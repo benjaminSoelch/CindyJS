@@ -213,6 +213,12 @@ dgs3dDualLine(l):=(
 dgs3dLineMatrix(l):=(
   ((0,l_1,l_2,l_3),(-l_1,0,l_4,l_5),(-l_2,-l_4,0,l_6),(-l_3,-l_5,-l_6,0))
 );
+dgs3dLineFromMatrix(M):=(
+  (M_1_2,M_1_3,M_1_4,M_2_3,M_2_4,M_3_4)
+);
+dgs3dLineFromDualMatrix(M):=(
+  (M_3_4,-M_2_4,M_2_3,M_1_4,-M_1_3,M_1_2)
+);
 // a:vec4, b: vec4, c: vec4  => vec4
 dgs3dEpsilon444(a,b,c):=(
   (
@@ -827,13 +833,14 @@ cglInterface(polar3d,dgs3dPolar,(Q,x),(size,visible,color,alpha));
 dgs3dPolar(Q,x):=(
   if(x:"type" == "point",
     dgs3dPolarPlane(Q,x);
-  // TODO? is there a geometrically meaningful way to polarize a line
+  ,if(x:"type" == "line",
+    dgs3dPolarLine(Q,x);
   ,if(x:"type" == "plane",
     dgs3dPolarPoint(Q,x);
   // TODO? polar quadric
   ,
     cglLogWarning("cannot compute polar of "+x:"type");
-  ));
+  )));
 );
 // Q: quadric, p: point => plane, visible: bool = should object be drawn
 dgs3dPolarPlane(Q,p):=(
@@ -842,6 +849,22 @@ dgs3dPolarPlane(Q,p):=(
   obj:"size" = cglValOrDefault(size,cglDefaults:"sphereSize");
   obj:"recompute" = cglLazy(self,  
     self:"coords" = self:"parents"_1:"coords" * self:"parents"_2:"coords";
+    DGS3DmOVEoK
+  );
+  cglEval(obj:"recompute",obj);
+  cglEval(obj:"redraw",obj);
+  obj
+);
+// Q: quadric, l: line => line, visible: bool = should object be drawn
+dgs3dPolarLine(Q,l):=(
+  regional(obj);
+  obj = dgs3dNewObject("line",[Q,l]);
+  obj:"size" = cglValOrDefault(size,cglDefaults:"cylinderSize");
+  obj:"recompute" = cglLazy(self,  
+    regional(L,Q);
+    Q = self:"parents"_1:"coords";
+    L = dgs3dLineMatrix(self:"parents"_2:"coords");
+    self:"coords"= dgs3dLineFromDualMatrix(adjoint4(Q)*L*adjoint4(Q));
     DGS3DmOVEoK
   );
   cglEval(obj:"recompute",obj);
@@ -935,7 +958,6 @@ dgs3dParallelLine(l,p):=(
 dgs3dParallelPlane(P,p):=(
   regional(obj);
   obj = dgs3dNewObject("plane",[P,p]);
-  obj:"size" = cglValOrDefault(size,cglDefaults:"cylinderSize");
   obj:"recompute" = cglLazy(self,
     regional(P,p);
     P = self:"parents"_1:"coords";
@@ -978,7 +1000,6 @@ dgs3dOrthogonalLine(P,p):=(
 dgs3dOrthogonalPlane(l,p):=(
   regional(obj);
   obj = dgs3dNewObject("plane",[l,p]);
-  obj:"size" = cglValOrDefault(size,cglDefaults:"cylinderSize");
   obj:"recompute" = cglLazy(self,
     regional(l,p,K,n);
     l = self:"parents"_1:"coords";

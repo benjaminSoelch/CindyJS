@@ -126,6 +126,7 @@ cglLight2=cglLazy((color,viewDirection,normal),
 
 // color constants
 cglBlack = (0,0,0);
+cglGray = (0.5,0.5,0.5);
 cglWhite = (1,1,1);
 cglRed = (1,0,0);
 cglGreen = (0,1,0);
