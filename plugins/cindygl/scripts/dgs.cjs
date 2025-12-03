@@ -299,7 +299,77 @@ dgs3dNewId() := (
 );
 dgs3dObjById(id) := if(isstring(id), dgs3dObjects:id, id);
 dgs3dIdForObj(obj) := if(isstring(obj), obj, obj:"id");
-// TODO? store/load -> convert to/from list of JSONs with ids instead of values for parents/children
+
+dgs3dReset():=(
+  // TODO: reset drawn objects
+  dgs3dObjects = {};
+  // objects separated by type
+  dgs3dPoints = {};
+  dgs3dLines = {};
+  dgs3dPlanes = {};
+  dgs3dQuadrics = {};
+  // special objects
+  dgs3dMovablePoints = {};
+);
+
+// store/load -> convert internal object tree to/from simple list
+// TODO? undo/redo functionality
+// convert to list of simple (non self-containing) objects
+dgs3dStore():=(
+  visited = {};
+  res = [];
+  forall(dgs3dObjects,
+    res = res ++ dgs3dStoreRec(#,visited);
+  );
+  res
+);
+dgs3dStoreRec(obj,visited):=(
+  regional(res,id);
+  obj = apply(obj,#); // local copy
+  id = dgs3dIdForObj(obj);
+  if(isUndefined(visited:id),
+    visited:id = true;
+    res = [];
+    obj:"parents" = apply(obj:"parents",parent,
+      id = dgs3dIdForObj(parent);
+      res = res ++ dgs3dStoreRec(dgs3dObjById(parent),visited);
+      id
+    );
+    obj:"children" = apply(obj:"children",child,
+      id = dgs3dIdForObj(child);
+      res = res ++ dgs3dStoreRec(dgs3dObjById(child),visited);
+      id
+    );
+    res = res ++ [obj];
+  ,
+    []
+  )
+);
+// restore object tree from list returned by store
+dgs3dLoad(values):=(
+  dgs3dReset();
+  // 1. load objects
+  forall(values,v,
+    dgs3dObjects:(v:"id") = apply(v,#);
+  );
+  // TODO restore drawn objects
+  forall(dgs3dObjects,obj,
+    obj:"parents" = apply(obj:"parents",dgs3dObjById(#));
+    obj:"children" = apply(obj:"children",dgs3dObjById(#));
+    if(obj:"type" == "point",
+      dgs3dPoints:(obj:"id") = obj;
+      if(obj:"movable",
+        dgs3dMovablePoints:(obj:"id") = obj;
+      )
+    ,if(obj:"type" == "line",
+      dgs3dLines:(obj:"id") = obj;
+    ,if(obj:"plane" == "plane",
+      dgs3dPlanes:(obj:"id") = obj;
+    ,if(obj:"plane" == "quadric",
+      dgs3dQuadrics:(obj:"id") = obj;
+    ))));
+  );
+);
 
 // obj3d = {type: string, id: string, coords: [number], visible: bool, size: real, color: vec3, alpha: real}
 
