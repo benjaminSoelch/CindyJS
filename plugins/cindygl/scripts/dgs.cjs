@@ -312,6 +312,34 @@ dgs3dReset():=(
   dgs3dMovablePoints = {};
 );
 
+// patch for removing json element (assigning nada recreates entry if element was not present)
+jsonRemove(dir,key):=(
+  regional(nada);
+  if(!isUndefined(dir:key),
+    dir:key = nada;
+  )
+);
+
+dgs3dDelete(obj):=(
+  obj = dgs3dObjById(obj);
+  if(isundefined(obj:"deleted"),
+    jsonRemove(dgs3dObjects,obj:"id");
+    jsonRemove(dgs3dPoints,obj:"id");
+    jsonRemove(dgs3dLines,obj:"id");
+    jsonRemove(dgs3dPlanes,obj:"id");
+    jsonRemove(dgs3dQuadrics,obj:"id");
+    jsonRemove(dgs3dMovablePoints,obj:"id");
+    cglDelete(obj:"drawId");
+    forall(obj:"parents",p,
+      p:"children" = remove(apply(p:"children",child,if(child:"id"==obj:"id",-1,child)),-1);
+    );
+    forall(obj:"children",
+      dgs3dDelete(#)
+    );
+    obj:"deleted" = true;
+  )
+);
+
 // store/load -> convert internal object tree to/from simple list
 // TODO? undo/redo functionality
 // convert to list of simple (non self-containing) objects
@@ -1095,9 +1123,12 @@ dgs3dOrthogonalPlane(l,p):=(
 // ? quadric+quadric
 
 // TODO? more intuitive names for functions
-// TODO: support deleting objects, ? support redefining objects
+// TODO: ? support redefining objects
 
-// TODO: test-case for quadric by 9 planes
+// TODO: test-cases for:
+// * quadric by 9 planes
+// * load/store
+// * delete
 
 dgs3dFind(x,y):=(
   regional(root,dir,res,dist);
