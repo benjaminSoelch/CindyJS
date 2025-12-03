@@ -36,13 +36,12 @@
             );
             Plane = join3d(pts2_1,pts2_2,pts2_3);
 
-            // TODO find better distance estimator for intersection curve
-            //  directly using plane seems to be of by factor of 2 along quadric
-            // error seems to depend on angle between conic and plane
             distance(coords):=(
               regional(pol,P2,v,plane,P);
               // 1. get polar planes
               pol = (Q:"coords")*coords;
+              // move plane to midpoint between polar-point and plane
+              pol_4 = 0.5*(pol_4 - ((coords_1,coords_2,coords_3)/coords_4)*(pol_1,pol_2,pol_3));
               P2 = Plane:"coords";
               // 2. compute distance to intersection line
               l = dgs3dDualLine(dgs3dEpsilon44(pol,P2));
