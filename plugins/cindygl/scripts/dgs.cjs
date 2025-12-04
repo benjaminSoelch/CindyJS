@@ -1075,7 +1075,11 @@ dgs3dNormal(x,p):=(
   if(x:"type" == "plane",
     dgs3dOrthogonalLine(x,p);
   ,if(x:"type" == "line",
-    dgs3dOrthogonalPlane(x,p);
+    if(p:"type" == "line",
+      dgs3dOrthogonal2L(x,p);
+    ,
+      dgs3dOrthogonalPlane(x,p);
+    )
   ,
     cglLogWarning("cannot compute parallel to "+x:"type");
   ));
@@ -1096,7 +1100,7 @@ dgs3dOrthogonalLine(P,p):=(
   cglEval(obj:"redraw",obj);
   obj
 );
-// P: plane, p: point => line; size:real = radius, visible: bool = should object be drawn
+// l: line, p: point => line; size:real = radius, visible: bool = should object be drawn
 dgs3dOrthogonalPlane(l,p):=(
   regional(obj);
   obj = dgs3dNewObject("plane",[l,p]);
@@ -1114,13 +1118,51 @@ dgs3dOrthogonalPlane(l,p):=(
   cglEval(obj:"redraw",obj);
   obj
 );
-// TODO? line orthogonal to two other lines
+// l1: line, l2: line => line; size:real = radius, visible: bool = should object be drawn
+dgs3dOrthogonal2L(l1,l2):=(
+  regional(obj);
+  obj = dgs3dNewObject("line",[l1,l2]);
+  obj:"size" = cglValOrDefault(size,cglDefaults:"cylinderSize");
+  obj:"recompute" = cglLazy(self,
+    regional(l1,l2,K1,K2,p1,p2,n1,n2,n,sol,p);
+    l1 = self:"parents"_1:"coords";
+    l2 = self:"parents"_2:"coords";
+    // TODO? is there a smarter algorithm for the line orthogonal to two lines
+    K1 = transpose(kernel(dgs3dLineMatrix(l1)));
+    p1 = K1_1_(1..3) / K1_1_4;
+    n1 = (K1_1 * K1_2_4 - K1_2*K1_1_4)_(1..3);
+    K2 = transpose(kernel(dgs3dLineMatrix(l2)));
+    p2 = K2_1_(1..3)/ K2_1_4;
+    n2 = (K2_1 * K2_2_4 - K2_2*K2_1_4)_(1..3);
+    n = cross(n1,n2);
+    // p1 = p - a * n1
+    // p2 = p + b2 * n - c * n2
+    sol = linearSolve([
+      [1, 0, 0, 0, -n1_1, 0],
+      [0, 1, 0, 0, -n1_2, 0],
+      [0, 0, 1, 0, -n1_3, 0],
+      [1, 0, 0, n_1, 0, -n2_1],
+      [0, 1, 0, n_2, 0, -n2_2],
+      [0, 0, 1, n_3, 0, -n2_3]
+    ], [p1_1,p1_2,p1_3,p2_1,p2_2,p2_3]);
+    p = sol_(1..3);
+    self:"coords" = dgs3dEpsilon44((p_1,p_2,p_3,1),(p_1+n_1,p_2+n_2,p_3+n_3,1));
+    DGS3DmOVEoK
+  );
+  cglEval(obj:"recompute",obj);
+  cglEval(obj:"redraw",obj);
+  obj
+);
 
 // TODO? transformations
 
 // ? quadric by mix of points, lines and planes
 // ? plane+quadric
 // ? quadric+quadric
+
+// conic -> intersection of plane and quadric
+// * point on conic
+// ? intersection conic-plane ( = intersection quadric + line through planes)
 
 // TODO? more intuitive names for functions
 // TODO: ? support redefining objects
