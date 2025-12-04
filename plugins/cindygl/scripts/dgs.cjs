@@ -444,11 +444,16 @@ dgs3dNewObject(type,parents):=(
     obj:"color" = cglValOrDefault(color,(0.25,1,0));
     obj:"alpha" = cglValOrDefault(alpha,1);
     obj:"redraw" = cglLazy(self,dgs3dRenderConic(self));
+  ,if(type == "intersection2Q",
+    dgs3dQuadrics:objId = obj;
+    obj:"color" = cglValOrDefault(color,(0.25,1,0));
+    obj:"alpha" = cglValOrDefault(alpha,1);
+    obj:"redraw" = cglLazy(self,dgs3dRenderIntersection2Q(self));
   ,if(type == "pointPair",
     // nothing to do
   ,
     cglLogWarning("unknown object type");
-  ))))));
+  )))))));
   forall(parents,parent,
     parent:"children" = append(parent:"children",obj);
   );
@@ -545,6 +550,24 @@ dgs3dRenderConic(self):=(
         alpha->self:"alpha",color->self:"color");
     ,
       cglUpdate(self:"drawId",UQ->self:"coords"_1,Up->self:"coords"_2,Ur->self:"size",
+        UcglColor->self:"color",UcglAlpha->self:"alpha");
+      cglSetVisible(self:"drawId",true);
+    );
+  ,if(self:"drawId"!=-1,
+      cglSetVisible(self:"drawId",false);
+  ));
+);
+dgs3dRenderIntersection2Q(self):=(
+  regional(M); // make M visible in callee scopes
+  if(self:"visible" == true, // treat undefined as falsy
+    if(self:"drawId"==-1,
+      M = self:"coords";
+      // TODO? use custom cutoff-region instead of default
+      self:"drawId" = surface3d(dgs3dDistanceQuadricQuadric(Q1,Q2,(x,y,z,1))-4*(r*r),degree->8,
+        plotModifiers->{"Q1":self:"coords"_1,"Q2":self:"coords"_2,"r":self:"size"},
+        alpha->self:"alpha",color->self:"color");
+    ,
+      cglUpdate(self:"drawId",UQ1->self:"coords"_1,UQ2->self:"coords"_2,Ur->self:"size",
         UcglColor->self:"color",UcglAlpha->self:"alpha");
       cglSetVisible(self:"drawId",true);
     );
@@ -831,9 +854,11 @@ dgs3dMeet2(a,b):=(
     dgs3dMeetQP(a,b);
   ,if(a:"type" == "plane" & b:"type" == "quadric",
     dgs3dMeetQP(b,a);
+  ,if(a:"type" == "quadric" & b:"type" == "quadric",
+    dgs3dMeet2Q(a,b);
   ,
     cglLogWarning("cannot meet "+a:"type"+" and "+b:"type");
-  ))))))));
+  )))))))));
 );
 // P1: plane, P2: plane, size:real = radius, visible: bool = should object be drawn
 dgs3dMeet2P(P1,P2):=(
@@ -1181,6 +1206,8 @@ dgs3dOrthogonal2L(l1,l2):=(
   obj
 );
 
+// approximate distance to intersection curve using distance to polar plane(s)
+// TODO? find better heuristics for level-set of intersection
 dgs3dDistanceQuadricPlane(Quadric,Plane,coords):=(
   regional(pol,v,plane,P);
   // 1. get polar planes
@@ -1189,6 +1216,19 @@ dgs3dDistanceQuadricPlane(Quadric,Plane,coords):=(
   pol_4 = 0.5*(pol_4 - ((coords_1,coords_2,coords_3)/coords_4)*(pol_1,pol_2,pol_3));
   // 2. compute distance to intersection line
   l = dgs3dDualLine(dgs3dEpsilon44(pol,Plane));
+  v = dgs3dEpsilon46((0,0,0,1),l);
+  plane = (v_1*coords_4,v_2*coords_4,v_3*coords_4,-(v_1,v_2,v_3,0)*coords);
+  P = dgs3dEpsilon46(plane,l);
+  P = (P / P_4 - coords / coords_4);
+  P*P
+);
+dgs3dDistanceQuadricQuadric(Q1,Q2,coords):=(
+  regional(pol1,pol2,l,v,plane,P);
+  // 1. get polar planes
+  pol1 = Q1*coords;
+  pol2 = Q2*coords;
+  // 2. compute distance to intersection line
+  l = dgs3dDualLine(dgs3dEpsilon44(pol1,pol2));
   v = dgs3dEpsilon46((0,0,0,1),l);
   plane = (v_1*coords_4,v_2*coords_4,v_3*coords_4,-(v_1,v_2,v_3,0)*coords);
   P = dgs3dEpsilon46(plane,l);
@@ -1211,6 +1251,22 @@ dgs3dMeetQP(Q,p):=(
   cglEval(obj:"redraw",obj);
   obj
 );
+// Q1: quadric, Q2: quadric => intersection2Q; size:real = radius, visible: bool = should object be drawn
+dgs3dMeet2Q(Q1,Q2):=(
+  regional(obj);
+  obj = dgs3dNewObject("intersection2Q",[Q1,Q2]);
+  obj:"size" = cglValOrDefault(size,cglDefaults:"cylinderSize");
+  obj:"recompute" = cglLazy(self,
+    regional(Q1,Q2);
+    Q1 = self:"parents"_1:"coords";
+    Q2 = self:"parents"_2:"coords";
+    self:"coords" = [Q1,Q2];
+    DGS3DmOVEoK
+  );
+  cglEval(obj:"recompute",obj);
+  cglEval(obj:"redraw",obj);
+  obj
+);
 // TODO? transformations
 
 // ? quadric by mix of points, lines and planes
@@ -1218,7 +1274,10 @@ dgs3dMeetQP(Q,p):=(
 // ? quadric+quadric
 
 // * point on conic
+// * point on quadric intersection
 // * intersection conic-plane ( = intersection quadric + line through planes)
+
+// * intersections: conic-quadric, quadricIntersection-plane, quadricIntersection-quadric
 
 // TODO? more intuitive names for functions
 // TODO: ? support redefining objects
