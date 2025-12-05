@@ -234,6 +234,7 @@ dgs3dEpsilon444(a,b,c):=(
 dgs3dDiv0(a,b):=(
   if(b!=0,a/b,0);
 );
+// TODO? swap quadric and line parameters
 // l: vec6 (point-like), Q: mat4 => vec4 x 2
 dgs3dIntersectLineQuadric(l,Q):=(
   regional(mL,M,d12,d13,d14,d23,d24,d34,a,r,c0,c,rMax,cMax);
@@ -266,37 +267,109 @@ dgs3dIntersectLineQuadric(l,Q):=(
   );
   (dgs3dRP3Normalize(r),dgs3dRP3Normalize(c));
 );
-// is vector lexicographical less than 0, reading entries from back to front
-dgs3dIsLexNeg(v):=(
-  regional(last);
-  last = v_(length(v));
-  if(re(last)!=0,
-    re(last)<0
-  ,if(im(last)!=0,
-    im(last)<0
-  ,
-    dgs3dIsLexNeg(v_(1..(length(v)-1)));
-  ));
-);
 dgs3dRP3Normalize(p):=(
-  p = p/max(p,|#|);
-  // ensure signs are consistent
-  if(dgs3dIsLexNeg(p)<0,
-    p = -p;
+  regional(m,v);
+  m = -1;
+  forall(p,
+    if(|#|>m,
+      m = |#|;
+      v = #;
+    )
   );
-  p;
+  p = p/v;
 );
 // adjoint of 4x4 matrix
 adjoint4(M):=( // in CindyJS there does not seem to be a adjoint built-in ...
-  regional(Mij);
   apply(1..4,i,apply(1..4,j,
     det(apply(M_(remove(1..4,j)),#_(remove(1..4,i))))*(-1)^(i+j)
+  ));
+);
+// adjoint of 3x3 matrix
+adjoint3(M):=(
+  // TODO? use explicit equation
+  apply(1..3,i,apply(1..3,j,
+    det(apply(M_(remove(1..3,j)),#_(remove(1..3,i))))*(-1)^(i+j)
   ));
 );
 // squared coordinates
 dgs3dSqCoords(p):=(
   (p_1*p_1,p_1*p_2,p_1*p_3,p_1*p_4,p_2*p_2,p_2*p_3,p_2*p_4,p_3*p_3,p_3*p_4,p_4*p_4);
 );
+
+////////////////
+// 2D Geometry
+////////////////
+// TODO? reuse code from 2D-geometry engine
+// FIXME: there seems to be a bug in conic intersection code
+dgs3dDecompose2DConic(A):=(
+  regional(B,i,beta,P,C);
+  // 1. find anti-symmetric matrix D s.t. A+D has rank 1
+  B = adjoint3(A);
+  i = if(|B_1_1|>=|B_2_2| & |B_1_1|>=|B_3_3|, 1, if(|B_2_2|>=|B_1_1| & |B_2_2|>=|B_3_3|,2, 3));
+  if(B_i_i<0,
+    B = -B;
+  );
+  beta = sqrt(B_i_i);
+  P = B_i/beta;
+  C = A + ((0,P_3,-P_2),(-P_3,0,P_1),(P_2,-P_1,0));
+  dgs3dSplit2DRank1Conic(C);
+);
+dgs3dSplit2DRank1Conic(C):=(
+  regional(l1,l2,m);
+  m = -1;
+  forall(1..3,i,
+    forall(1..3,j,
+      if(|C_i_j| > m,
+        m = |C_i_j|;
+        l1 = C_i;
+        l2 = (C_1_j,C_2_j,C_3_j);
+      );
+    )
+  );
+  (l1,l2)
+);
+dgs3dIntersect2DConicLine(A,l):=(
+  regional(M,B,alpha,C,m,l1,l2);
+  M = ((0,l_3,-l_2),(-l_3,0,l_1),(l_2,-l_1,0));
+  B = -M*A*M;
+  // FIXME: handle case l_3 != 0
+  alpha = sqrt(B_1_2*B_2_1-B_1_1*B_2_2)/l_3;
+  C = B + alpha*M;
+  dgs3dSplit2DRank1Conic(C);
+);
+dgs3dIntersect2DConic(A,B):=(
+  regional(lambda,C,l12,p12,p34);
+  // 1. find degenerate matrix in pencil
+  lambda = select(roots((
+    det(A),
+    -A_2_3*A_3_2*B_1_1+A_2_2*A_3_3*B_1_1+A_2_3*A_3_1*B_1_2-A_2_1*A_3_3*B_1_2
+    -A_2_2*A_3_1*B_1_3+A_2_1*A_3_2*B_1_3+A_1_3*A_3_2*B_2_1-A_1_2*A_3_3*B_2_1
+    -A_1_3*A_3_1*B_2_2+A_1_1*A_3_3*B_2_2+A_1_2*A_3_1*B_2_3-A_1_1*A_3_2*B_2_3
+    -A_1_3*A_2_2*B_3_1+A_1_2*A_2_3*B_3_1+A_1_3*A_2_1*B_3_2-A_1_1*A_2_3*B_3_2
+    -A_1_2*A_2_1*B_3_3+A_1_1*A_2_2*B_3_3,
+    -A_3_3*B_1_2*B_2_1+A_3_2*B_1_3*B_2_1+A_3_3*B_1_1*B_2_2-A_3_1*B_1_3*B_2_2
+    -A_3_2*B_1_1*B_2_3+A_3_1*B_1_2*B_2_3+A_2_3*B_1_2*B_3_1-A_2_2*B_1_3*B_3_1
+    -A_1_3*B_2_2*B_3_1+A_1_2*B_2_3*B_3_1-A_2_3*B_1_1*B_3_2+A_2_1*B_1_3*B_3_2
+    +A_1_3*B_2_1*B_3_2-A_1_1*B_2_3*B_3_2+A_2_2*B_1_1*B_3_3-A_2_1*B_1_2*B_3_3
+    -A_1_2*B_2_1*B_3_3+A_1_1*B_2_2*B_3_3,
+    det(B)
+  )),isReal(#))_1; // TODO prefer real roots with small magnitude, handle case with only complex roots
+  C = A+lambda*B;
+  // 3. decompose into lines
+  l12 = dgs3dDecompose2DConic(C);
+  // 4. compute intersections with lines
+  if(|lambda|>=1,
+    p12 = dgs3dIntersect2DConicLine(A,l12_1);
+    p34 = dgs3dIntersect2DConicLine(A,l12_2);
+  ,
+    p12 = dgs3dIntersect2DConicLine(B,l12_1);
+    p34 = dgs3dIntersect2DConicLine(B,l12_2);
+  );
+  (p12_1,p12_2,p34_1,p34_2)
+);
+
+// TODO decouple math and UI:
+//  -> extract underlying computation for geometry operations to functions acting on coordinates
 
 ////////////////
 // Objects + Rendering
@@ -345,7 +418,7 @@ jsonRemove(dir,key):=(
 
 dgs3dDelete(obj):=(
   obj = dgs3dObjById(obj);
-  if(isundefined(obj:"deleted"),
+  if(isUndefined(obj:"deleted"),
     jsonRemove(dgs3dObjects,obj:"id");
     jsonRemove(dgs3dPoints,obj:"id");
     jsonRemove(dgs3dLines,obj:"id");
@@ -940,9 +1013,13 @@ dgs3dMeet2(a,b):=(
     dgs3dMeetQP(b,a);
   ,if(a:"type" == "quadric" & b:"type" == "quadric",
     dgs3dMeet2Q(a,b);
+  ,if(a:"type" == "conic" & b:"type" == "plane",
+    dgs3dMeetCp(a,b);
+  ,if(a:"type" == "plane" & b:"type" == "conic",
+    dgs3dMeetCp(b,a);
   ,
     cglLogWarning("cannot meet "+a:"type"+" and "+b:"type");
-  )))))))));
+  )))))))))));
 );
 // P1: plane, P2: plane, size:real = radius, visible: bool = should object be drawn
 dgs3dMeet2P(P1,P2):=(
@@ -997,6 +1074,49 @@ dgs3dMeet2L(l1,l2):=(
   cglEval(obj:"redraw",obj);
   obj
 );
+dgs3dTracePointPair(self,AB):=(
+  self:"coords" = AB;
+  oldA = self:"children"_1:"coords";
+  oldB = self:"children"_2:"coords";
+  if(isUndefined(oldA)% isUndefined(oldB),
+      self:"children"_1:"coords" = AB_1;
+      self:"children"_2:"coords" = AB_2;
+      DGS3DmOVEoK
+  ,
+    // TODO better tracing
+    // * use "projective distance" (? normalize then distance) instead of euclidean distance
+    // * better way to detect if points are too close to each other
+    //  cindy-classic uses d(oldA,oldB)* s > d(oldA,newA)+d(oldB,newB)
+    d11 = |AB_1-oldA|;
+    d12 = |AB_1-oldB|;
+    d21 = |AB_2-oldA|;
+    d22 = |AB_2-oldB|;
+    // * ? retry if distance between points smaller that distance to new points
+    if(d11 <= d12 & d22 <= d21,
+      self:"children"_1:"coords" = AB_1;
+      self:"children"_2:"coords" = AB_2;
+      DGS3DmOVEoK
+    ,if(d12 < d11 & d21 < d22,
+      self:"children"_1:"coords" = AB_2;
+      self:"children"_2:"coords" = AB_1;
+      DGS3DmOVEoK
+    , // both solutions closer to same vertex
+      self:"children"_1:"coords" = AB_1;
+      self:"children"_2:"coords" = AB_2;
+      DGS3DmOVErETRY
+    ));
+  )
+);
+dgs3dFinishPointList(obj):=(
+  cglEval(obj:"recompute",obj);
+  cglEval(obj:"redraw",obj);
+  forall(obj:"children",child,
+    child:"size" = cglValOrDefault(size,cglDefaults:"sphereSize");
+    cglEval(child:"recompute",child);
+    dgs3dRenderPoint(child);
+  );
+  obj
+);
 // Q1: quadric, l1: line, size:real = radius, visible: bool = should object be drawn
 dgs3dMeetQL(Q1,l1):=(
   regional(obj);
@@ -1007,50 +1127,31 @@ dgs3dMeetQL(Q1,l1):=(
     Q = self:"parents"_1:"coords";
     l = self:"parents"_2:"coords";
     AB = dgs3dIntersectLineQuadric(dgs3dDualLine(l),Q);
-    self:"coords" = AB;
-    oldA = self:"children"_1:"coords";
-    oldB = self:"children"_2:"coords";
-    if(isundefined(oldA)% isundefined(oldB),
-        self:"children"_1:"coords" = AB_1;
-        self:"children"_2:"coords" = AB_2;
-        DGS3DmOVEoK
-    ,
-      // TODO better tracing
-      // * use "projective distance" (? normalize then distance) instead of euclidean distance
-      // * better way to detect if points are too close to each other
-      //  cindy-classic uses d(oldA,oldB)* s > d(oldA,newA)+d(oldB,newB)
-      d11 = |AB_1-oldA|;
-      d12 = |AB_1-oldB|;
-      d21 = |AB_2-oldA|;
-      d22 = |AB_2-oldB|;
-      // * ? retry if distance between points smaller that distance to new points
-      if(d11 <= d12 & d22 <= d21,
-        self:"children"_1:"coords" = AB_1;
-        self:"children"_2:"coords" = AB_2;
-        DGS3DmOVEoK
-      ,if(d12 < d11 & d21 < d22,
-        self:"children"_1:"coords" = AB_2;
-        self:"children"_2:"coords" = AB_1;
-        DGS3DmOVEoK
-      , // both solutions closer to same vertex
-        self:"children"_1:"coords" = AB_1;
-        self:"children"_2:"coords" = AB_2;
-        DGS3DmOVErETRY
-      ));
-    )
+    dgs3dTracePointPair(self,AB);
   );
-  cglEval(obj:"recompute",obj);
-  cglEval(obj:"redraw",obj);
-  forall(obj:"children",child,
-    child:"size" = cglValOrDefault(size,cglDefaults:"sphereSize");
-    print(child:"coords"_(1..3)/child:"coords"_4);
-    cglEval(child:"recompute",child);
-    dgs3dRenderPoint(child);
-  );
-  obj
+  dgs3dFinishPointList(obj);
 );
 // P1: plane, P2: plane, P3: plane, size:real = radius, visible: bool = should object be drawn
-cglInterface(meet3d,dgs3dMeet3P,(P1,P2,P3),(size,visible,color,alpha));
+cglInterface(meet3d,dgs3dMeet3,(P1,P2,P3),(size,visible,color,alpha));
+dgs3dMeet3(x,y,z):=(
+  if(x:"type" == "plane" & y:"type" == "plane" & z:"type" == "plane",
+    dgs3dMeet3P(x,y,z);
+  ,if(x:"type" == "quadric" & y:"type" == "plane" & z:"type" == "plane",
+    dgs3dMeetQpp(x,y,z);
+  ,if(x:"type" == "plane" & y:"type" == "quadric" & z:"type" == "plane",
+    dgs3dMeetQpp(y,x,z);
+  ,if(x:"type" == "plane" & y:"type" == "plane" & z:"type" == "quadric",
+    dgs3dMeetQpp(z,x,y);
+  ,if(x:"type" == "quadric" & y:"type" == "quadric" & z:"type" == "plane",
+    dgs3dMeetQQp(x,y,z);
+  ,if(x:"type" == "quadric" & y:"type" == "plane" & z:"type" == "quadric",
+    dgs3dMeetQQp(x,z,y);
+  ,if(x:"type" == "plane" & y:"type" == "quadric" & z:"type" == "quadric",
+    dgs3dMeetQQp(y,z,x);
+  ,
+    cglLogWarning("cannot meet "+x:"type"+", "+y:"type"+" and "+z:"type");
+  )))))))
+);
 dgs3dMeet3P(P1,P2,P3):=(
   regional(obj);
   obj = dgs3dNewObject("point",[P1,P2,P3]);
@@ -1063,6 +1164,76 @@ dgs3dMeet3P(P1,P2,P3):=(
   cglEval(obj:"redraw",obj);
   obj
 );
+// Q1: quadric, p1: plane, p2: plane ; size:real = radius, visible: bool = should object be drawn
+dgs3dMeetQpp(Q1,p1,p2):=(
+  regional(obj);
+  obj = dgs3dNewObject("pointPair",[Q1,p1,p2]);
+  obj:"children" = [dgs3dNewObject("point",[obj]),dgs3dNewObject("point",[obj])];
+  obj:"recompute" = cglLazy(self,
+    regional(Q,p1,p2,AB,oldA,oldB,d11,d12,d21,d22);
+    Q = self:"parents"_1:"coords";
+    p1 = self:"parents"_2:"coords";
+    p2 = self:"parents"_3:"coords";
+    AB = dgs3dIntersectLineQuadric(dgs3dEpsilon44(p1,p2),Q);
+    dgs3dTracePointPair(self,AB);
+  );
+  dgs3dFinishPointList(obj);
+);
+// C: conic, p: plane ; size:real = radius, visible: bool = should object be drawn
+dgs3dMeetCp(C,p):=(
+  regional(obj);
+  obj = dgs3dNewObject("pointPair",[C,p]);
+  obj:"children" = [dgs3dNewObject("point",[obj]),dgs3dNewObject("point",[obj])];
+  obj:"recompute" = cglLazy(self,
+    regional(Q,C,AB,oldA,oldB,d11,d12,d21,d22);
+    C = self:"parents"_1:"coords";
+    p = self:"parents"_2:"coords";
+    AB = dgs3dIntersectLineQuadric(dgs3dEpsilon44(C_2,p),C_1);
+    dgs3dTracePointPair(self,AB);
+  );
+  dgs3dFinishPointList(obj);
+);
+dgs3dIntersectionsQQP(Q1,Q2,p):=(
+  regional(T,A,B,pts2D);
+  // 1. build transformation that maps (0,0,0,1) to p
+  T = ((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1));
+  if(|p_1|>=|p_2| & |p_1|>=|p_3| & |p_1|>=|p_4|,
+    T_1 = T_4;
+  ,if(|p_2|>=|p_1| & |p_2|>=|p_3| & |p_2|>=|p_4|,
+    T_2 = T_4;
+  ,if(|p_3|>=|p_1| & |p_3|>=|p_2| & |p_3|>=|p_4|,
+    T_3 = T_4;
+  )));
+  T_4 = p;
+  // 2. transform quadrics such that p = (0,0,0,1)
+  A = transpose(inverse(T))*Q1*inverse(T);
+  B = transpose(inverse(T))*Q2*inverse(T);
+  // 3. intersect conics given by first 3 coordinates
+  pts2D = dgs3dIntersect2DConic(apply(A_(1..3),#_(1..3)),apply(B_(1..3),#_(1..3)));
+  // 4. transform intersections back to original coordinate system
+  apply(pts2D,p,dgs3dRP3Normalize(T*(p_1,p_2,p_3,0)));
+);
+// Q1: quadric, Q2: quadric, p: plane ; size:real = radius, visible: bool = should object be drawn
+dgs3dMeetQQp(Q1,Q2,p):=(
+  regional(obj);
+  // TODO pointList as generalization of pointPair
+  obj = dgs3dNewObject("pointPair",[Q1,Q2,p]);
+  obj:"children" = apply(1..4,dgs3dNewObject("point",[obj]));
+  obj:"recompute" = cglLazy(self,
+    regional(Q1,Q2,p,AB,oldA,oldB,d11,d12,d21,d22);
+    Q1 = self:"parents"_1:"coords";
+    Q2 = self:"parents"_2:"coords";
+    p = self:"parents"_3:"coords";
+    ABCD = dgs3dIntersectionsQQP(Q1,Q2,p);
+    // FIXME: add tracing for point quadruples
+    // dgs3dTracePointPair(self,ABCD);
+    print(ABCD);
+    forall(1..4,i,(self:"children"_i):"coords"=ABCD_i)
+  );
+  dgs3dFinishPointList(obj);
+);
+// TODO meet conic-quadric
+// TODO meet quadricIntersection-plane
 
 // Q: quadric, x: point|line|plane => plane size:real = radius, visible: bool = should object be drawn
 cglInterface(polar3d,dgs3dPolar,(Q,x),(size,visible,color,alpha));
@@ -1359,12 +1530,21 @@ dgs3dMeet2Q(Q1,Q2):=(
 
 // * point on quadric intersection
 
-// * intersection of 3 quadrics,  2quadrics + plane, quadric + 2 planes
-// * intersection conic-plane ( = intersection quadric + line through planes)
-// * intersections: conic-quadric, quadricIntersection-plane, quadricIntersection-quadric
+/* 3-arg quadric intersections:
+quadric,quadric, plane ( | conic + quadric | quadricsIntersection + plane )
+1. find matrices for conics in plane (? transform plane to (0,0,0,1) + set w=0 , intersect, undo transform )
+2. intersect conic-conic
+
+quadric, quadric, quadric? ( | quadricsIntersection + quadric )
+???
+1. parametrize intersection curves (find simple surface in pencil, plug into equation for other surface)
+2. intersect curves
+
+*/
 
 // TODO? more intuitive names for functions
 // TODO: ? support redefining objects
+// TODO: ? failure to trace child should not prevent movement of parent
 
 // TODO: test-cases for:
 // * quadric by 9 planes
