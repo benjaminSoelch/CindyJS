@@ -54,9 +54,12 @@ dgs3dMovementAxes(point):=(
         {"type":"normal","n":(l:"coords")_(1..3)}
       ,if(l:"type" == "quadric",
         {"type":"normal","n":((l:"coords"*point:"coords")_(1..3))}
+      ,if(l:"type" == "conic",
+        // movement orthogonal to plane is removed by projection
+        {"type":"normal","n":(((l:"coords"_1)*point:"coords")_(1..3))}
       ,
         cglLogError("unimplemented: moving point depending on "+(l:"type"));
-      )));
+      ))));
     ,
       cglLogError("unimplemented: restricted movement");
     )
@@ -261,7 +264,27 @@ dgs3dIntersectLineQuadric(l,Q):=(
       cMax = abs(c0*c0);
     )
   );
-  (r/max(r,|#|),c/max(c,|#|));
+  (dgs3dRP3Normalize(r),dgs3dRP3Normalize(c));
+);
+// is vector lexicographical less than 0, reading entries from back to front
+dgs3dIsLexNeg(v):=(
+  regional(last);
+  last = v_(length(v));
+  if(re(last)!=0,
+    re(last)<0
+  ,if(im(last)!=0,
+    im(last)<0
+  ,
+    dgs3dIsLexNeg(v_(1..(length(v)-1)));
+  ));
+);
+dgs3dRP3Normalize(p):=(
+  p = p/max(p,|#|);
+  // ensure signs are consistent
+  if(dgs3dIsLexNeg(p)<0,
+    p = -p;
+  );
+  p;
 );
 // adjoint of 4x4 matrix
 adjoint4(M):=( // in CindyJS there does not seem to be a adjoint built-in ...
@@ -834,6 +857,67 @@ dgs3dPointOnQuadric(q):=(
   // TODO? can this result in an infinite projected point
   dgs3dPointOnQuadric(q,(0,0,0,1));
 );
+// p0: vec3|vec4 = (x,y,z,w=1), q: conic , size: real = radius, pinned:bool = fixed position, visible: bool = should object be drawn
+cglInterface(pointOnConic3d,dgs3dPointOnConic,(q,p0),(size,pinned,visible,color,alpha));
+dgs3dPointOnConic(q,p0):=(
+  regional(obj);
+  obj = dgs3dNewObject("point",[q]);
+  obj:"size" = cglValOrDefault(size,cglDefaults:"sphereSize");
+  obj:"coords" = dgs3dPoint4(p0);
+  obj:"recompute" = cglLazy(self,
+    regional(P,P3,Qp,Q,p,np,nq);
+    P = self:"coords";
+    Qp = (self:"parents"_1):"coords";
+    Q = Qp_1;
+    p = Qp_2;
+    // 1. project point into plane
+    P3 = P_(1..3)/P_4;
+    np = p_(1..3);
+    P3 = P3 - np*(p_4+P3*np)/(np*np);
+    P = (P3_1,P3_2,P3_3,1);
+    P = dgs3dRP3Normalize(P);
+    // 2. get line in plane through point normal to surface
+    nq = (Q * P)_(1..3);
+    nq = nq - ((np*nq)/(np*np)) * np; // project normal into plane
+    l = dgs3dEpsilon44(P,P+(nq_1,nq_2,nq_3,0));
+    // 2. intersect line with quadric
+    AB = dgs3dIntersectLineQuadric(dgs3dDualLine(l),Q);
+    // TODO better tracing
+    //  point gets unstable when normal plane is close to orthogonal to view direction
+    //  point gets unstable when quadric close to orthogonal to plane
+    // 3. choose intersection closer to current pos
+    a = (P-AB_1)*(P-AB_1);
+    b = (P-AB_2)*(P-AB_2);
+    ab = (AB_1-AB_2)*(AB_1-AB_2);
+    print((P,AB));
+    // assignment inside branches to avoid assigning value when comparison is undefined
+    if(if(a<=b,
+      self:"coords" = AB_1;
+      ab > a
+    ,
+      self:"coords" = AB_2;
+      ab > b
+    ),
+      DGS3DmOVEoK
+    ,
+      DGS3DmOVErETRY
+    );
+  );
+  cglEval(obj:"recompute",obj);
+  cglEval(obj:"redraw",obj);
+  if(cglValOrDefault(pinned,false),
+    obj:"movable" = false;
+  ,
+    obj:"movable" = true;
+    dgs3dMovablePoints:(obj:"id") = obj;
+  );
+  obj
+);
+cglInterface(pointOnConic3d,dgs3dPointOnConic,(q),(size,pinned,visible,color,alpha));
+dgs3dPointOnConic(q):=(
+  // TODO? can this result in an infinite projected point
+  dgs3dPointOnConic(q,(0,0,0,1));
+);
 
 // p1: plane, p2: plane|line, size:real = radius, visible: bool = should object be drawn
 cglInterface(meet3d,dgs3dMeet2,(P1,P2),(size,visible,color,alpha));
@@ -1273,10 +1357,10 @@ dgs3dMeet2Q(Q1,Q2):=(
 // ? plane+quadric
 // ? quadric+quadric
 
-// * point on conic
 // * point on quadric intersection
-// * intersection conic-plane ( = intersection quadric + line through planes)
 
+// * intersection of 3 quadrics,  2quadrics + plane, quadric + 2 planes
+// * intersection conic-plane ( = intersection quadric + line through planes)
 // * intersections: conic-quadric, quadricIntersection-plane, quadricIntersection-quadric
 
 // TODO? more intuitive names for functions
