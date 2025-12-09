@@ -545,7 +545,7 @@ dgs3dNewObject(type,parents):=(
     obj:"color" = cglValOrDefault(color,(0.25,1,0));
     obj:"alpha" = cglValOrDefault(alpha,1);
     obj:"redraw" = cglLazy(self,dgs3dRenderIntersection2Q(self));
-  ,if(type == "pointPair",
+  ,if(type == "pointSet",
     // nothing to do
   ,
     cglLogWarning("unknown object type");
@@ -1017,9 +1017,17 @@ dgs3dMeet2(a,b):=(
     dgs3dMeetCp(a,b);
   ,if(a:"type" == "plane" & b:"type" == "conic",
     dgs3dMeetCp(b,a);
+  ,if(a:"type" == "conic" & b:"type" == "quadric",
+    dgs3dMeetQuadricConic(b,a);
+  ,if(a:"type" == "quadric" & b:"type" == "conic",
+    dgs3dMeetQuadricConic(a,b);
+  ,if(a:"type" == "intersection2Q" & b:"type" == "plane",
+    dgs3dMeetIntQ2Plane(a,b);
+  ,if(a:"type" == "plane" & b:"type" == "intersection2Q",
+    dgs3dMeetIntQ2Plane(b,a);
   ,
     cglLogWarning("cannot meet "+a:"type"+" and "+b:"type");
-  )))))))))));
+  )))))))))))))));
 );
 // P1: plane, P2: plane, size:real = radius, visible: bool = should object be drawn
 dgs3dMeet2P(P1,P2):=(
@@ -1107,7 +1115,14 @@ dgs3dTracePointPair(self,AB):=(
     ));
   )
 );
-dgs3dFinishPointList(obj):=(
+dgs3dTracePointSet(self,pts):=(
+  // FIXME: support tracing for point-sets
+  forall(1..(length(pts)),i,
+    self:"children"_i:"coords" = pts_i;
+  );
+  DGS3DmOVEoK
+);
+dgs3dFinishPointSet(obj):=(
   cglEval(obj:"recompute",obj);
   cglEval(obj:"redraw",obj);
   forall(obj:"children",child,
@@ -1120,7 +1135,7 @@ dgs3dFinishPointList(obj):=(
 // Q1: quadric, l1: line, size:real = radius, visible: bool = should object be drawn
 dgs3dMeetQL(Q1,l1):=(
   regional(obj);
-  obj = dgs3dNewObject("pointPair",[Q1,l1]);
+  obj = dgs3dNewObject("pointSet",[Q1,l1]);
   obj:"children" = [dgs3dNewObject("point",[obj]),dgs3dNewObject("point",[obj])];
   obj:"recompute" = cglLazy(self,
     regional(Q,l,AB,oldA,oldB,d11,d12,d21,d22);
@@ -1129,7 +1144,7 @@ dgs3dMeetQL(Q1,l1):=(
     AB = dgs3dIntersectLineQuadric(dgs3dDualLine(l),Q);
     dgs3dTracePointPair(self,AB);
   );
-  dgs3dFinishPointList(obj);
+  dgs3dFinishPointSet(obj);
 );
 // P1: plane, P2: plane, P3: plane, size:real = radius, visible: bool = should object be drawn
 cglInterface(meet3d,dgs3dMeet3,(P1,P2,P3),(size,visible,color,alpha));
@@ -1167,7 +1182,7 @@ dgs3dMeet3P(P1,P2,P3):=(
 // Q1: quadric, p1: plane, p2: plane ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeetQpp(Q1,p1,p2):=(
   regional(obj);
-  obj = dgs3dNewObject("pointPair",[Q1,p1,p2]);
+  obj = dgs3dNewObject("pointSet",[Q1,p1,p2]);
   obj:"children" = [dgs3dNewObject("point",[obj]),dgs3dNewObject("point",[obj])];
   obj:"recompute" = cglLazy(self,
     regional(Q,p1,p2,AB,oldA,oldB,d11,d12,d21,d22);
@@ -1177,12 +1192,12 @@ dgs3dMeetQpp(Q1,p1,p2):=(
     AB = dgs3dIntersectLineQuadric(dgs3dEpsilon44(p1,p2),Q);
     dgs3dTracePointPair(self,AB);
   );
-  dgs3dFinishPointList(obj);
+  dgs3dFinishPointSet(obj);
 );
 // C: conic, p: plane ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeetCp(C,p):=(
   regional(obj);
-  obj = dgs3dNewObject("pointPair",[C,p]);
+  obj = dgs3dNewObject("pointSet",[C,p]);
   obj:"children" = [dgs3dNewObject("point",[obj]),dgs3dNewObject("point",[obj])];
   obj:"recompute" = cglLazy(self,
     regional(Q,C,AB,oldA,oldB,d11,d12,d21,d22);
@@ -1191,8 +1206,9 @@ dgs3dMeetCp(C,p):=(
     AB = dgs3dIntersectLineQuadric(dgs3dEpsilon44(C_2,p),C_1);
     dgs3dTracePointPair(self,AB);
   );
-  dgs3dFinishPointList(obj);
+  dgs3dFinishPointSet(obj);
 );
+// FIXME: there seem to be special cases where this returns invalid values
 dgs3dIntersectionsQQP(Q1,Q2,p):=(
   regional(T,S,A,B,pts2D);
   // 1. build transformation that maps (0,0,0,1) to p
@@ -1217,8 +1233,7 @@ dgs3dIntersectionsQQP(Q1,Q2,p):=(
 // Q1: quadric, Q2: quadric, p: plane ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeetQQp(Q1,Q2,p):=(
   regional(obj);
-  // TODO pointList as generalization of pointPair
-  obj = dgs3dNewObject("pointPair",[Q1,Q2,p]);
+  obj = dgs3dNewObject("pointSet",[Q1,Q2,p]);
   obj:"children" = apply(1..4,dgs3dNewObject("point",[obj]));
   obj:"recompute" = cglLazy(self,
     regional(Q1,Q2,p,AB,oldA,oldB,d11,d12,d21,d22);
@@ -1226,16 +1241,38 @@ dgs3dMeetQQp(Q1,Q2,p):=(
     Q2 = self:"parents"_2:"coords";
     p = self:"parents"_3:"coords";
     ABCD = dgs3dIntersectionsQQP(Q1,Q2,p);
-    // FIXME: add tracing for point quadruples
-    // dgs3dTracePointPair(self,ABCD);
-    print(ABCD);
-    forall(1..4,i,(self:"children"_i):"coords"=ABCD_i);
-    DGS3DmOVEoK
+    dgs3dTracePointSet(self,ABCD);
   );
-  dgs3dFinishPointList(obj);
+  dgs3dFinishPointSet(obj);
 );
-// TODO meet conic-quadric
-// TODO meet quadricIntersection-plane
+// Q: quadric, C: conic ; size:real = radius, visible: bool = should object be drawn
+dgs3dMeetQuadricConic(Q,C):=(
+  regional(obj);
+  obj = dgs3dNewObject("pointSet",[Q,C]);
+  obj:"children" = apply(1..4,dgs3dNewObject("point",[obj]));
+  obj:"recompute" = cglLazy(self,
+    regional(Q,C,AB,oldA,oldB,d11,d12,d21,d22);
+    Q = self:"parents"_1:"coords";
+    C = self:"parents"_2:"coords";;
+    ABCD = dgs3dIntersectionsQQP(Q,C_1,C_2);
+    dgs3dTracePointSet(self,ABCD);
+  );
+  dgs3dFinishPointSet(obj);
+);
+// Q: quadric, C: quadric-intersection ; size:real = radius, visible: bool = should object be drawn
+dgs3dMeetIntQ2Plane(Q2,p):=(
+  regional(obj);
+  obj = dgs3dNewObject("pointSet",[Q2,p]);
+  obj:"children" = apply(1..4,dgs3dNewObject("point",[obj]));
+  obj:"recompute" = cglLazy(self,
+    regional(Q2,p,AB,oldA,oldB,d11,d12,d21,d22);
+    Q2 = self:"parents"_1:"coords";
+    p = self:"parents"_2:"coords";;
+    ABCD = dgs3dIntersectionsQQP(Q2_1,Q2_2,p);
+    dgs3dTracePointSet(self,ABCD);
+  );
+  dgs3dFinishPointSet(obj);
+);
 
 // Q: quadric, x: point|line|plane => plane size:real = radius, visible: bool = should object be drawn
 cglInterface(polar3d,dgs3dPolar,(Q,x),(size,visible,color,alpha));
