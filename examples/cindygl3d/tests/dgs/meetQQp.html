@@ -27,14 +27,14 @@
             cglDefaults_"sphereSize" = 0.1;
             cglDefaults_"cylinderSize" = 0.05;
 
-            A = apply(1..9,point3d((random(),random(),random()),color->cglRed));
-            B = apply(1..9,point3d((random(),random(),random()),color->cglGreen));
+            A = apply(1..9,point3d((random(),random(),random()),color->cglRed,size->0.05));
+            B = apply(1..9,point3d((random(),random(),random()),color->cglGreen,size->0.05));
             Q1 = quadricBy9Points(A,color->cglRed);
             Q2 = quadricBy9Points(B,color->cglGreen);
             p = join3d(
-                point3d((random(),random(),random()),color->cglCyan),
-                point3d((random(),random(),random()),color->cglCyan),
-                point3d((random(),random(),random()),color->cglCyan)
+                point3d((random(),random(),random()),color->cglCyan,size->0.05),
+                point3d((random(),random(),random()),color->cglCyan,size->0.05),
+                point3d((random(),random(),random()),color->cglCyan,size->0.05)
             );
             c = meet3d(Q1,Q2,p,color->cglYellow);
         </script>

@@ -1194,7 +1194,7 @@ dgs3dMeetCp(C,p):=(
   dgs3dFinishPointList(obj);
 );
 dgs3dIntersectionsQQP(Q1,Q2,p):=(
-  regional(T,A,B,pts2D);
+  regional(T,S,A,B,pts2D);
   // 1. build transformation that maps (0,0,0,1) to p
   T = ((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1));
   if(|p_1|>=|p_2| & |p_1|>=|p_3| & |p_1|>=|p_4|,
@@ -1205,13 +1205,14 @@ dgs3dIntersectionsQQP(Q1,Q2,p):=(
     T_3 = T_4;
   )));
   T_4 = p;
+  S = adjoint4(T);
   // 2. transform quadrics such that p = (0,0,0,1)
-  A = transpose(inverse(T))*Q1*inverse(T);
-  B = transpose(inverse(T))*Q2*inverse(T);
+  A = transpose(S)*Q1*S;
+  B = transpose(S)*Q2*S;
   // 3. intersect conics given by first 3 coordinates
   pts2D = dgs3dIntersect2DConic(apply(A_(1..3),#_(1..3)),apply(B_(1..3),#_(1..3)));
   // 4. transform intersections back to original coordinate system
-  apply(pts2D,p,dgs3dRP3Normalize(T*(p_1,p_2,p_3,0)));
+  apply(pts2D,v,dgs3dRP3Normalize(S*(v_1,v_2,v_3,0)));
 );
 // Q1: quadric, Q2: quadric, p: plane ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeetQQp(Q1,Q2,p):=(
@@ -1228,7 +1229,8 @@ dgs3dMeetQQp(Q1,Q2,p):=(
     // FIXME: add tracing for point quadruples
     // dgs3dTracePointPair(self,ABCD);
     print(ABCD);
-    forall(1..4,i,(self:"children"_i):"coords"=ABCD_i)
+    forall(1..4,i,(self:"children"_i):"coords"=ABCD_i);
+    DGS3DmOVEoK
   );
   dgs3dFinishPointList(obj);
 );
