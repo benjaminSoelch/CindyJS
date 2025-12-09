@@ -1273,6 +1273,12 @@ dgs3dMeetIntQ2Plane(Q2,p):=(
   );
   dgs3dFinishPointSet(obj);
 );
+/* TODO dgs3dMeet3Q
+quadric, quadric, quadric  and ( quadricsIntersection + quadric )
+???
+1. parametrize intersection curves (find simple surface in pencil, plug into equation for other surface)
+2. intersect curves
+*/
 
 // Q: quadric, x: point|line|plane => plane size:real = radius, visible: bool = should object be drawn
 cglInterface(polar3d,dgs3dPolar,(Q,x),(size,visible,color,alpha));
@@ -1569,17 +1575,6 @@ dgs3dMeet2Q(Q1,Q2):=(
 
 // * point on quadric intersection
 
-/* 3-arg quadric intersections:
-quadric,quadric, plane ( | conic + quadric | quadricsIntersection + plane )
-1. find matrices for conics in plane (? transform plane to (0,0,0,1) + set w=0 , intersect, undo transform )
-2. intersect conic-conic
-
-quadric, quadric, quadric? ( | quadricsIntersection + quadric )
-???
-1. parametrize intersection curves (find simple surface in pencil, plug into equation for other surface)
-2. intersect curves
-
-*/
 
 // TODO? more intuitive names for functions
 // TODO: ? support redefining objects
