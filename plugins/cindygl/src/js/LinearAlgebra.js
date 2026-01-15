@@ -18,6 +18,12 @@ let computeidx = (k, n) => {
 
 //get childs of types that are formed from structs
 function genchilds(t) {
+    if (t.type === 'tuple') {
+        return t.elements.map((t,i) => ({
+            type: t,
+            name: `a${i}`
+        }))
+    }
     let fp = finalparameter(t);
     let d = depth(t);
 
@@ -216,6 +222,9 @@ function uselist(t) {
     if (d == 1 && t.parameters === type.int) return useintvec(t.length);
     return (args, modifs, codebuilder) => createstruct(t, codebuilder) || `${webgltype(t)}(${args.join(',')})`;
 }
+function usetuple(t) {
+    return (args, modifs, codebuilder) => createstruct(t, codebuilder) || `${webgltype(t)}(${args.join(',')})`;
+}
 
 function accesslist(t, k) {
     let d = depth(t);
@@ -225,6 +234,9 @@ function accesslist(t, k) {
     } else if (isnativeglsl(t)) {
         return (args, modifs, codebuilder) => `(${args[0]})[${k}]`;
     }
+    return (args, modifs, codebuilder) => `(${args[0]}).a${k}`;
+}
+function accesstuple(t, k) {
     return (args, modifs, codebuilder) => `(${args[0]}).a${k}`;
 }
 

@@ -22,6 +22,12 @@ let constint = n => constant({
         "imag": 0
     }
 });
+
+let tuple = (types) =>({
+    type: 'tuple',
+    elements: types
+});
+
 const type = { //assert all indices are different
     bool: 1,
     int: 2,
@@ -69,6 +75,7 @@ function typeToString(t) {
         if (t.type === 'list') return `${typeToString(t.parameters)}[${t.length}]`;
         if (t.type === 'constant') return `const[${JSON.stringify(t.value['value'])}]`;
         if (t.type === 'cglLazy') return `cglLazy((${t.value.params.map(v=>v['name']).join(',')}),...)`;
+        if (t.type === 'tuple') return `tuple(${t.elements.map(v=>typeToString(v)).join(',')})`;
         return JSON.stringify(t); //TODO
     }
 }
@@ -125,10 +132,19 @@ let isnativeglsl = t =>
 
 let isprimitive = a => [type.bool, type.int, type.float, type.complex].indexOf(a) !== -1;
 
+function typeListEqual(a,b) {
+    if (a === b) // short circuit for identical lists
+        return true;
+    if (a.length != b.length)
+        return false;
+    return a.every((t,i)=>typesareequal(t,b[i]))
+}
+
 let typesareequal = (a, b) => (a === b) ||
     (a.type === 'constant' && b.type === 'constant' && expressionsAreEqual(a.value, b.value)) ||
     (a.type === 'list' && b.type === 'list' && a.length === b.length && typesareequal(a.parameters, b.parameters)) ||
-    (a.type === 'cglLazy' && b.type === 'cglLazy' && expressionsAreEqual(a.value,b.value));
+    (a.type === 'cglLazy' && b.type === 'cglLazy' && expressionsAreEqual(a.value,b.value))  ||
+    (a.type === 'tuple' && b.type === 'tuple' && typeListEqual(a.elements,b.elements));
 
 function issubtypeof(a, b) {
     if (typesareequal(a, b)) return true;
@@ -150,6 +166,10 @@ function issubtypeof(a, b) {
 
     if (a.type === 'list' && b.type === 'list' && a.length === b.length) {
         return issubtypeof(a.parameters, b.parameters);
+    }
+
+    if (a.type === 'tuple' && b.type === 'tuple' && a.elements.length === b.elements.length) {
+        return a.elements.every((t,i)=>issubtypeof(t,b.elements[i]))
     }
 
     return false;
@@ -175,6 +195,15 @@ function lca(a, b) {
             type: 'list',
             length: a.length,
             parameters: st
+        };
+    }
+    if (a.type === 'tuple' && b.type === 'tuple' && a.elements.length === b.elements.length) {
+        let newTypes = a.elements.map((t,i)=>lca(t,b.elements[i]))
+        if(!newTypes.every(t=>t))
+            return false;
+        else return {
+            type: 'tuple',
+            elements: newTypes
         };
     }
 
@@ -338,6 +367,9 @@ function webgltype(ctype) {
     if (ctype.type === 'list') {
         return `l${ctype.length}_${webgltype(ctype.parameters)}`;
     }
+    if (ctype.type === 'tuple') {
+        return `t${ctype.elements.length}_${ctype.elements.map(t=>webgltype(t)).join("_")}`;
+    }
 
     cglLogError(`No WebGL implementation for type ${typeToString(ctype)} found`);
 }
@@ -358,6 +390,9 @@ function pastevalue(val, toType, codebuilder) {
         default:
             if(toType.type === 'list' && toType.parameters) {
                 return uselist(toType)(val['value'].map(elt=>pastevalue(elt,toType.parameters,codebuilder)),{},codebuilder);
+            }
+            if(toType.type === 'tuple' && toType.parameters) {
+                return usetuple(toType)(val['value'].map(elt=>pastevalue(elt,toType.parameters,codebuilder)),{},codebuilder);
             }
             cglLogError(`Dont know how to paste values of Type ${typeToString(toType)} yet.`);
     }

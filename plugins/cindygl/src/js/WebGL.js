@@ -372,6 +372,22 @@ webgl["_"] = args => {
                 generator: x => cglLogError(`try to access ${k}-th Element of ${t.length}-list ${JSON.stringify(args[0])}`)
             };
         }
+    } else if (t.type === 'tuple' && isconstantint(args[1])) {
+        let k = Number(args[1].value["value"]["real"]);
+        if (1 <= k && k <= t.elements.length) {
+            if (k > 0) k = k - 1;
+            return {
+                args: args,
+                res: t.elements[k],
+                generator: accesstuple(t, k),
+            };
+        } else { //if the certain value is not clear yet.
+            return {
+                args: args,
+                res: false,
+                generator: x => cglLogError(`try to access ${k}-th Element of ${t.elements.length}-tuple ${JSON.stringify(args[0])}`)
+            };
+        }
     }
     return false;
 };
@@ -757,6 +773,17 @@ webgl["genList"] = args => {
                 res: t,
                 generator: uselist(t),
             };
+        } else {
+            let t = tuple(args);
+            for (let i in args) {
+                if(!args[i])
+                    return false;
+            }
+            return {
+                args: args,
+                res: t,
+                generator: usetuple(t)
+            }
         }
     }
     return false;
