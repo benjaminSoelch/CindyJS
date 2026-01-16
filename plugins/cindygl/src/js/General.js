@@ -174,6 +174,11 @@ function guessTypeOfValue(tval) {
                 length: l.length,
                 parameters: ctype
             };
+            let eltTypes = l.map(guessTypeOfValue);
+            if (eltTypes.every(t=>t)) return {
+                type: 'tuple',
+                elements: eltTypes
+            };
         }
     } else if (tval['ctype'] === 'string' || tval['ctype'] === 'image') {
         return type.image;
@@ -181,6 +186,18 @@ function guessTypeOfValue(tval) {
         return type.line;
     } else if (tval['ctype'] === 'cglLazy') {
         return type.cglLazy(tval);
+    } else if (tval['ctype'] === 'JSON') {
+        // ! the ordering depends on the current location of the user, which is probably fine as compiled code is not persistent
+        let entries = Object.entries(tval['value']).sort((a,b)=>a[0].localeCompare(b[0]));
+        let names = entries.map(e=>e[0]);
+        let eltTypes = entries.map(e=>guessTypeOfValue(e[1]));
+        if (eltTypes.every(t=>t)) return {
+            type: 'tuple',
+            elements: eltTypes,
+            names: names
+        };
+    } else if (tval['ctype'] === 'jsonatom') {
+        return guessTypeOfValue(tval['value']);
     }
     cglLogError(`Cannot guess type of the following type:`,tval);
     return false;

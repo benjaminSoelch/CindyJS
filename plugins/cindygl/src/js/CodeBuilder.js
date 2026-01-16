@@ -219,8 +219,34 @@ CodeBuilder.prototype.computeType = function(expr) { //expression
                 }
             }
         }
-        var argtypes = new Array(expr['args'].length);
         let allconstant = true;
+        if(getPlainName(expr['oper'])=='genJSON') {
+            let argTypes = {};
+            expr['args'].forEach(arg=>{
+                if (arg['ctype'] !== 'jsonatom') return;
+                let argType = this.getType(arg['value']);
+                argTypes[arg['key'].value] = argType;
+                allconstant &= (argType.type === 'constant');
+            });
+            if (allconstant) {
+                let constantexpression = {
+                    "ctype": expr['ctype'],
+                    "oper": expr['oper'],
+                    "impl": expr['impl'],
+                    "args": Object.fromEntries(
+                        Object.entries(argTypes).map(([name, type]) => [name, type.value])
+                    )
+                };
+                let val = this.api.evaluateAndVal(constantexpression);
+                return constant(val);
+            }
+            let entries = Object.entries(argTypes).sort((a,b)=>a[0].localeCompare(b[0]));
+            let names = entries.map(e=>e[0]);
+            let eltTypes = entries.map(e=>e[1]);
+            if (eltTypes.every(t=>t)) return tuple(eltTypes,names);
+            return false;
+        }
+        var argtypes = new Array(expr['args'].length);
         for (let i = 0; i < expr['args'].length; i++) {
             argtypes[i] = this.getType(expr['args'][i]);
             allconstant &= (argtypes[i].type === 'constant');
@@ -251,6 +277,26 @@ CodeBuilder.prototype.computeType = function(expr) { //expression
             }
             return implementation ? implementation.res : false;
         }
+    } else if (expr['ctype'] === 'userdata') {
+        let baseType = generalize(this.getType(expr['obj']));
+        if (!baseType) return false;
+        let key = expr['key'];
+        if (baseType.type !== 'tuple' || baseType.names === undefined) {
+            cglLogError("element access is only supported on JSON values");
+            cglLogDebug(baseType);
+            return false;
+        }
+        if (key['ctype'] !== 'string') {
+            cglLogError("element names have to be constant strings");
+            cglLogDebug(key);
+            return false;
+        }
+        let keyIndex = baseType.names.indexOf(key.value);
+        if (keyIndex < 0) {
+            cglLogError(`cannot find key ${key.value} in type ${typeToString(baseType)}`);
+            return false;
+        }
+        return baseType.elements[keyIndex];
     }
     cglLogError("Don't know how to compute type of");
     cglLogDebug(expr);
@@ -421,6 +467,8 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
                 needtobeconstant);
         }
         if (expr['ctype'] === 'field') rec(expr['obj'], bindings, scope, forceconstant);
+        if (expr['ctype'] === 'userdata') rec(expr['obj'], bindings, scope, forceconstant);
+        if (expr['ctype'] === 'jsonatom') rec(expr['value'], bindings, scope, forceconstant);
 
         if (expr['ctype'] === 'variable') {
             let vname = expr['name'];
@@ -657,6 +705,12 @@ CodeBuilder.prototype.determineUniforms = function(expr) {
         if (expr['ctype'] === 'field') {
             return expr["dependsOnPixel"] = dependsOnPixel(expr['obj']);
         }
+        if (expr['ctype'] === 'userdata') {
+            return expr["dependsOnPixel"] = dependsOnPixel(expr['obj']);
+        }
+        if (expr['ctype'] === 'jsonatom') {
+            return expr["dependsOnPixel"] = dependsOnPixel(expr['value']);
+        }
         return expr["dependsOnPixel"] = false;
     }
 
@@ -671,6 +725,12 @@ CodeBuilder.prototype.determineUniforms = function(expr) {
 
             if (expr['ctype'] === 'field') {
                 computeUniforms(expr['obj'], forceconstant);
+            }
+            if (expr['ctype'] === 'userdata') {
+                computeUniforms(expr['obj'], forceconstant);
+            }
+            if (expr['ctype'] === 'jsonatom') {
+                computeUniforms(expr['value'], forceconstant);
             }
 
             //Oh yes, it also might be a user-defined function!
@@ -776,6 +836,12 @@ CodeBuilder.prototype.generatePixelBindings = function(expr) {
         if (expr['ctype'] === 'field') {
             rec(expr['obj'], bounded);
         }
+        if (expr['ctype'] === 'userdata') {
+            rec(expr['obj'], bounded);
+        }
+        if (expr['ctype'] === 'jsonatom') {
+            rec(expr['value'], bounded);
+        }
 
         if (expr['ctype'] === 'variable') {
             let vname = expr['name'];
@@ -836,11 +902,13 @@ CodeBuilder.prototype.precompile = function(expr) {
 
     this.determineTypes();
     for (let u in this.uniforms)
-        if (this.uniforms[u].type.type === 'list') createstruct(this.uniforms[u].type, this);
+        if (this.uniforms[u].type.type === 'list' || this.uniforms[u].type.type === 'tuple')
+            createstruct(this.uniforms[u].type, this);
     for (let v in this.variables)
-        if (this.variables[v].T.type === 'list') createstruct(this.variables[v].T, this);
+        if (this.variables[v].T.type === 'list' || this.variables[v].T.type === 'tuple')
+            createstruct(this.variables[v].T, this);
     this.modifierTypes.forEach((value)=>{
-        if (value.type.type === 'list')
+        if (value.type.type === 'list' || value.type.type === 'tuple')
             createstruct(value.type, this);
     });
 };
@@ -1191,6 +1259,28 @@ CodeBuilder.prototype.compile = function(expr, generateTerm) {
         } : {
             code: code
         });
+    } else if (expr['oper'] && getPlainName(expr['oper']) === "genJSON") {
+        let code = '';
+        let elements = {};
+        expr['args'].map((e) => {
+            let carg = self.compile(e['value'], true);
+            code+=carg.code;
+            elements[e['key'].value]={"term":carg.term,"type":self.getType(e['value'])};
+        });
+        let args = Object.entries(elements).sort((a,b)=>a[0].localeCompare(b[0]));
+        let argTerms = args.map(e=>e[1]['term']);
+        let argNames =  args.map(e=>e[0]);
+        let argTypes = args.map(e=>e[1]['type']);
+        let term = usetuple(tuple(argTypes,argNames))(argTerms, expr['modifs'], this)
+        if (generateTerm)
+            return {
+                term: term,
+                code: code
+            };
+        else
+            return {
+                code: `${code + term};\n`
+            };
     } else if (expr['ctype'] === "function" || expr['ctype'] === "infix") {
         let fname = expr['oper'];
 
@@ -1319,6 +1409,31 @@ CodeBuilder.prototype.compile = function(expr, generateTerm) {
                 term = useincludefunction(funs[expr['key']])([self.castType(objterm, objt, type.point)], null, this);
         }
 
+        if (term) {
+            return (generateTerm ? {
+                term: term,
+                code: ''
+            } : {
+                code: `${term};\n`
+            });
+        }
+    } else if (expr['ctype'] === 'userdata') {
+        let objt = this.getType(expr['obj']);
+        let key = expr['key'].value;
+        if (!objt || objt.names === undefined) {
+            cglLogError(`${typeToString(objt)} does not have a field ${key}`);
+            return;
+        }
+        let index = objt.names.indexOf(key);
+        if (index < 0) {
+            cglLogError(`${typeToString(objt)} does not have a field ${key}`);
+            return;
+        }
+        let term = false;
+        let objterm = self.compile(expr['obj'], true).term;
+        if (index != undefined && objt.type === "tuple") {
+            term = accesstuple(objt, index)([objterm], null, this);
+        }
         if (term) {
             return (generateTerm ? {
                 term: term,

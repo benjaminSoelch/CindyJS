@@ -23,9 +23,10 @@ let constint = n => constant({
     }
 });
 
-let tuple = (types) =>({
+let tuple = (types,eltNames = undefined) =>({
     type: 'tuple',
-    elements: types
+    elements: types,
+    names: eltNames
 });
 
 const type = { //assert all indices are different
@@ -75,7 +76,10 @@ function typeToString(t) {
         if (t.type === 'list') return `${typeToString(t.parameters)}[${t.length}]`;
         if (t.type === 'constant') return `const[${JSON.stringify(t.value['value'])}]`;
         if (t.type === 'cglLazy') return `cglLazy((${t.value.params.map(v=>v['name']).join(',')}),...)`;
-        if (t.type === 'tuple') return `tuple(${t.elements.map(v=>typeToString(v)).join(',')})`;
+        if (t.type === 'tuple') {
+            if (!t.names) return `tuple(${t.elements.map(v=>typeToString(v)).join(',')})`;
+            return `tuple(${t.elements.map((v,i)=>`${t.names[i]}: ${typeToString(v)}`).join(',')})`;
+        }
         return JSON.stringify(t); //TODO
     }
 }
@@ -139,12 +143,21 @@ function typeListEqual(a,b) {
         return false;
     return a.every((t,i)=>typesareequal(t,b[i]))
 }
+function eltNamesEqual(a,b) {
+    if (a === b) // short circuit for identical lists / both undefined
+        return true;
+    if (a === undefined || b === undefined)
+        return false; // only one is undefined
+    if (a.length != b.length)
+        return false;
+    return a.every((t,i)=>t==b[i])
+}
 
 let typesareequal = (a, b) => (a === b) ||
     (a.type === 'constant' && b.type === 'constant' && expressionsAreEqual(a.value, b.value)) ||
     (a.type === 'list' && b.type === 'list' && a.length === b.length && typesareequal(a.parameters, b.parameters)) ||
     (a.type === 'cglLazy' && b.type === 'cglLazy' && expressionsAreEqual(a.value,b.value))  ||
-    (a.type === 'tuple' && b.type === 'tuple' && typeListEqual(a.elements,b.elements));
+    (a.type === 'tuple' && b.type === 'tuple' && typeListEqual(a.elements,b.elements) && eltNamesEqual(a.names,b.names));
 
 function issubtypeof(a, b) {
     if (typesareequal(a, b)) return true;
