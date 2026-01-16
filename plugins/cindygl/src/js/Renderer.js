@@ -575,7 +575,20 @@ Renderer.computeUniformValue = function (setter,uniformType,val){
             ]);
         }
         return elts;
-    }
+    } else if (uniformType.type === 'tuple') {
+        let elts=[];
+        uniformType.elements.forEach((t,k)=> {
+            let setterKey = `a${k}`;
+            elts.push([
+                setterKey,
+                Renderer.computeUniformValue(setter[setterKey], t,
+                    uniformType.names? (val['value'][uniformType.names[k]]):(val['value'][k])
+                )
+            ]);
+        });
+        if (val['ctype'] === uniformType.names ? 'JSON' : 'list')
+            return elts;
+    } 
     cglLogError(`Don't know how to set uniform of type ${typeToString(uniformType)}, to`,val);
     return undefined;
 }
