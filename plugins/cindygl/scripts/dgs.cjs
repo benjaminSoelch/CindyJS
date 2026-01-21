@@ -300,7 +300,7 @@ dgs3dSqCoords(p):=(
 // 2D Geometry
 ////////////////
 // TODO? reuse code from 2D-geometry engine
-// FIXME: there seems to be a bug in conic intersection code
+// FIXME: there seems to be a bug in conic intersection code (? is this still true)
 dgs3dDecompose2DConic(A):=(
   regional(B,i,beta,P,C);
   // 1. find anti-symmetric matrix D s.t. A+D has rank 1
@@ -1163,9 +1163,11 @@ dgs3dMeet3(x,y,z):=(
     dgs3dMeetQQp(x,z,y);
   ,if(x:"type" == "plane" & y:"type" == "quadric" & z:"type" == "quadric",
     dgs3dMeetQQp(y,z,x);
+  ,if(x:"type" == "quadric" & y:"type" == "quadric" & z:"type" == "quadric",
+    dgs3dMeet3Q(x,y,z);
   ,
     cglLogWarning("cannot meet "+x:"type"+", "+y:"type"+" and "+z:"type");
-  )))))))
+  ))))))))
 );
 dgs3dMeet3P(P1,P2,P3):=(
   regional(obj);
@@ -1273,12 +1275,249 @@ dgs3dMeetIntQ2Plane(Q2,p):=(
   );
   dgs3dFinishPointSet(obj);
 );
-/* TODO dgs3dMeet3Q
-quadric, quadric, quadric  and ( quadricsIntersection + quadric )
-???
-1. parametrize intersection curves (find simple surface in pencil, plug into equation for other surface)
-2. intersect curves
-*/
+
+// Q: quadric, C: quadric-intersection ; size:real = radius, visible: bool = should object be drawn
+dgs3dMeet3Q(Q1,Q2,Q3):=(
+  regional(obj);
+  obj = dgs3dNewObject("pointSet",[Q1,Q2,Q3]);
+  obj:"children" = apply(1..8,dgs3dNewObject("point",[obj]));
+  obj:"recompute" = cglLazy(self,
+    regional(Q1,Q2,Q3,sols);
+    Q1 = self:"parents"_1:"coords";
+    Q2 = self:"parents"_2:"coords";
+    Q3 = self:"parents"_3:"coords";
+    sols = dgs3de3q3(dgs3dQuadAsVec(Q1),dgs3dQuadAsVec(Q2),dgs3dQuadAsVec(Q3));
+    dgs3dTracePointSet(self,sols);
+  );
+  dgs3dFinishPointSet(obj);
+);
+///////////
+// E3Q3
+///////////
+dgs3dPnormalize(p):=(
+  regional(n);
+  n = length(p);
+  while(if(n>1,p_n == 0,false),n=n-1);
+  p_(1..n)
+);
+dgs3dPmul(a,b):=(
+  if(islist(a) & islist(b),
+    dgs3dPnormalize(
+      apply(2..(length(a)+length(b)),s,sum(max(1,s-length(b))..(min(length(a),s-1)),i,a_i*b_(s-i)))
+    )
+  ,
+    a*b
+  )
+);
+dgs3dPadd(a,b):=(
+  dgs3dPnormalize(apply(1..(max(length(a),length(b))),i,if(i <= length(a),a_i,0)+if(i <= length(b),b_i,0)))
+);
+dgs3dPsub(a,b):=(
+  dgs3dPnormalize(apply(1..(max(length(a),length(b))),i,if(i <= length(a),a_i,0)-if(i <= length(b),b_i,0)))
+);
+dgs3dPsum(l):=(
+  regional(s);
+  s = [0];
+  forall(l,p,s = dgs3dPadd(s,p));
+  s
+);
+dgs3dmmulp(A,B):=(
+  apply(1..(length(A)),i,apply(1..(length(B)),j,dgs3dPsum(apply(1..(length(A_i)),k,dgs3dPmul(A_i_k,B_k_j)))))
+);
+dgs3dPeval(p,x):=(
+  sum(0..(length(p)-1),i,(p_(i+1))*(x^i))
+);
+dgs3dPevalm(A,x):=(
+  apply(A,r,apply(r,e,dgs3dPeval(e,x)))
+);
+dgs3dQuadAsMat(qVec):=(
+  [
+    [2*qVec_1,qVec_2,qVec_3,qVec_4],
+    [qVec_2,2*qVec_5,qVec_6,qVec_7],
+    [qVec_3,qVec_6,2*qVec_8,qVec_9],
+    [qVec_4,qVec_7,qVec_9,2*qVec_10]
+  ]
+);
+dgs3dQuadAsVec(qMat):=(
+  [qMat_1_1,qMat_1_2+qMat_2_1,qMat_1_3+qMat_3_1,qMat_1_4+qMat_4_1,
+      qMat_2_2,qMat_2_3+qMat_3_2,qMat_2_4+qMat_4_2,
+      qMat_3_3,qMat_3_4+qMat_4_3,qMat_4_4]
+);
+dgs3ddehom4(v):=(
+  if(v_4 != 0,
+    v/v_4
+  ,if(v_3 != 0,
+    v/v_3
+  ,if(v_2 != 0,
+    v/v_2
+  ,if(v_1 != 0,
+    (1,0,0,0)
+  ,
+    (0,0,0,0)
+  ))))
+);
+
+dgs3de3q3checkError(res,q1,q2,q3):=(
+  if(isundefined(res),
+    true
+  ,
+    max((q1,q2,q3),q,max(res,v,abs(v*dgs3dQuadAsMat(q)*v))) > 1e-7
+  );
+);
+// quadric intersection algo from paper: Efficient Intersection of Three Quadrics and Applications in Computer Vision
+dgs3de3q3(q1,q2,q3):=(
+  regional(res,retryCount,D,trafo,trafoT);
+  res = dgs3de3q3Impl(q1,q2,q3);
+  retryCount = 100; // retry at most 100 times
+  // retry if error is too large
+  // TODO! figure out if wrong solutions are problems with implementation or numerics of algorithm
+  // TODO? remember "least-bad" solution so far
+  while(retryCount > 0 & dgs3de3q3checkError(res,q1,q2,q3),
+    // handling of singular cases inspired by: https://github.com/PoseLib/PoseLib
+    D = 0;
+    while(abs(D) < 1e-5 % abs(D) > 1e5, // find random trafo with reasonably small
+      trafo = (
+        (random(),random(),random(),random()),
+        (random(),random(),random(),random()),
+        (random(),random(),random(),random()),
+        (random(),random(),random(),random())
+      );
+      D = det(trafo);
+    );
+    trafoT = transpose(trafo);
+    res = dgs3de3q3Impl(
+      dgs3dQuadAsVec(trafoT*dgs3dQuadAsMat(q1)*trafo),
+      dgs3dQuadAsVec(trafoT*dgs3dQuadAsMat(q2)*trafo),
+      dgs3dQuadAsVec(trafoT*dgs3dQuadAsMat(q3)*trafo)
+    );
+    if(!isundefined(res),
+      res = apply(res,p,trafo*p);
+      err = max((q1,q2,q3),q,Q = dgs3dQuadAsMat(q);max(res,v,abs(v*Q*v)));
+    );
+    retryCount = retryCount - 1;
+  );
+  apply(res,v,dgs3ddehom4(v))
+);
+dgs3de3q3Impl(q1,q2,q3):=(
+  regional(undef,Axy,Axz,Axw,Ayz,Ayw,Azw,D,varChoice,D1,A,M0,A1,M1,s11,s12,s13,s21,s22,s23,s31,s32,s33,M,D,roots,isError,solutions,Mr,ker,v);
+  // 1. preprocessing:
+  // input: xx xy xz xw yy yz yw zz zw ww
+  Axy = ((-q1_1,-q1_5,-q1_2),(-q2_1,-q2_5,-q2_2),(-q3_1,-q3_5,-q3_2));
+  Axz = ((-q1_1,-q1_8,-q1_3),(-q2_1,-q2_8,-q2_3),(-q3_1,-q3_8,-q3_3));
+  Axw = ((-q1_1,-q1_10,-q1_4),(-q2_1,-q2_10,-q2_4),(-q3_1,-q3_10,-q3_4));
+  Ayz = ((-q1_5,-q1_8,-q1_6),(-q2_5,-q2_8,-q2_6),(-q3_5,-q3_8,-q3_6));
+  Ayw = ((-q1_5,-q1_10,-q1_7),(-q2_5,-q2_10,-q2_7),(-q3_5,-q3_10,-q3_7));
+  Azw = ((-q1_8,-q1_10,-q1_9),(-q2_8,-q2_10,-q2_9),(-q3_8,-q3_10,-q3_9));
+  D = det(Ayz);
+  varChoice = 0;
+  D1 = det(Axy);
+  if(abs(D1)>abs(D), D = D1;  varChoice = 1);
+  D1 = det(Axz);
+  if(abs(D1)>abs(D), D = D1;  varChoice = 2);
+  D1 = det(Axw);
+  if(abs(D1)>abs(D), D = D1;  varChoice = 3);
+  D1 = det(Ayw);
+  if(abs(D1)>abs(D), D = D1;  varChoice = 4);
+  D1 = det(Azw);
+  if(abs(D1)>abs(D), D = D1;  varChoice = 5);
+  if(abs(D) > 1e-8,
+    if(varChoice == 1,
+      // zz yz xz zw yy xy yw xx xw ww
+      q1 = (q1_8,q1_6,q1_3,q1_9,q1_5,q1_2,q1_7,q1_1,q1_4,q1_10);
+      q2 = (q2_8,q2_6,q2_3,q2_9,q2_5,q2_2,q2_7,q2_1,q2_4,q2_10);
+      q3 = (q3_8,q3_6,q3_3,q3_9,q3_5,q3_2,q3_7,q3_1,q3_4,q3_10);
+    ,if(varChoice == 2, // xz: swap x,y
+      // yy xy yz yw xx xz xw zz zw ww
+      q1 = (q1_5,q1_2,q1_6,q1_7,q1_1,q1_3,q1_4,q1_8,q1_9,q1_10);
+      q2 = (q2_5,q2_2,q2_6,q2_7,q2_1,q2_3,q2_4,q2_8,q2_9,q2_10);
+      q3 = (q3_5,q3_2,q3_6,q3_7,q3_1,q3_3,q3_4,q3_8,q3_9,q3_10);
+    ,if( varChoice == 3, // xw: swap x,y ; swap z,w
+      // yy xy yw yz xx xw xz ww zw zz
+      q1 = (q1_5,q1_2,q1_7,q1_6,q1_1,q1_4,q1_3,q1_10,q1_9,q1_8);
+      q2 = (q2_5,q2_2,q2_7,q2_6,q2_1,q2_4,q2_3,q2_10,q2_9,q2_8);
+      q3 = (q3_5,q3_2,q3_7,q3_6,q3_1,q3_4,q3_3,q3_10,q3_9,q3_8);
+    ,if( varChoice == 4, // yw: swap z,w
+      // xx xy xw xz yy yw yz ww zw zz
+      q1 = (q1_1,q1_2,q1_4,q1_3,q1_5,q1_7,q1_6,q1_10,q1_9,q1_8);
+      q2 = (q2_1,q2_2,q2_4,q2_3,q2_5,q2_7,q2_6,q2_10,q2_9,q2_8);
+      q3 = (q3_1,q3_2,q3_4,q3_3,q3_5,q3_7,q3_6,q3_10,q3_9,q3_8);
+    ,if(varChoice == 5, // zw: swap y,w
+      // xx xw xz xy ww zw yw zz yz yy
+      q1 = (q1_1,q1_4,q1_3,q1_2,q1_10,q1_9,q1_7,q1_8,q1_6,q1_5);
+      q2 = (q2_1,q2_4,q2_3,q2_2,q2_10,q2_9,q2_7,q2_8,q2_6,q2_5);
+      q3 = (q3_1,q3_4,q3_3,q3_2,q3_10,q3_9,q3_7,q3_8,q3_6,q3_5);
+    )))));
+    // TODO? does the choice of x/w matter
+    //  0  1  2  3  4  5  6  7  8  9
+    // xx xy xz xw yy yz yw zz zw ww
+    A = ((-q1_5,-q1_8,-q1_6),(-q2_5,-q2_8,-q2_6),(-q3_5,-q3_8,-q3_6));
+    // 1. find polynomial matrix
+    M0 = (
+      ((q1_7,q1_2),(q1_9,q1_3),(q1_10,q1_4,q1_1)),
+      ((q2_7,q2_2),(q2_9,q2_3),(q2_10,q2_4,q2_1)),
+      ((q3_7,q3_2),(q3_9,q3_3),(q3_10,q3_4,q3_1))
+    );
+    A1 = inverse(A);
+    M1 = dgs3dmmulp(A1,M0);
+    s11=dgs3dPsub(dgs3dPadd(dgs3dPsub(dgs3dPmul(dgs3dPsub(M1_1_1,M1_3_2),M1_3_1),dgs3dPmul(M1_1_1,M1_3_1)),dgs3dPmul(M1_1_2,M1_2_1)),M1_3_3);
+    s12=dgs3dPadd(dgs3dPadd(dgs3dPsub(dgs3dPmul(dgs3dPsub(M1_1_1,M1_3_2),M1_3_2),dgs3dPmul(M1_1_2,M1_3_1)),dgs3dPmul(M1_1_2,M1_2_2)),M1_1_3);
+    s13=dgs3dPadd(dgs3dPsub(dgs3dPmul(dgs3dPsub(M1_1_1,M1_3_2),M1_3_3),dgs3dPmul(M1_1_3,M1_3_1)),dgs3dPmul(M1_1_2,M1_2_3));
+    s21=dgs3dPsub(dgs3dPadd(dgs3dPsub(dgs3dPmul(dgs3dPsub(M1_3_1,M1_2_2),M1_3_1),dgs3dPmul(M1_1_1,M1_2_1)),dgs3dPmul(M1_2_1,M1_3_2)),M1_2_3);
+    s22=dgs3dPadd(dgs3dPadd(dgs3dPsub(dgs3dPmul(dgs3dPsub(M1_3_1,M1_2_2),M1_3_2),dgs3dPmul(M1_1_2,M1_2_1)),dgs3dPmul(M1_2_2,M1_3_2)),M1_3_3);
+    s23=dgs3dPadd(dgs3dPsub(dgs3dPmul(dgs3dPsub(M1_3_1,M1_2_2),M1_3_3),dgs3dPmul(M1_1_3,M1_2_1)),dgs3dPmul(M1_2_3,M1_3_2));
+    s31=(dgs3dPadd(dgs3dPadd(dgs3dPadd(dgs3dPmul(dgs3dPsub(dgs3dPmul(M1_3_1,M1_3_1),dgs3dPmul(M1_1_1,M1_2_1)),M1_1_1),
+      dgs3dPmul(dgs3dPsub(dgs3dPsub(dgs3dPadd(dgs3dPmul(M1_3_2,M1_3_1),dgs3dPmul(M1_3_1,M1_3_2)),dgs3dPmul(M1_1_2,M1_2_1)),
+      dgs3dPmul(M1_1_1,M1_2_2)),M1_3_1)),dgs3dPmul(dgs3dPsub(dgs3dPmul(M1_3_2,M1_3_2),dgs3dPmul(M1_1_2,M1_2_2)),M1_2_1)),
+      dgs3dPsub(dgs3dPsub(dgs3dPadd(dgs3dPmul(M1_3_1,M1_3_3),dgs3dPmul(M1_3_1,M1_3_3)),dgs3dPmul(M1_1_3,M1_2_1)),dgs3dPmul(M1_1_1,M1_2_3))));
+    s32=(dgs3dPadd(dgs3dPadd(dgs3dPadd(dgs3dPmul(dgs3dPsub(dgs3dPmul(M1_3_1,M1_3_1),dgs3dPmul(M1_1_1,M1_2_1)),M1_1_2),
+      dgs3dPmul(dgs3dPsub(dgs3dPsub(dgs3dPadd(dgs3dPmul(M1_3_2,M1_3_1),dgs3dPmul(M1_3_1,M1_3_2)),dgs3dPmul(M1_1_2,M1_2_1)),
+      dgs3dPmul(M1_1_1,M1_2_2)),M1_3_2)),dgs3dPmul(dgs3dPsub(dgs3dPmul(M1_3_2,M1_3_2),dgs3dPmul(M1_1_2,M1_2_2)),M1_2_2)),
+      dgs3dPsub(dgs3dPsub(dgs3dPadd(dgs3dPmul(M1_3_2,M1_3_3),dgs3dPmul(M1_3_2,M1_3_3)),dgs3dPmul(M1_1_3,M1_2_2)),dgs3dPmul(M1_1_2,M1_2_3))));
+    s33=(dgs3dPsub(dgs3dPadd(dgs3dPadd(dgs3dPadd(dgs3dPmul(dgs3dPsub(dgs3dPmul(M1_3_1,M1_3_1),dgs3dPmul(M1_1_1,M1_2_1)),M1_1_3),
+      dgs3dPmul(dgs3dPsub(dgs3dPsub(dgs3dPadd(dgs3dPmul(M1_3_2,M1_3_1),dgs3dPmul(M1_3_1,M1_3_2)),dgs3dPmul(M1_1_2,M1_2_1)),dgs3dPmul(M1_1_1,M1_2_2)),M1_3_3)),
+      dgs3dPmul(dgs3dPsub(dgs3dPmul(M1_3_2,M1_3_2),dgs3dPmul(M1_1_2,M1_2_2)),M1_2_3)),dgs3dPmul(M1_3_3,M1_3_3)),dgs3dPmul(M1_1_3,M1_2_3)));
+    M = ((s11,s12,s13),(s21,s22,s23),(s31,s32,s33));
+    // 2. compute determinant of M
+    D = dgs3dPsub(dgs3dPadd(dgs3dPadd(dgs3dPsub(dgs3dPsub(
+        dgs3dPmul(M_1_1,dgs3dPmul(M_2_2,M_3_3)),dgs3dPmul(M_1_1,dgs3dPmul(M_2_3,M_3_2))),
+        dgs3dPmul(M_1_2,dgs3dPmul(M_2_1,M_3_3))),dgs3dPmul(M_1_2,dgs3dPmul(M_2_3,M_3_1))),
+        dgs3dPmul(M_1_3,dgs3dPmul(M_2_1,M_3_2))),dgs3dPmul(M_1_3,dgs3dPmul(M_2_2,M_3_1))
+      );
+    // 3. find roots
+    roots = roots(D);
+    isError = false;
+    // 4. solve for other coordinates
+    solutions = apply(roots,r,
+      Mr = dgs3dPevalm(M,r);
+      ker = transpose(kernel(Mr)); // is using kernel stable enough
+      if(length(ker)!=1,
+        isError = true;
+        [r,0,0,1] // dummy value
+      ,
+        v = ker_1;
+        if(abs(v_3) <= (1e-10 * (abs(v_1)+abs(v_2))),isError = true);
+        [r*v_3,v_1,v_2,v_3]
+      )
+    );
+    if(isError,undef,
+      // undo coordinate-permutation on solutions
+      if(varChoice == 0,
+        solutions
+      ,if(varChoice == 1, // xy: swap x,z
+        solutions = apply(solutions,s,[s_3,s_2,s_1,s_4])
+      ,if(varChoice == 2, // xz: swap x,y
+        solutions = apply(solutions,s,[s_2,s_1,s_3,s_4])
+      ,if(varChoice == 3, // xw: swap x,y ; swap z,w
+        solutions = apply(solutions,s,[s_2,s_1,s_4,s_3])
+      ,if(varChoice == 4, // yw: swap z,w
+        solutions = apply(solutions,s,[s_1,s_2,s_4,s_3])
+      ,if(varChoice == 5, // zw: swap y,w
+        solutions = apply(solutions,s,[s_1,s_4,s_3,s_2])
+      ))))));
+    );
+  );
+);
+////////
 
 // Q: quadric, x: point|line|plane => plane size:real = radius, visible: bool = should object be drawn
 cglInterface(polar3d,dgs3dPolar,(Q,x),(size,visible,color,alpha));
@@ -1570,8 +1809,6 @@ dgs3dMeet2Q(Q1,Q2):=(
 // TODO? transformations
 
 // ? quadric by mix of points, lines and planes
-// ? plane+quadric
-// ? quadric+quadric
 
 // * point on quadric intersection
 
