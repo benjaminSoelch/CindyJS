@@ -1816,6 +1816,78 @@ let CindyGL = function(api) {
         }
         return nada;
     });
+    // input
+    // 1.) list of colors
+    // 2.) list of lists of colors
+    // versions: (img,pixels), (img,x,y, pixels2D) ,(img,x,y,w,h,pixels)
+    function writePixels(name,x,y,w,h,colorArg,modifs) {
+        initGLIfRequired();
+        let flipRows = modifs['flipRows'] !== undefined && coerce.toBool(api.evaluateAndVal(modifs['flipRows']),false)
+        if (!name) return nada;
+        if (colorArg['ctype'] !== "list") return nada;
+        // TODO? support list of floats as input
+        if (colorArg['value'][0]['ctype'] !== "list") return nada;
+        let imageobject = api.getImage(name, true);
+        if(w === undefined) w = imageobject.width;
+        if(h === undefined) h = imageobject.height;
+        let colorList;
+        if (colorArg['value'][0]['value'][0]['ctype'] !== "list") {
+            colorList = colorArg['value'];
+            if (flipRows) {
+                for(let iy = 0; iy < h/2; iy++) {
+                    let r0 = w*iy;
+                    let r1 = w*(h-iy-1);
+                    // swap list elements
+                    for(let ix = 0; ix < w ; ix++) {
+                        let i0 = r0 + ix;
+                        let i1 = r1 + ix;
+                        [colorList[i0], colorList[i1]] = [colorList[i1], colorList[i0]];
+                    }
+                }
+            }
+        } else {
+            let rowList = colorArg['value'].map(r=>r['value']);
+            // TODO? check shape
+            if (flipRows) {
+                rowList = rowList.slice().reverse();
+            }
+            colorList = rowList.flatten()
+        }
+        let isError = false;
+        let colors = colorList.map(color=>{
+            let elts = coerce.toList(color,[color]).map(coerce.toReal);
+            if (elts.length == 4) {
+                return elts;
+            } else if (elts.length == 3) {
+                return [elts[0],elts[1],elts[2],1]
+            } else if (elts.length == 1) {
+                return [elts[0],elts[0],elts[0],1];
+            }
+            isError= true; return [0,0,0,1]
+        });
+        //let canvaswrapper = generateWriteCanvasWrapperIfRequired(imageobject, api);
+        let canvaswrapper = generateCanvasWrapperIfRequired(imageobject, api, false);
+
+        if (isFinite(x) && isFinite(y) && isFinite(w) && isFinite(h) && name && canvaswrapper && (!isError)) {
+            canvaswrapper.setPixels(x, y, w, h, colors);
+        }
+        return nada;
+    }
+    api.defineFunction("writepixels", 2, (args, modifs) => {
+        var name = coerce.toString(api.evaluateAndVal(args[0]));
+        var colorArg = api.evaluateAndVal(args[1]);
+        writePixels(name,0,0,undefined,undefined,colorArg,modifs);
+    });
+    api.defineFunction("writepixels", 6, (args, modifs) => {
+        var name = coerce.toString(api.evaluateAndVal(args[0]));
+        var x = coerce.toInt(api.evaluateAndVal(args[1]));
+        var y = coerce.toInt(api.evaluateAndVal(args[2]));
+        var w = coerce.toInt(api.evaluateAndVal(args[3]));
+        var h = coerce.toInt(api.evaluateAndVal(args[4]));
+
+        var colorArg = api.evaluateAndVal(args[5]);
+        writePixels(name,x,y,w,h,colorArg,modifs);
+    });
     // gets the raw pixels data of the given image
     // unlike `readpixles` this function will not adjust the order of the images rows
     // this makes this function faster in usecases where the order of rows is not relevant

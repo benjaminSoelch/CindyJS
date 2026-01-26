@@ -339,3 +339,24 @@ CanvasWrapper.prototype.setPixel = function(x, y, color) {
     id.data.d = colordata;
     context.putImageData(id, x, y);
 };
+
+/**
+ * sets pixels at absolute coordinate x and y to colors; both on canvas and on this.textures[this.it]
+ *  colors should be a h x w x 4 nested array, the data should be stored as a list of rows, containing lists of pixel-colors
+ *
+ */
+CanvasWrapper.prototype.setPixels = function(x, y, w, h, colors) {
+    this.bindTexture();
+    let colordata = new Array(4*w*h); 
+    colors.forEach((color,i)=>{
+        let i0 = 4*i;
+        for(let j=0;j<color.length;j++)colordata[i0+j] = color[j];
+    })
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, x, y, w, h,
+        gl.RGBA, getPixelType(), createPixelArrayFromFloat(colordata));
+
+    let context = this.canvas.img.getContext('2d');
+    let id = context.createImageData(w, h); // only do this once per page
+    id.data.d = colordata;
+    context.putImageData(id, x, y);
+};
