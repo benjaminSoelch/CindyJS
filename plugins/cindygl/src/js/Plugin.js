@@ -1871,12 +1871,12 @@ let CindyGL = function(api) {
         if (isFinite(x) && isFinite(y) && isFinite(w) && isFinite(h) && name && canvaswrapper && (!isError)) {
             canvaswrapper.setPixels(x, y, w, h, colors);
         }
-        return nada;
+        return toCjsNumber(w*h);
     }
     api.defineFunction("writepixels", 2, (args, modifs) => {
         var name = coerce.toString(api.evaluateAndVal(args[0]));
         var colorArg = api.evaluateAndVal(args[1]);
-        writePixels(name,0,0,undefined,undefined,colorArg,modifs);
+        return writePixels(name,0,0,undefined,undefined,colorArg,modifs);
     });
     api.defineFunction("writepixels", 6, (args, modifs) => {
         var name = coerce.toString(api.evaluateAndVal(args[0]));
@@ -1886,7 +1886,7 @@ let CindyGL = function(api) {
         var h = coerce.toInt(api.evaluateAndVal(args[4]));
 
         var colorArg = api.evaluateAndVal(args[5]);
-        writePixels(name,x,y,w,h,colorArg,modifs);
+        return writePixels(name,x,y,w,h,colorArg,modifs);
     });
     // input
     // versions: (img,pixels), (img,x,y,w,h,pixels)
