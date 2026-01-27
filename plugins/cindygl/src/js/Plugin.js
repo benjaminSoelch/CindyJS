@@ -1819,7 +1819,7 @@ let CindyGL = function(api) {
     // input
     // 1.) list of colors
     // 2.) list of lists of colors
-    // versions: (img,pixels), (img,x,y, pixels2D) ,(img,x,y,w,h,pixels)
+    // versions: (img,pixels), (img,x,y,w,h,pixels)
     function writePixels(name,x,y,w,h,colorArg,modifs) {
         initGLIfRequired();
         let flipRows = modifs['flipRows'] !== undefined && coerce.toBool(api.evaluateAndVal(modifs['flipRows']),false)
@@ -1888,19 +1888,19 @@ let CindyGL = function(api) {
         var colorArg = api.evaluateAndVal(args[5]);
         writePixels(name,x,y,w,h,colorArg,modifs);
     });
-    // gets the raw pixels data of the given image
-    // unlike `readpixles` this function will not adjust the order of the images rows
-    // this makes this function faster in usecases where the order of rows is not relevant
-    // TODO: it makes more sence to add a `allowReverseRows` modifer to `readpixels` instead of creating a seperate function at plugin level
-    api.defineFunction("cglReadRawPixels", 1, (args, modifs) => {
-        var name = coerce.toString(api.evaluateAndVal(args[0]));
+    // input
+    // versions: (img,pixels), (img,x,y,w,h,pixels)
+    function readPixels(name,x,y,w,h,modifs) {
+        initGLIfRequired();
+        // default flip to true for compatability with readPixels in CindJS-core
+        let flipRows = modifs['flipRows'] === undefined || coerce.toBool(api.evaluateAndVal(modifs['flipRows']),false)
         if (!name) return nada;
         let imageobject = api.getImage(name, true);
-        //let canvaswrapper = generateWriteCanvasWrapperIfRequired(imageobject, api);
+        if(w === undefined) w = imageobject.width;
+        if(h === undefined) h = imageobject.height;
         let canvaswrapper = generateCanvasWrapperIfRequired(imageobject, api, false);
-
         if ( name && canvaswrapper) {
-          let pixels = canvaswrapper.readRawPixels(0, 0, imageobject.width, imageobject.height);
+          let pixels = canvaswrapper.readRawPixels(x, y, w, h);
           let res = new Array(pixels.length/4);
           let is_rgb = api.evaluateAndVal(modifs["rgb"]);
           // directly map pixels to rgb values
@@ -1909,16 +1909,21 @@ let CindyGL = function(api) {
             let mod_skipTransparent = api.evaluateAndVal(modifs["skipTransparent"]);
             let skip_transparent = mod_skipTransparent["ctype"] === "boolean" && mod_skipTransparent["value"];
             let j=0;
-            for(let i=0;i<res.length;i++){
-                if(skip_transparent && pixels[4*i+3]==0){
+            for(let r=0;r<h;r++)for(let c=0;c<w;c++){
+                let i0 = 4*(w*r+c); // color index
+                if (flipRows) i0 = 4*(w*(h-r-1)+c);
+                if(skip_transparent && pixels[i0+3]==0){
                     continue;
                 }
-                res[j++] = toCjs(toFloat([pixels[4*i],pixels[4*i+1],pixels[4*i+2]]));
+                res[j++] = toCjs(toFloat([pixels[i0+0],pixels[i0+1],pixels[i0+2]]));
             }
             res.length = j;
           } else {
-            for(let i=0;i<res.length;i++){
-              res[i] = toCjs(toFloat([pixels[4*i],pixels[4*i+1],pixels[4*i+2],pixels[4*i+3]]));
+            for(let r=0;r<h;r++)for(let c=0;c<w;c++){
+              let i = w*r+c; // pixel index
+              let i0 = 4*i; // color index
+              if (flipRows) i0 = 4*(w*(h-r-1)+c);
+              res[i] = toCjs(toFloat([pixels[i0],pixels[i0+1],pixels[i0+2],pixels[i0+3]]));
             }
           }
           return {
@@ -1927,6 +1932,24 @@ let CindyGL = function(api) {
           };
         }
         return nada;
+    }
+    // gets the raw pixels data of the given image
+    // unlike `readpixles` this function will not adjust the order of the images rows
+    // this makes this function faster in usecases where the order of rows is not relevant
+    // TODO: it makes more sence to add a `reverseRows` modifer to `readpixels` instead of creating a seperate function at plugin level
+    api.defineFunction("cglReadRawPixels", 1, (args, modifs) => {
+        var name = coerce.toString(api.evaluateAndVal(args[0]));
+        // make flipRows default to false for raw-pixels
+        if (modifs['flipRows'] === undefined) modifs['flipRows'] = toCjs(false);
+        return readPixels(name,0,0,undefined,undefined,modifs);
+    });
+    api.defineFunction("readPixels", 5, (args, modifs) => {
+        var name = coerce.toString(api.evaluateAndVal(args[0]));
+        var x = coerce.toInt(api.evaluateAndVal(args[1]));
+        var y = coerce.toInt(api.evaluateAndVal(args[2]));
+        var w = coerce.toInt(api.evaluateAndVal(args[3]));
+        var h = coerce.toInt(api.evaluateAndVal(args[4]));
+        return readPixels(name,x,y,w,h,modifs);
     });
 
 
