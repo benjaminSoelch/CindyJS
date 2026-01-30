@@ -1524,6 +1524,8 @@ let CindyGL = function(api) {
         throw new CglDiscardError("unexpected `cglDiscard()` statement outside compiled code");
     });
     // catch error created by calling cglDiscard and return default value
+    // TODO: catching discard-error does not properly handle regional variables
+    //  this problem is probably not fixable without support in cindy-script kernel
     api.defineFunction("cglEvalOrDiscard", 1, (args, modifs) => {
         let defValue = modifs['default'];
         if(defValue === undefined) {
