@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>Cindy JS</title>
+        <script type="text/javascript" src="../../../build/js/Cindy.js"></script>
+        <script type="text/javascript" src="../../../build/js/CindyGL.js"></script>
+        <link rel="stylesheet" href="../../../css/cindy.css" />
+    </head>
+    <body style="font-family: Arial">
+        <h1>CindyGL: Integer modulo</h1>
+
+        <script id="csinit" type="text/x-cindyscript">
+            use("CindyGL");
+            
+        </script>
+        <script id="csdraw" type="text/x-cindyscript">
+            // update value of color
+            colorplot(
+                regional(x,y,a,b,c,d);
+                x = #_1;
+                y = #_2;
+                if(x<0,
+                  x = x + 5;
+                  a = 1e-30+floor(x)-1e-30;
+                  b = 1e-30+floor(y)-1e-30;
+                  (mod(a,b),-mod(a,b),if(b==0,1,0))/5
+                ,
+                  x = x - 5;
+                  c = floor(x);
+                  d = floor(y);
+                  (mod(c,d),-mod(c,d),if(d==0,1,0))/5
+                )
+            );
+        </script>
+
+        <div id="CSCanvas" style="border: 0px"></div>
+        
+
+        <script type="text/javascript">
+            CindyJS({
+                canvasname: "CSCanvas",
+                scripts: "cs*",
+                animation: { autoplay: true },
+                ports: [
+                    {
+                        id: "CSCanvas",
+                        width: 1024,
+                        height: 512,
+                        transform: [{ visibleRect: [-10,-5,10,5] }],
+                    },
+                ]
+            });
+        </script>
+    </body>
+</html>

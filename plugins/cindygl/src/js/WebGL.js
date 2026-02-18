@@ -593,8 +593,8 @@ webgl["ceil"] = first([
 
 webgl["mod"] = first([
     [
-        [type.int, type.int], type.int, (a, cb) => (`int(${usefunction('mod')('float(' + a[0] + '), float(' + a[1] + ')', cb)})`)
-    ],// built-in %-operator does not agree with mod if first argument is negative
+        [type.int, type.int], type.int, useincludefunction('imod')
+    ],// built-in %-operator does not agree with mod if one of the operands is negative
     [
         [type.float, type.float], type.float, usefunction('mod')
     ],
