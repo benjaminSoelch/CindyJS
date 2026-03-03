@@ -253,6 +253,14 @@ eval_helper.evaluate = function (name, args, modifs) {
     csconsole.err("Called undefined function " + n + " (as " + name + ")");
     return nada;
 };
+eval_helper.hasFunction = function (name, arity) {
+    if (myfunctions.hasOwnProperty(name)) return true;
+    if (evaluator[name]) return true;
+    let arityName = name + "$" + arity;
+    if (myfunctions.hasOwnProperty(arityName)) return true;
+    if (evaluator[arityName]) return true;
+    return false;
+};
 
 eval_helper.equals = function (v0, v1) {
     // TODO: use this everywhere where elements are compared (see function comp_equals(args, modifs) )

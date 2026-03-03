@@ -2173,6 +2173,11 @@ evaluator.isundefined$1 = function (args, modifs) {
             ctype: "boolean",
             value: true,
         };
+    } else if (v0.ctype === "functionreference") {
+        return {
+            ctype: "boolean",
+            value: !eval_helper.hasFunction(v0.name, v0.arity),
+        };
     }
     return {
         ctype: "boolean",
@@ -4830,12 +4835,12 @@ evaluator.eval = function (args, modifs) {
     //VARIADIC!
     if (args.length == 0) return nada;
     let arg0 = evaluate(args[0]);
-    if (arg0.ctype === "lambda") return evallambda(arg0,args.slice(1),modifs);
-    if (arg0.ctype === "functionreference") return evalref(arg0,args.slice(1),modifs);
-    if (args.length == 1)return evaluator.eval$1(args,modifs);
+    if (arg0.ctype === "lambda") return evallambda(arg0, args.slice(1), modifs);
+    if (arg0.ctype === "functionreference") return evalref(arg0, args.slice(1), modifs);
+    if (args.length == 1) return evaluator.eval$1(args, modifs);
     return nada;
-}
-function evallambda(lambda,args, modifs) {
+};
+function evallambda(lambda, args, modifs) {
     if (lambda.params.length != args.length) {
         console.warn("wrong number of arguments for lambda expression");
         // pad arguments to correct length
@@ -4853,7 +4858,7 @@ function evallambda(lambda,args, modifs) {
     });
     return evalfunction(lambda.params, lambda.body, args, callModifs);
 }
-function evalref(fptr,args, modifs) {
+function evalref(fptr, args, modifs) {
     if (fptr.arity != args.length) {
         console.warn("wrong number of arguments for function-reference");
         // pad arguments to correct length
