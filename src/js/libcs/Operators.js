@@ -915,6 +915,11 @@ function postfix_undefine(args, modifs) {
     }
     if (args[0].ctype === "function") {
         delete myfunctions[args[0].oper];
+    } else if (args[0].ctype === "userdata") {
+        const base = evaluate(args[0].obj);
+        const key = args[0].key.value;
+        console.log(base, key);
+        if (base.ctype == "JSON") Json.removeField(base, key);
     }
     return nada;
 }
