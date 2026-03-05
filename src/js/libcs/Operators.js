@@ -2002,6 +2002,20 @@ evaluator.isstring$1 = function (args, modifs) {
     };
 };
 
+evaluator.isjson$1 = function (args, modifs) {
+    const v0 = evaluate(args[0]);
+    if (v0.ctype === "JSON") {
+        return {
+            ctype: "boolean",
+            value: true,
+        };
+    }
+    return {
+        ctype: "boolean",
+        value: false,
+    };
+};
+
 evaluator.islist$1 = function (args, modifs) {
     const v0 = evaluate(args[0]);
     if (v0.ctype === "list") {
