@@ -610,6 +610,29 @@ evaluator.regional = function (args, modifs) {
     return nada;
 };
 
+evaluator.protect = function (args, modifs) {
+    //VARIADIC!
+
+    for (let i = 0; i < args.length; i++) {
+        if (args[i].ctype === "variable") {
+            const v = args[i].name;
+            namespace.protect(v);
+        }
+    }
+    return nada;
+};
+evaluator.unprotect = function (args, modifs) {
+    //VARIADIC!
+
+    for (let i = 0; i < args.length; i++) {
+        if (args[i].ctype === "variable") {
+            const v = args[i].name;
+            namespace.unprotect(v);
+        }
+    }
+    return nada;
+};
+
 evaluator.genList = function (args, modifs) {
     //VARIADIC!
     return List.turnIntoCSList(args.map(evaluate));
