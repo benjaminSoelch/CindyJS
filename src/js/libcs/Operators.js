@@ -4769,7 +4769,6 @@ evaluator.self$0 = function (args, modifs) {
 };
 
 evaluator.eval$1 = function (args, modifs) {
-    if (args[0].ctype === "lambda") return evaluator.eval(args, modifs);
     Object.entries(modifs).forEach(function ([key, value]) {
         let val = evaluate(value);
         namespace.newvar(key);
@@ -4812,15 +4811,13 @@ evaluator.lambda$2 = function (args, modifs) {
         modifs: modValues,
     };
 };
-evaluator.eval = function (args, modifs) {
-    //VARIADIC!
-    if (args.length == 0) return nada;
-    let lambda = evaluate(args[0]);
-    if (lambda.ctype !== "lambda") return nada; // TODO? handle eval for non-lambda argument
-    if (lambda.params.length != args.length - 1) {
+eval_helper.evalLambda = function (lambda, args, modifs) {
+    lambda = evaluate(lambda);
+    if (lambda.ctype !== "lambda") return nada;
+    if (lambda.params.length != args.length) {
         console.warn("wrong number of arguments for lambda expression");
         // pad arguments to correct length
-        while (args.length < lambda.params.length + 1) {
+        while (args.length < lambda.params.length) {
             args.push(nada);
         }
     }
@@ -4832,7 +4829,7 @@ evaluator.eval = function (args, modifs) {
     Object.entries(lambda.modifs).forEach(function ([key, value]) {
         callModifs[key] = value;
     });
-    return evalfunction(lambda.params, lambda.body, args.slice(1, args.length), callModifs);
+    return evalfunction(lambda.params, lambda.body, args, callModifs);
 };
 evaluator.islambda$1 = function (args, modifs) {
     const v0 = evaluate(args[0]);
