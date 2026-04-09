@@ -53,8 +53,25 @@ function evaluate(a) {
     } else if (a.ctype === "userdata") {
         const obj = evaluate(a.obj);
         if (obj.ctype === "lambda" || obj.ctype === "functionreference") {
-            if (a.key.oper.toLowerCase() !== "genlist") return nada;
-            return evaluator.eval([obj, ...a.key.args], a.key.modifs);
+            if (a.key.ctype === "list") {
+                return eval_helper.evalLambda(obj, a.key.value, {});
+            }
+            let modifs = {};
+            let args = [];
+            if (a.key.ctype === "function" && a.key.oper.toLowerCase() === "genlist") {
+                // TODO? resolve getList modifiers in parser to avoid duplicate work
+                args = a.key.args.filter((e) => e.ctype !== "infix" || e.oper !== "->");
+                a.key.args.forEach((e) => {
+                    if (e.ctype === "infix" && e.oper === "->" && e.args[0].ctype === "variable") {
+                        modifs[e.args[0].name] = e.args[1];
+                    }
+                });
+            } else if (a.key.ctype === "infix" && a.key.oper === "->" && a.key.args[0].ctype === "variable") {
+                modifs[a.key.args[0].name] = a.key.args[1];
+            } else {
+                args = [a.key.key];
+            }
+            return eval_helper.evalLambda(obj, args, modifs);
         }
         let key = General.string(niceprint(evaluate(a.key)));
         if (key.value === "_?_") key = nada;
