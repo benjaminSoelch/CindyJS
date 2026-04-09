@@ -4791,8 +4791,14 @@ evaluator.eval$1 = function (args, modifs) {
 
 evaluator.lambda$2 = function (args, modifs) {
     if (args.length == 0) return nada;
-    if (args[0].oper.toLowerCase() !== "genlist") return nada;
-    let params = args[0].args;
+    let params;
+    if (args[0].ctype === "list") {
+        params = args[0].value;
+    } else if (args[0].ctype === "function" && args[0].oper.toLowerCase() !== "genlist") {
+        params = args[0].args;
+    } else {
+        params = [args[0]];
+    }
     for (let i = 0; i < params.length; i++) {
         if (params[i].ctype !== "variable") {
             console.error("lambda parameter should be variable got: " + args[i].ctype);
