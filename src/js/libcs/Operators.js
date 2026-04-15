@@ -4794,7 +4794,7 @@ evaluator.lambda$2 = function (args, modifs) {
     let params;
     if (args[0].ctype === "list") {
         params = args[0].value;
-    } else if (args[0].ctype === "function" && args[0].oper.toLowerCase() !== "genlist") {
+    } else if (args[0].ctype === "function" && args[0].oper.toLowerCase() === "genlist") {
         params = args[0].args;
     } else {
         params = [args[0]];
