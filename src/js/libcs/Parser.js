@@ -70,6 +70,9 @@ const operatorLevels = [
         append: [":>"],
     },
     {
+        lambda: ["=>", "⇒"],
+    },
+    {
         rassoc: true,
         assign: ["="],
         define: [":="],

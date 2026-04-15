@@ -4790,6 +4790,9 @@ evaluator.eval$1 = function (args, modifs) {
 ///////////////////////////////
 
 evaluator.lambda$2 = function (args, modifs) {
+    return infix_lambda(args, modifs);
+};
+function infix_lambda(args, modifs) {
     if (args.length == 0) return nada;
     let params;
     if (args[0].ctype === "list") {
@@ -4816,7 +4819,7 @@ evaluator.lambda$2 = function (args, modifs) {
         params: params,
         modifs: modValues,
     };
-};
+}
 eval_helper.evalLambda = function (lambda, args, modifs) {
     lambda = evaluate(lambda);
     if (lambda.ctype !== "lambda") return nada;
@@ -5898,6 +5901,7 @@ export {
     infix_div,
     infix_add,
     infix_sub,
+    infix_lambda,
     prefix_not,
     comp_equals,
     comp_almostequals,

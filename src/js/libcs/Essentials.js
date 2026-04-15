@@ -15,6 +15,7 @@ import {
     infix_div,
     infix_add,
     infix_sub,
+    infix_lambda,
     prefix_not,
     comp_equals,
     comp_almostequals,
@@ -88,6 +89,7 @@ infixmap["="] = infix_assign;
 infixmap[":="] = infix_define;
 infixmap[":=_"] = postfix_undefine;
 infixmap["::="] = operator_not_implemented("::=");
+infixmap["=>"] = infix_lambda;
 // infixmap['->'] not needed thanks to modifierOp special handling
 infixmap[";"] = infix_semicolon;
 
