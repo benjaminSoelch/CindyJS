@@ -69,7 +69,7 @@ function evaluate(a) {
             } else if (a.key.ctype === "infix" && a.key.oper === "->" && a.key.args[0].ctype === "variable") {
                 modifs[a.key.args[0].name] = a.key.args[1];
             } else {
-                args = [a.key.key];
+                args = [a.key];
             }
             return eval_helper.evalLambda(obj, args, modifs);
         }
