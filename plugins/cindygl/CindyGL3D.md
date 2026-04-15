@@ -19,6 +19,8 @@
 
 All CindyGL functions are preserved with their original behavior.
 
+!!! Functions starting with `cgl` are not part of the stable API and many be changed or removed in future updates !!!
+
 * `cglViewPos()` the current view-position in model space
 * `cglViewRect()` the current view-rectangle returned as a 4-element list with elements in the order `x0,y0,x1,y1`
 * `cglCoordSystem()` allows updating the 3D coordinate system, the modifier `z0` can be used to set the initial viewDepth (for rotations to work correctly z0 should be a negative real number).
