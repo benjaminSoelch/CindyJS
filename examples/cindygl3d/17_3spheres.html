@@ -49,12 +49,12 @@
             layers=floor(getSlider(R0,R1,R,0,7));
             alpha=getSlider(A0,A1,A,0,1);
 
-            cglReset3d();
+            reset3d();
             if(showBackground,colorplot(gray(.7)));
             sphere3d([2/3,-1/3,-1/3],1,color->[1,0,0],alpha->alpha);
             sphere3d([-1/3,2/3,-1/3],1,color->[0,1,0],alpha->alpha);
             sphere3d([-1/3,-1/3,2/3],1,color->[0,0,1],alpha->alpha);
-            cglRender3d(layers->layers);
+            render3d(layers->layers);
 
             drawtext(R1+(-.2,.07),"layers");
             drawtext(R+(.03,.03),text(layers));

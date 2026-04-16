@@ -87,7 +87,7 @@
             );
             redrawCurve():=(
               if(isClosed,buildLoop(N),buildCurve(N));
-              cglReset3d();
+              reset3d();
               forall(points,p,
                 sphere3d(p,r1,colorExpr->(spacePos+(1,1,1))/2)
               );
@@ -115,7 +115,7 @@
               redrawCurve();
             );
 
-            cglRender3d();
+            render3d();
 
             drawtext(R1+(-.04,.1),"N");
             drawtext(R+(.03,.03),text(N));

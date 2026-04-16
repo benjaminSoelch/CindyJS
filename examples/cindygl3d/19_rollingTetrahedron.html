@@ -118,11 +118,11 @@
               remaining = remaining-1;
             );
             faces = apply(1..4,k,apply(remove(1..4,k),i,points_i));
-            cglReset3d();
+            reset3d();
             forall(1..length(faces),i,polygon3d(faces_i,colors-> faceColors_i,normal->normalize(sum(faces_i))));
             forall(imprints,fc,polygon3d(fc_1, colors->fc_2,normal->(0,0,1)));
 
-            cglRender3d();
+            render3d();
 
             // TODO? support other different shapes that leave regular pattern when rolled over the plane
             // 3gon

@@ -35,7 +35,7 @@
             prevN=0;
             updateImage(N):=(
               r=1/N;
-              cglReset3d();
+              reset3d();
               forall(0..N,x,forall(0..N,y,forall(0..N,z,
                 colorplot3d(sphere(#),[2*x/N-1,2*y/N-1,2*z/N-1],r*1.05);
               )));
@@ -58,7 +58,7 @@
 
             cglResetRotation();
             rotate3d(theta,rho);
-            cglRender3d();
+            render3d();
         </script>
 
         <div id="CSCanvas" style="border: 0px"></div>

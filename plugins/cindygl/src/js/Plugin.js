@@ -1007,7 +1007,7 @@ let CindyGL = function(api) {
         resetRotation();
         return nada;
     });
-    api.defineFunction("cglReset3d", 0, (args, modifs) => {
+    function reset3d() {
         CindyGL.objectBuffer = {
             opaque:new Map(),
             translucent:new Map(),
@@ -1015,6 +1015,14 @@ let CindyGL = function(api) {
                 preRender:[]
             }
         };
+    }
+    api.defineFunction("reset3d", 0, (args, modifs) => {
+        reset3d();
+        return nada;
+    });
+    api.defineFunction("cglReset3d", 0, (args, modifs) => {
+        cglLogWarning('`cglReset3d` is deprecared use `reset3d` instead');
+        reset3d();
         return nada;
     });
     api.defineFunction("cglOrthogonalMode", 1, (args, modifs) => {
@@ -1034,7 +1042,15 @@ let CindyGL = function(api) {
     // ? support rotated coordinate-plane
     // move image information to render function:
     // ? cglRender3d(ll,lr,name) -> render to image at screen pos ll,lr (always update coordinates)
+    api.defineFunction("render3d", 0, (args, modifs) => {
+        // internal measures. might be multiple of api.instance['canvas']['clientWidth'] on HiDPI-Displays
+        let iw = api.instance['canvas']['width'];
+        let ih = api.instance['canvas']['height'];
+        render3d(0,0,iw,ih,iw,ih,null,modifs);
+        return nada;
+    });
     api.defineFunction("cglRender3d", 0, (args, modifs) => {
+        cglLogWarning('`cglRender3d` is deprecared use `render3d` instead');
         // internal measures. might be multiple of api.instance['canvas']['clientWidth'] on HiDPI-Displays
         let iw = api.instance['canvas']['width'];
         let ih = api.instance['canvas']['height'];

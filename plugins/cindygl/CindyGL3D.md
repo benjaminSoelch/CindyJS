@@ -12,7 +12,7 @@
 * Large number of transparent objects:
     The algorithm for rendering transparent objects ensures that the depth information for all pixels is sorted correctly, this will normally need 2 shader calls per translucent object per render-layer.
     - If possible use 3-component colors for opaque objects, use `cglDiscard()` to discard individual pixels in a rendered objects.
-    - If the depth-order of all transparent objects is known in advance it is possible set the `layers` modifier in `cglRender3d` to `0` to render transparent objects in the order they have been declared.
+    - If the depth-order of all transparent objects is known in advance it is possible set the `layers` modifier in `render3d` to `0` to render transparent objects in the order they have been declared.
 
 
 ## Function
@@ -21,18 +21,6 @@ All CindyGL functions are preserved with their original behavior.
 
 !!! Functions starting with `cgl` are not part of the stable API and many be changed or removed in future updates !!!
 
-* `cglViewPos()` the current view-position in model space
-* `cglViewRect()` the current view-rectangle returned as a 4-element list with elements in the order `x0,y0,x1,y1`
-* `cglCoordSystem()` allows updating the 3D coordinate system, the modifier `z0` can be used to set the initial viewDepth (for rotations to work correctly z0 should be a negative real number).
-The corners of the view-plane can be set using the modifiers `x0`, `y0`, `x1`, `y1` (or `p0`/`p1` for setting both coordinates of a corner at once), the z-coordinate of the view-plane can be set with `z1`.
-* `rotate3d(<alpha>,<beta>)` rotate coordinate system
-* `zoom3d(<zoom>)` set coordinate system scaling factor to given value
-* `cglResetRotation` reset rotation
-* `cglReset3d` reset 3D scene
-* `cglRender3d` render 3D scene, the `layers` modifier can be used to change how translucent objects are rendered, setting `layers` to `0` will render all objects in the order they are declared, if layers is `N` larger that `0` the renderer will try to sort the non-opaque objects at each pixel by their depth value using textures to store the top `N-1` objects at each pixel as well as the remaining objects merged by depth.
-By default `layers` is `0` is there is at most one non-opaque object and `2` otherwise, where an object is considered opaque if its pixel-color has (at most) 3 components
-* `cglRender3d(<p0>,<p1>)` render 3D-scene to screen-rectangle bounded by the points `p0` and `p1`
-* `cglRender3d(<image>)` render 3D-scene to image (given as a string)
 * `colorPlot3d(<expr>)` prepares color-plot with depth the expression should return a vector of five values z,r,g,b,a where rgba are the color for the current pixel and z is a depth value between 0 and 1, returns the id of the created 3D-object
 * `colorPlot3d(<expr>,<center>,<radius>)` like colorplot3d, but restricts the drawing area to a (bounding rectangle of a) sphere around `<center>` with the given radius
 * `colorPlot3d(<expr>,<pointA>,<pointB>,<radius>)` like colorplot3d, but restricts the drawing area to a (bounding rectangle of a) cylinder with end-points `<pointA>` and `<pointB>` and the given radius
@@ -41,6 +29,19 @@ By default `layers` is `0` is there is at most one non-opaque object and `2` oth
      - [x1,y1,z1,x2,y2,z2,...]      list of vertex coordinates
      - [v1,v2,v3,v4,...]            list of vertices
      - [[v1,v2,v3],[u1,u2,u3],...]  list of triangles
+* `reset3d` reset 3D scene
+* `render3d` render 3D scene, the `layers` modifier can be used to change how translucent objects are rendered, setting `layers` to `0` will render all objects in the order they are declared, if layers is `N` larger that `0` the renderer will try to sort the non-opaque objects at each pixel by their depth value using textures to store the top `N-1` objects at each pixel as well as the remaining objects merged by depth.
+By default `layers` is `0` is there is at most one non-opaque object and `2` otherwise, where an object is considered opaque if its pixel-color has (at most) 3 components
+* `rotate3d(<alpha>,<beta>)` rotate coordinate system
+* `zoom3d(<zoom>)` set coordinate system scaling factor to given value
+
+* `cglRender3d(<p0>,<p1>)` render 3D-scene to screen-rectangle bounded by the points `p0` and `p1`
+* `cglRender3d(<image>)` render 3D-scene to image (given as a string)
+* `cglViewPos()` the current view-position in model space
+* `cglViewRect()` the current view-rectangle returned as a 4-element list with elements in the order `x0,y0,x1,y1`
+* `cglCoordSystem()` allows updating the 3D coordinate system, the modifier `z0` can be used to set the initial viewDepth (for rotations to work correctly z0 should be a negative real number).
+The corners of the view-plane can be set using the modifiers `x0`, `y0`, `x1`, `y1` (or `p0`/`p1` for setting both coordinates of a corner at once), the z-coordinate of the view-plane can be set with `z1`.
+* `cglResetRotation` reset rotation
 * `cglUpdateBounds(<objId>)` `cglUpdateBounds(<objId>,<center>,<radius>)` `cglUpdateBounds(<objId>,<pointA>,<pointB>,<radius>)` `cglUpdateBounds(<objId>,<triangles>)` `cglUpdateBounds(<objId>,<center>,<v1>,<v2>,<v3>)` updates the bounding box of the object with the given id, the parameters after the object id behave the same way as those in the corresponding version of `colorplot3d`
 * `cglUpdate(<objId>)` can be used to update the modifiers of the object with the given id all modifiers passed to this function will be replace the cooresponding modifier on the existing object.
 * `cglSetVisible(<objId>,<bool>)` sets objects visibility, (true -> visible, false -> invisible). Invisible objects are not drawn/updated but remember their previous state

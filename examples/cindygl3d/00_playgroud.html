@@ -43,7 +43,7 @@
 
             colorplot((1,1,1)); // for some reason automatic screen clearing does not work
             preFrame();
-            cglRender3d();
+            render3d();
             postFrame();
         </script>
 
@@ -78,7 +78,7 @@ mesh3d(samples,topology->TopologyCloseX+TopologyCloseY);
                 }
             });
             function redrawScene(){
-                cdy.evokeCS("cglReset3d();"+textarea.value+";");
+                cdy.evokeCS("reset3d();"+textarea.value+";");
             }
             setTimeout(function() { redrawScene(); }, 100); // 100ms delay to allow CS initscript to execute
             setTimeout(function() { redrawScene(); }, 1000); // 1s should be enough to ensure that everythign is loaded

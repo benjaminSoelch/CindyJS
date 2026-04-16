@@ -78,9 +78,9 @@
               colorplot(L, R, "gol", newstate(x, y));
             );
             k=k+1;
-            cglReset3d(); // reset 3D-scene
+            reset3d(); // reset 3D-scene
             torus3d([0,0,0],[0,1,0],1,0.5,texture->"gol",interpolateTexture->false);
-            cglRender3d();
+            render3d();
         </script>
 
         <ul>

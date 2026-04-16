@@ -42,7 +42,7 @@
             //fun is the user defined trivariate polynomial
             fun(x, y, z) := (x ^ 2 + y ^ 2 + z ^ 2 - (0.5 + a) ^ 2) ^ 2 - (3.0 * ((0.5 + a) ^ 2) - 1.0) / (3.0 - ((0.5 + a) ^ 2)) * (1 - z - sqrt(2) * x) * (1 - z + sqrt(2) * x) * (1 + z + sqrt(2) * y) * (1 + z - sqrt(2) * y);
             update():=(
-              cglReset3d();
+              reset3d();
               // TODO? customizable bounding box
               if(drawLayered,
                 surface3d(fun(x,y,z),alpha->alpha,layers->4); // render up to 4 roots of the surface
@@ -95,7 +95,7 @@
               zoom3d(zoom);
             );
 
-            cglRender3d(layers->0); // all translucent objects are sorted
+            render3d(layers->0); // all translucent objects are sorted
 
             //lines for the sliders
             draw((1.1, .8), (1.1, -.8), color -> (0, 0, 0));
