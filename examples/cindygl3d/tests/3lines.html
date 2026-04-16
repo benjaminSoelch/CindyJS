@@ -36,7 +36,7 @@
             l1 = join3d(A,B);
             l2 = join3d(C,D);
             l3 = join3d(E,F);
-            P = pointOnLine3d((0,0,0),l1);
+            P = pointOnLine3d(l1,(0,0,0));
             Q = meet3d(join3d(P,l2,visible->false),l3);
             l = join3d(P,Q);
             R = meet3d(l,join3d(l2,B,visible->false));

@@ -687,7 +687,7 @@ dgs3dPoint4(p):=(
     if(p:"type"=="point",
       p:"coords"
     ,
-      cglError("point should have length 3 or 4");
+      cglLogError("point should have length 3 or 4");
       (0,0,0,1)
     )
   ));
