@@ -53,8 +53,14 @@ function evaluate(a) {
     } else if (a.ctype === "userdata") {
         const obj = evaluate(a.obj);
         if (obj.ctype === "lambda" || obj.ctype === "functionreference") {
+            const oldobject = Json._helper.self;
+            if (a.obj.ctype === "userdata" || a.obj.ctype === "field") {
+                Json._helper.self = evaluate(a.obj.obj);
+            }
             if (a.key.ctype === "list") {
-                return eval_helper.evalLambda(obj, a.key.value, {});
+                const res = eval_helper.evalLambda(obj, a.key.value, {});
+                Json._helper.self = oldobject;
+                return res;
             }
             let modifs = {};
             let args = [];
@@ -71,7 +77,9 @@ function evaluate(a) {
             } else {
                 args = [a.key];
             }
-            return eval_helper.evalLambda(obj, args, modifs);
+            const res = eval_helper.evalLambda(obj, args, modifs);
+            Json._helper.self = oldobject;
+            return res;
         }
         let key = General.string(niceprint(evaluate(a.key)));
         if (key.value === "_?_") key = nada;
