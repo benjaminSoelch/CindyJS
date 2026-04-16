@@ -4793,7 +4793,7 @@ evaluator.lambda$2 = function (args, modifs) {
     return infix_lambda(args, modifs);
 };
 function infix_lambda(args, modifs) {
-    if (args.length == 0) return nada;
+    if (args.length != 2) return nada;
     let params;
     if (args[0].ctype === "list") {
         params = args[0].value;
