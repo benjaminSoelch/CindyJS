@@ -58,9 +58,9 @@ function evaluate(a) {
                 Json._helper.self = evaluate(a.obj.obj);
             }
             if (a.key.ctype === "list") {
-                const res = eval_helper.evalLambda(obj, a.key.value, {});
+                const result = eval_helper.evalLambda(obj, a.key.value, {});
                 Json._helper.self = oldobject;
-                return res;
+                return result;
             }
             let modifs = {};
             let args = [];
@@ -77,9 +77,9 @@ function evaluate(a) {
             } else {
                 args = [a.key];
             }
-            const res = eval_helper.evalLambda(obj, args, modifs);
+            const result = eval_helper.evalLambda(obj, args, modifs);
             Json._helper.self = oldobject;
-            return res;
+            return result;
         }
         let key = General.string(niceprint(evaluate(a.key)));
         if (key.value === "_?_") key = nada;
