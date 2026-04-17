@@ -214,10 +214,8 @@ function evalfunction(params, body, args, modifs) {
     namespace.pushVstack("*");
     const erg = evaluate(body);
     const captureVar = (key) => {
-        console.log("try capture: ", key);
         if (erg.modifs[key] === undefined) {
             erg.modifs[key] = namespace.getvar(key);
-            console.log("captured: ", erg.modifs[key]);
         }
     };
     if (erg.ctype === "lambda") {
