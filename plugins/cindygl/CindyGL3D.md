@@ -52,8 +52,6 @@ The corners of the view-plane can be set using the modifiers `x0`, `y0`, `x1`, `
 * `cglEval(<cglLazy>,<arg1>,...,<argN>)` evaluates the lazy expression (wrapped by `cglLazy()`) in the first argument with the values in the remaining arguments passed to the corresponding parameters of the expression
 * `cglIsLazy(<val>)` checks if val is a cglLazy expression
 `<args>` is a list of parameters that should be passed to the expression.
-* `cglWith(<expr>)` evaluate the given expression. All modifiers passed to `cglWith` can be used as named constants within the expression.
-The intended use of this function is a way to "freeze" the iteration variable of loops when used in expression passed to lazy functions
 * `cglInterface(<name>:name,<implName>:name,<args>:list<name>,<modifs>:list<name>)` can be used to wrap CindyScript functions in a more convenient user-interface:
     - missing modifiers are set to nada (even if there is a global with the same name)
     - adding a parameter list as user-data to the name of an argument or modifier will wrap the expression given to that argument in a `cglLazy` function with that parameter list
