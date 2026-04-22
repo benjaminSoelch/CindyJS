@@ -2213,7 +2213,7 @@ cglCheckSize(vData,vCount,msg) := (
 
 // code TODO? consistent order of spacePos and texture pos
 cglInterface("cglNormalExpr",cglNormalExprImpl,(expr:(spacePos,texturePos)),());
-cglNormalExprImpl(expr)=expr;
+cglNormalExprImpl(expr):=expr;
 // feature TODO? normalTexture modifier (texture of normal vectors)
 // API TODO? merge normalExpr and normalTexture into normals modifier and use type to distinguish arguments
 cglInterface("draw3d",cglTriangle3d,(p1,p2,p3),(color,colors,texture,textureRGB,textureRGBA,interpolateTexture,repeatTexture,
