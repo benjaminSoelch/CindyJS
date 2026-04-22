@@ -1750,8 +1750,7 @@ cglNormalizeRange(range):=(
   range = apply(range,val,mod(val,1)); // pick representant in 0..1
 );
 
-// API TODO: pass color-expr as lambda + add wrapper function for expression creation (colorExpr->makeColorExpr(...))
-// API TODO: pass light as lambda + add wrapper function for expression creation (light->makeLightExpr(...))
+// API TODO: pass color-expr, light,... as lambda-expressions + add wrapper functions for expression creation (colorExpr->makeColorExpr(...))
 cglInterface("draw3d",cglDraw3d,(pos3d),(color,texture,textureRGB,textureRGBA,interpolateTexture,repeatTexture,
   colorExpr:(texturePos,spacePos,normal),colorExprRGB:(texturePos,spacePos,normal),
   colorExprRGBA:(texturePos,spacePos,normal),colorBack,textureBack,textureRGBBack,textureRGBABack,
@@ -1774,7 +1773,7 @@ cglInterface("sphere3d",cglSphere3d,(center,radius),(color,texture,textureRGB,te
   colorExprRGBA:(texturePos,spacePos,normal),colorBack,textureBack,textureRGBBack,textureRGBABack,
   interpolateTextureBack,repeatTextureBack,colorExprBack:(texturePos,spacePos,normal),
   colorExprRGBBack:(texturePos,spacePos,normal),colorExprRGBABack:(texturePos,spacePos,normal),alpha,
-  light:(color,direction,normal),projection:normal,plotModifiers,tags,onUpdate));
+  light:(color,direction,normal),projection,plotModifiers,tags,onUpdate));
 cglSphere3d(center,radius):=(
   regional(needBackFace,modifiers,ids,topLayer,hasAlpha,usesAlpha,exprData,opacityExpr);
   color = cglValOrDefault(color,cglDefaults_"sphereColor");
@@ -1809,7 +1808,7 @@ cglInterface("draw3d",cglDraw3d,(point1,point2),(color,color1,color2,colors,text
   textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
   colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
   colorExprRGBABack:(texturePos,spacePos,normal),size,alpha,renderBack,direction1,
-  light:(color,direction,normal),caps,cap1,cap2,projection:(normal,height,orientation),plotModifiers,tags,onUpdate));
+  light:(color,direction,normal),caps,cap1,cap2,projection,plotModifiers,tags,onUpdate));
 cglDraw3d(point1,point2):=(
   size = cglValOrDefault(size,cglDefaults_"cylinderSize");
   caps = cglValOrDefault(caps,cglDefaults_"curveCaps");
@@ -1821,7 +1820,7 @@ cglInterface("cylinder3d",cglCylinder3d,(point1,point2),(color,color1,color2,col
   textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
   colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
   colorExprRGBABack:(texturePos,spacePos,normal),size,alpha,renderBack,direction1,
-  light:(color,direction,normal),caps,cap1,cap2,projection:(normal,height,orientation),plotModifiers,tags,onUpdate));
+  light:(color,direction,normal),caps,cap1,cap2,projection,plotModifiers,tags,onUpdate));
 cglCylinder3d(point1,point2):=(
   size = cglValOrDefault(size,cglDefaults_"cylinderSize");
   cglCylinder3d(point1,point2,size);
@@ -1832,7 +1831,7 @@ cglInterface("cylinder3d",cglCylinder3d,(point1,point2,radius),(color,color1,col
   textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
   colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
   colorExprRGBABack:(texturePos,spacePos,normal),alpha,light:(color,direction,normal),cap1,cap2,caps,
-  projection:(normal,height,orientation),direction1,plotModifiers,tags,renderBack,onUpdate));
+  projection,direction1,plotModifiers,tags,renderBack,onUpdate));
 cglCylinder3d(point1,point2,radius):=(
   regional(overhang,needBackFace,modifiers,n,ids,topLayer,hasAlpha,usesAlpha,exprData,opacityExpr);
   color = cglValOrDefault(color,cglDefaults_"cylinderColor");
@@ -1923,7 +1922,7 @@ cglInterface("line3d",cglLine3d,(point1,point2),(color,color1,color2,colors,text
   textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
   colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
   colorExprRGBABack:(texturePos,spacePos,normal),alpha,size,light:(color,direction,normal),cap1,cap2,caps,
-  projection:(normal,height,orientation),direction1,plotModifiers,tags,renderBack,cutoffRegion,onUpdate));
+  projection,direction1,plotModifiers,tags,renderBack,cutoffRegion,onUpdate));
 cglLine3d(point1,point2):=(
   size = cglValOrDefault(size,cglDefaults_"cylinderSize");
   cglLine3d(point1,point2,size);
@@ -1934,7 +1933,7 @@ cglInterface("line3d",cglLine3d,(point1,point2,radius),(color,color1,color2,colo
   textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
   colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
   colorExprRGBABack:(texturePos,spacePos,normal),alpha,light:(color,direction,normal),cap1,cap2,caps,
-  projection:(normal,height,orientation),direction1,plotModifiers,tags,renderBack,cutoffRegion,onUpdate));
+  projection,direction1,plotModifiers,tags,renderBack,cutoffRegion,onUpdate));
 cglLine3d(point1,point2,radius):=(
   caps = cglValOrDefault(caps,cglDefaults_"curveCaps");
   cutoffRegion = cglValOrDefault(cutoffRegion,cglDefaults_"lineCutoff");
