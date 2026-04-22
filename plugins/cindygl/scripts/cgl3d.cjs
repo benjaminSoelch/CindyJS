@@ -1753,6 +1753,7 @@ cglNormalizeRange(range):=(
 );
 
 // API TODO: pass color-expr as lambda-expressions + add wrapper functions for expression creation (colorExpr->makeColorExpr(...))
+// API TODO? merge colorExprs into color and use type to distinguish arguments
 cglInterface("draw3d",cglDraw3d,(pos3d),(color,texture,textureRGB,textureRGBA,interpolateTexture,repeatTexture,
   colorExpr:(texturePos,spacePos,normal),colorExprRGB:(texturePos,spacePos,normal),
   colorExprRGBA:(texturePos,spacePos,normal),colorBack,textureBack,textureRGBBack,textureRGBABack,
@@ -2211,9 +2212,10 @@ cglCheckSize(vData,vCount,msg) := (
 );
 
 // code TODO? consistent order of spacePos and texture pos
-// feature TODO? normalTexture modifier (texture of normal vectors)
 cglInterface("cglNormalExpr",cglNormalExprImpl,(expr:(spacePos,texturePos)));
 cglNormalExprImpl(expr)=expr;
+// feature TODO? normalTexture modifier (texture of normal vectors)
+// API TODO? merge normalExpr and normalTexture into normals modifier and use type to distinguish arguments
 cglInterface("draw3d",cglTriangle3d,(p1,p2,p3),(color,colors,texture,textureRGB,textureRGBA,interpolateTexture,repeatTexture,
   colorExpr:(texturePos,spacePos,normal),colorExprRGB:(texturePos,spacePos,normal),
   colorExprRGBA:(texturePos,spacePos,normal),colorBack,colorsBack,
