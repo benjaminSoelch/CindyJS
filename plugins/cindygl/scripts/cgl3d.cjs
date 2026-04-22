@@ -1752,7 +1752,7 @@ cglNormalizeRange(range):=(
   range = apply(range,val,mod(val,1)); // pick representant in 0..1
 );
 
-// API TODO: pass color-expr,... as lambda-expressions + add wrapper functions for expression creation (colorExpr->makeColorExpr(...))
+// API TODO: pass color-expr as lambda-expressions + add wrapper functions for expression creation (colorExpr->makeColorExpr(...))
 cglInterface("draw3d",cglDraw3d,(pos3d),(color,texture,textureRGB,textureRGBA,interpolateTexture,repeatTexture,
   colorExpr:(texturePos,spacePos,normal),colorExprRGB:(texturePos,spacePos,normal),
   colorExprRGBA:(texturePos,spacePos,normal),colorBack,textureBack,textureRGBBack,textureRGBABack,
@@ -2212,20 +2212,22 @@ cglCheckSize(vData,vCount,msg) := (
 
 // code TODO? consistent order of spacePos and texture pos
 // feature TODO? normalTexture modifier (texture of normal vectors)
+cglInterface("cglNormalExpr",cglNormalExprImpl,(expr:(spacePos,texturePos)));
+cglNormalExprImpl(expr)=expr;
 cglInterface("draw3d",cglTriangle3d,(p1,p2,p3),(color,colors,texture,textureRGB,textureRGBA,interpolateTexture,repeatTexture,
   colorExpr:(texturePos,spacePos,normal),colorExprRGB:(texturePos,spacePos,normal),
   colorExprRGBA:(texturePos,spacePos,normal),colorBack,colorsBack,
   textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
   colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
   colorExprRGBABack:(texturePos,spacePos,normal),thickness,alpha,light,uv,normal,normals,
-  normalExpr:(spacePos,texturePos),plotModifiers,vertexModifiers,tags,onUpdate));
+  normalExpr,plotModifiers,vertexModifiers,tags,onUpdate));
 cglInterface("triangle3d",cglTriangle3d,(p1,p2,p3),(color,colors,texture,textureRGB,textureRGBA,interpolateTexture,repeatTexture,
   colorExpr:(texturePos,spacePos,normal),colorExprRGB:(texturePos,spacePos,normal),
   colorExprRGBA:(texturePos,spacePos,normal),colorBack,colorsBack,
   textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
   colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
   colorExprRGBABack:(texturePos,spacePos,normal),thickness,alpha,light,uv,normal,normals,
-  normalExpr:(spacePos,texturePos),plotModifiers,vertexModifiers,tags,onUpdate));
+  normalExpr,plotModifiers,vertexModifiers,tags,onUpdate));
 cglTriangle3d(p1,p2,p3):=(
   regional(modifiers,vModifiers,defNormal,hasAlpha,usesAlpha,exprData,pixelExpr,colLen,opacityExpr);
   color = cglValOrDefault(color,cglDefaults_"triangleColor");
@@ -2290,7 +2292,7 @@ cglInterface("triangles3d",cglTriangles3d,(triangles),(color,colors,texture,text
   textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
   colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
   colorExprRGBABack:(texturePos,spacePos,normal),thickness,alpha,light,uv,normals,
-  normalExpr:(spacePos,texturePos),plotModifiers,vertexModifiers,tags,onUpdate));
+  normalExpr,plotModifiers,vertexModifiers,tags,onUpdate));
 cglTriangles3d(triangles):=(
   regional(modifiers,vModifiers,defNormal,hasAlpha,usesAlpha,exprData,pixelExpr,colLen,opacityExpr,v1,v2,v3,triuv,n,cols,vertices,triangleCount);
   color = cglValOrDefault(color,cglDefaults_"triangleColor");
@@ -2414,7 +2416,7 @@ cglInterface("polygon3d",cglPolygon3d,(vertices),(triangulationMode,color,colors
   textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
   colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
   colorExprRGBABack:(texturePos,spacePos,normal),thickness,alpha,light,uv,
-  normal,normals,normalExpr:(spacePos,texturePos),normalType,plotModifiers,vertexModifiers,tags,onUpdate));
+  normal,normals,normalExpr,normalType,plotModifiers,vertexModifiers,tags,onUpdate));
 cglPolygon3d(vertices):=(
   regional(modifiers,vModifiers,triangulator,trianglesAndNormals,hasAlpha,usesAlpha,exprData,pixelExpr,colLen,opacityExpr);
   color = cglValOrDefault(color,cglDefaults_"triangleColor");
@@ -2530,7 +2532,7 @@ cglInterface("mesh3d",cglMesh3d,(grid),(color,colors,texture,textureRGB,textureR
   textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
   colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
   colorExprRGBABack:(texturePos,spacePos,normal),thickness,alpha,light,uv,
-  normals,normalExpr:(spacePos,texturePos),normalType,topology,plotModifiers,vertexModifiers,tags,onUpdate));
+  normals,normalExpr,normalType,topology,plotModifiers,vertexModifiers,tags,onUpdate));
 cglMesh3d(grid):=(
   regional(Ny,Nx,triangles,modifiers,vModifiers,exprData,pixelExpr,hasAlpha,usesAlpha,colLen,opacityExpr);
   color = cglValOrDefault(color,cglDefaults_"triangleColor");

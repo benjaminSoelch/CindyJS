@@ -108,7 +108,7 @@ For triangles, polygons and meshes there are the following additional parameters
 * `uv` the texture positions for each given vertex
 * `normal` the normal vector to the polygon (does not exist for meshes)
 * `normals` normal vectors at the individual vertices
-* `normalExpr:(spacePos,texturePos)` gives a normal vector for each pixel depending on position in 3D-space and/or texture position
+* `normalExpr` gives a normal vector for each pixel depending on position in 3D-space and/or texture position using the function `cglNormalExpr(expr)` where expr is an expression depending on `spacePos`and `texturePos`
 * `normalType` (does not exist for triangles) specifies how normals are computed/assigned to vertices, possible values are:
   - `NormalPerFace` assign a normal vector to each face
   - `NormalFlat` alias for `NormalPerFace` for use in `polygon3d(..)`
