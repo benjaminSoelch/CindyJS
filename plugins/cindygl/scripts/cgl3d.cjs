@@ -1924,6 +1924,7 @@ cglInterface("line3d",cglLine3d,(point1,point2),(color,color1,color2,colors,text
   colorExprRGBABack:(texturePos,spacePos,normal),alpha,size,light:(color,direction,normal),cap1,cap2,caps,
   projection,direction1,plotModifiers,tags,renderBack,cutoffRegion,onUpdate));
 cglLine3d(point1,point2):=(
+  cglLogError("cgl3d/line3d is deprecared, use cylinder3d instead");
   size = cglValOrDefault(size,cglDefaults_"cylinderSize");
   cglLine3d(point1,point2,size);
 );
@@ -1935,6 +1936,7 @@ cglInterface("line3d",cglLine3d,(point1,point2,radius),(color,color1,color2,colo
   colorExprRGBABack:(texturePos,spacePos,normal),alpha,light:(color,direction,normal),cap1,cap2,caps,
   projection,direction1,plotModifiers,tags,renderBack,cutoffRegion,onUpdate));
 cglLine3d(point1,point2,radius):=(
+  cglLogError("cgl3d/line3d is deprecared, use cylinder3d instead");
   caps = cglValOrDefault(caps,cglDefaults_"curveCaps");
   cutoffRegion = cglValOrDefault(cutoffRegion,cglDefaults_"lineCutoff");
   cutoffExpr = cutoffRegion_"expr";
