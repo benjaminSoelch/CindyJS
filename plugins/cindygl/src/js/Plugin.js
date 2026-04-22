@@ -1033,7 +1033,7 @@ let CindyGL = function(api) {
     api.defineFunction("cglEvalOnRender", 1, (args, modifs) => {
         createCglEval(0);
         // TODO? return a callback id, that can be removed later
-        CindyGL.objectBuffer.callbacks.preRender.push(wrapLazy(args[0],[],true));
+        CindyGL.objectBuffer.callbacks.preRender.push(args[0]);
         return nada;
     });
     // TODO? automatic update of coordinate system to match render region of screen
@@ -1708,11 +1708,9 @@ let CindyGL = function(api) {
         createCglEval(0); // create eval for argument wrappers
         // create wrapper-function with given signature
         api.defineFunction(fn_name,fn_args.length,(args,modifs) => {
-            let paramExprs={},modifExprs={};
             let callArgs = new Array(args.length);
             // convert function-arguments (marked with parameter-list as user-data) to cglLazy
             for(let i=0;i<fn_args.length;i++) {
-                paramExprs[fn_args[i].name]=wrapLazy(args[i],[],false);
                 if (fn_args[i].args != null) {
                     callArgs[i] = wrapLazy(args[i],fn_args[i].args,true);
                     createCglEval(fn_args[i].args.length);
@@ -1728,9 +1726,7 @@ let CindyGL = function(api) {
                 if(mod === undefined) {
                     // set missing modifiers to nada to avoid collision with global
                     callMods[modName]=nada;
-                    modifExprs[modName]=wrapLazy(nada,[],false);
                 } else if (fn_modifs[i].args != null) {
-                    modifExprs[modName]=wrapLazy(mod,[],false);
                     // convert function-arguments (marked with parameter-list as user-data) to cglLazy
                     callMods[modName]=wrapLazy(mod,fn_modifs[i].args,true);
                     modValues[modName]=callMods[modName];
@@ -1738,11 +1734,8 @@ let CindyGL = function(api) {
                 } else {
                     callMods[modName]=mod;
                     modValues[modName]=api.evaluate(mod);
-                    modifExprs[modName]=wrapLazy(mod,[],false);
                 }
             }
-            callMods["cglParamExprs"]={ctype:"JSON",value:paramExprs};
-            callMods["cglModifExprs"]={ctype:"JSON",value:modifExprs};
             callMods["cglModifs"]={ctype:"JSON",value:modValues};
             Object.entries(modifs).forEach(([name, value])=>{
                 if(callMods.hasOwnProperty(name))

@@ -1764,8 +1764,6 @@ cglInterface("sphere3d",cglDraw3d,(pos3d),(color,texture,textureRGB,textureRGBA,
   light:(color,direction,normal),projection,plotModifiers,tags,onUpdate:(newBounds)));
 cglDraw3d(pos3d):=(
   size = cglValOrDefault(size,cglDefaults_"sphereSize");
-  cglParamExprs_"center" = cglParamExprs_"pos3d";
-  cglParamExprs_"radius" = cglModifExprs_"size";
   cglSphere3d(pos3d,size);
 );
 
@@ -1813,7 +1811,6 @@ cglInterface("draw3d",cglDraw3d,(point1,point2),(color,color1,color2,colors,text
 cglDraw3d(point1,point2):=(
   size = cglValOrDefault(size,cglDefaults_"cylinderSize");
   caps = cglValOrDefault(caps,cglDefaults_"curveCaps");
-  cglParamExprs_"radius" = cglModifExprs_"size";
   cglCylinder3d(point1,point2,size);
 );
 cglInterface("cylinder3d",cglCylinder3d,(point1,point2),(color,color1,color2,colors,texture,
@@ -1825,7 +1822,6 @@ cglInterface("cylinder3d",cglCylinder3d,(point1,point2),(color,color1,color2,col
   light:(color,direction,normal),caps,cap1,cap2,projection:(normal,height,orientation),plotModifiers,tags,onUpdate:(newBounds)));
 cglCylinder3d(point1,point2):=(
   size = cglValOrDefault(size,cglDefaults_"cylinderSize");
-  cglParamExprs_"radius" = cglModifExprs_"size";
   cglCylinder3d(point1,point2,size);
 );
 cglInterface("cylinder3d",cglCylinder3d,(point1,point2,radius),(color,color1,color2,colors,texture,
@@ -1928,7 +1924,6 @@ cglInterface("line3d",cglLine3d,(point1,point2),(color,color1,color2,colors,text
   projection:(normal,height,orientation),direction1,plotModifiers,tags,renderBack,cutoffRegion,onUpdate:(newBounds)));
 cglLine3d(point1,point2):=(
   size = cglValOrDefault(size,cglDefaults_"cylinderSize");
-  cglParamExprs_"radius" = cglModifExprs_"size";
   cglLine3d(point1,point2,size);
 );
 cglInterface("line3d",cglLine3d,(point1,point2,radius),(color,color1,color2,colors,texture,
@@ -2191,8 +2186,6 @@ cglInterface("torus3d",cglCircle3d,(center,orientation,radius),(color,texture,
   light:(color,direction,normal),arcRange,angle1range,angle2range,direction1,plotModifiers,tags,onUpdate:(newBounds)));
 cglCircle3d(center,orientation,radius):=(
   size = cglValOrDefault(size,cglDefaults_"torusSize");
-  cglParamExprs_"radius1" = cglParamExprs_"radius";
-  cglParamExprs_"radius2" = cglModifExprs_"size";
   cglTorus3d(center,orientation,radius,size);
 );
 
