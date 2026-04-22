@@ -76,7 +76,7 @@ cglDefaultLight = cglLazy((color,direction,normal),
   lightCol_3=col3_3;
   lightCol;
 );
-cglInterface("cglLightExpr",cglLightExprImpl,(expr:(color,direction,normal)));
+cglInterface("cglLightExpr",cglLightExprImpl,(expr:(color,direction,normal)),());
 cglLightExprImpl(expr):=expr;
 
 cglLight2gamma = [2, 20, 2, 20, 1, 10, 1, 10];
@@ -2212,7 +2212,7 @@ cglCheckSize(vData,vCount,msg) := (
 );
 
 // code TODO? consistent order of spacePos and texture pos
-cglInterface("cglNormalExpr",cglNormalExprImpl,(expr:(spacePos,texturePos)));
+cglInterface("cglNormalExpr",cglNormalExprImpl,(expr:(spacePos,texturePos)),());
 cglNormalExprImpl(expr)=expr;
 // feature TODO? normalTexture modifier (texture of normal vectors)
 // API TODO? merge normalExpr and normalTexture into normals modifier and use type to distinguish arguments
