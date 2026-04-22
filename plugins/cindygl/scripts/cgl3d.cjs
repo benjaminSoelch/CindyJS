@@ -76,6 +76,8 @@ cglDefaultLight = cglLazy((color,direction,normal),
   lightCol_3=col3_3;
   lightCol;
 );
+cglInterface("cglLightExpr",cglLightExprImpl,(expr:(color,direction,normal)));
+cglLightExprImpl(expr):=expr;
 
 cglLight2gamma = [2, 20, 2, 20, 1, 10, 1, 10];
 cglLight2colors = [
@@ -1750,19 +1752,19 @@ cglNormalizeRange(range):=(
   range = apply(range,val,mod(val,1)); // pick representant in 0..1
 );
 
-// API TODO: pass color-expr, light,... as lambda-expressions + add wrapper functions for expression creation (colorExpr->makeColorExpr(...))
+// API TODO: pass color-expr,... as lambda-expressions + add wrapper functions for expression creation (colorExpr->makeColorExpr(...))
 cglInterface("draw3d",cglDraw3d,(pos3d),(color,texture,textureRGB,textureRGBA,interpolateTexture,repeatTexture,
   colorExpr:(texturePos,spacePos,normal),colorExprRGB:(texturePos,spacePos,normal),
   colorExprRGBA:(texturePos,spacePos,normal),colorBack,textureBack,textureRGBBack,textureRGBABack,
   interpolateTextureBack,repeatTextureBack,colorExprBack:(texturePos,spacePos,normal),
   colorExprRGBBack:(texturePos,spacePos,normal),colorExprRGBABack:(texturePos,spacePos,normal),size,alpha,
-  light:(color,direction,normal),projection,plotModifiers,tags,onUpdate));
+  light,projection,plotModifiers,tags,onUpdate));
 cglInterface("sphere3d",cglDraw3d,(pos3d),(color,texture,textureRGB,textureRGBA,interpolateTexture,repeatTexture,
   colorExpr:(texturePos,spacePos,normal),colorExprRGB:(texturePos,spacePos,normal),
   colorExprRGBA:(texturePos,spacePos,normal),colorBack,textureBack,textureRGBBack,textureRGBABack,
   interpolateTextureBack,repeatTextureBack,colorExprBack:(texturePos,spacePos,normal),
   colorExprRGBBack:(texturePos,spacePos,normal),colorExprRGBABack:(texturePos,spacePos,normal),size,alpha,
-  light:(color,direction,normal),projection,plotModifiers,tags,onUpdate));
+  light,projection,plotModifiers,tags,onUpdate));
 cglDraw3d(pos3d):=(
   size = cglValOrDefault(size,cglDefaults_"sphereSize");
   cglSphere3d(pos3d,size);
@@ -1773,7 +1775,7 @@ cglInterface("sphere3d",cglSphere3d,(center,radius),(color,texture,textureRGB,te
   colorExprRGBA:(texturePos,spacePos,normal),colorBack,textureBack,textureRGBBack,textureRGBABack,
   interpolateTextureBack,repeatTextureBack,colorExprBack:(texturePos,spacePos,normal),
   colorExprRGBBack:(texturePos,spacePos,normal),colorExprRGBABack:(texturePos,spacePos,normal),alpha,
-  light:(color,direction,normal),projection,plotModifiers,tags,onUpdate));
+  light,projection,plotModifiers,tags,onUpdate));
 cglSphere3d(center,radius):=(
   regional(needBackFace,modifiers,ids,topLayer,hasAlpha,usesAlpha,exprData,opacityExpr);
   color = cglValOrDefault(color,cglDefaults_"sphereColor");
@@ -1808,7 +1810,7 @@ cglInterface("draw3d",cglDraw3d,(point1,point2),(color,color1,color2,colors,text
   textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
   colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
   colorExprRGBABack:(texturePos,spacePos,normal),size,alpha,renderBack,direction1,
-  light:(color,direction,normal),caps,cap1,cap2,projection,plotModifiers,tags,onUpdate));
+  light,caps,cap1,cap2,projection,plotModifiers,tags,onUpdate));
 cglDraw3d(point1,point2):=(
   size = cglValOrDefault(size,cglDefaults_"cylinderSize");
   caps = cglValOrDefault(caps,cglDefaults_"curveCaps");
@@ -1820,7 +1822,7 @@ cglInterface("cylinder3d",cglCylinder3d,(point1,point2),(color,color1,color2,col
   textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
   colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
   colorExprRGBABack:(texturePos,spacePos,normal),size,alpha,renderBack,direction1,
-  light:(color,direction,normal),caps,cap1,cap2,projection,plotModifiers,tags,onUpdate));
+  light,caps,cap1,cap2,projection,plotModifiers,tags,onUpdate));
 cglCylinder3d(point1,point2):=(
   size = cglValOrDefault(size,cglDefaults_"cylinderSize");
   cglCylinder3d(point1,point2,size);
@@ -1830,7 +1832,7 @@ cglInterface("cylinder3d",cglCylinder3d,(point1,point2,radius),(color,color1,col
   colorExprRGB:(texturePos,spacePos,normal),colorExprRGBA:(texturePos,spacePos,normal),colorBack,colorsBack,
   textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
   colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
-  colorExprRGBABack:(texturePos,spacePos,normal),alpha,light:(color,direction,normal),cap1,cap2,caps,
+  colorExprRGBABack:(texturePos,spacePos,normal),alpha,light,cap1,cap2,caps,
   projection,direction1,plotModifiers,tags,renderBack,onUpdate));
 cglCylinder3d(point1,point2,radius):=(
   regional(overhang,needBackFace,modifiers,n,ids,topLayer,hasAlpha,usesAlpha,exprData,opacityExpr);
@@ -1921,7 +1923,7 @@ cglInterface("line3d",cglLine3d,(point1,point2),(color,color1,color2,colors,text
   colorExprRGB:(texturePos,spacePos,normal),colorExprRGBA:(texturePos,spacePos,normal),colorBack,colorsBack,
   textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
   colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
-  colorExprRGBABack:(texturePos,spacePos,normal),alpha,size,light:(color,direction,normal),cap1,cap2,caps,
+  colorExprRGBABack:(texturePos,spacePos,normal),alpha,size,light,cap1,cap2,caps,
   projection,direction1,plotModifiers,tags,renderBack,cutoffRegion,onUpdate));
 cglLine3d(point1,point2):=(
   cglLogError("cgl3d/line3d is deprecared, use cylinder3d instead");
@@ -1933,7 +1935,7 @@ cglInterface("line3d",cglLine3d,(point1,point2,radius),(color,color1,color2,colo
   colorExprRGB:(texturePos,spacePos,normal),colorExprRGBA:(texturePos,spacePos,normal),colorBack,colorsBack,
   textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
   colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
-  colorExprRGBABack:(texturePos,spacePos,normal),alpha,light:(color,direction,normal),cap1,cap2,caps,
+  colorExprRGBABack:(texturePos,spacePos,normal),alpha,light,cap1,cap2,caps,
   projection,direction1,plotModifiers,tags,renderBack,cutoffRegion,onUpdate));
 cglLine3d(point1,point2,radius):=(
   cglLogError("cgl3d/line3d is deprecared, use cylinder3d instead");
@@ -1959,7 +1961,7 @@ cglInterface("connect3d",cglConnect3d,(points),(color,colors,texture,textureRGB,
   colorExprRGBA:(texturePos,spacePos,normal),colorBack,colorsBack,textureBack,textureRGBBack,textureRGBABack,
   interpolateTextureBack,repeatTextureBack,colorExprBack:(texturePos,spacePos,normal),
   colorExprRGBBack:(texturePos,spacePos,normal),colorExprRGBABack:(texturePos,spacePos,normal),size,alpha,
-  light:(color,direction,normal),caps,cap1,cap2,joints,closed,plotModifiers,tags,onUpdate));
+  light,caps,cap1,cap2,joints,closed,plotModifiers,tags,onUpdate));
 cglConnect3d(points):=(
   // feature TODO? create wrapper for onUpdate to update complete list of sample points
   regional(jointEnd,jointStart,totalLength,alpha0,a,b,current1,current2,prev,next,projection,color1,color2,nextColor,direction1,cutDir,renderBack);
@@ -2070,7 +2072,7 @@ cglInterface("curve3d",cglCurve3d,(expr:(t),from,to),(color,colors,texture,textu
   colorExprRGBA:(texturePos,spacePos,normal),colorBack,colorsBack,
   textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
   colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
-  colorExprRGBABack:(texturePos,spacePos,normal),size,samples,alpha,light:(color,direction,normal),
+  colorExprRGBABack:(texturePos,spacePos,normal),size,samples,alpha,light,
   caps,cap1,cap2,joints,closed,plotModifiers,tags,onUpdate));
 cglCurve3d(expr,from,to):=(
   samples = cglValOrDefault(samples,cglDefaults_"curveSamples")-1;
@@ -2089,7 +2091,7 @@ cglInterface("torus3d",cglTorus3d,(center,orientation,radius1,radius2),(color,te
   colorExprRGB:(texturePos,spacePos,normal),colorExprRGBA:(texturePos,spacePos,normal),colorBack,
   textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
   colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
-  colorExprRGBABack:(texturePos,spacePos,normal),alpha,light:(color,direction,normal),arcRange,angle1range,angle2range,
+  colorExprRGBABack:(texturePos,spacePos,normal),alpha,light,arcRange,angle1range,angle2range,
   direction1,plotModifiers,tags,onUpdate));
 cglTorus3d(center,orientation,radius1,radius2):=(
   regional(needBackFace,modifiers,ids,topLayer,hasAlpha,usesAlpha,exprData,pixelExpr,opacityExpr);
@@ -2179,14 +2181,14 @@ cglInterface("circle3d",cglCircle3d,(center,orientation,radius),(color,texture,
   textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
   colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
   colorExprRGBABack:(texturePos,spacePos,normal),size,alpha,
-  light:(color,direction,normal),arcRange,angle1range,angle2range,direction1,plotModifiers,tags,onUpdate));
+  light,arcRange,angle1range,angle2range,direction1,plotModifiers,tags,onUpdate));
 cglInterface("torus3d",cglCircle3d,(center,orientation,radius),(color,texture,
   textureRGB,textureRGBA,interpolateTexture,repeatTexture,colorExpr:(texturePos,spacePos,normal),
   colorExprRGB:(texturePos,spacePos,normal),colorExprRGBA:(texturePos,spacePos,normal),colorBack,
   textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
   colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
   colorExprRGBABack:(texturePos,spacePos,normal),size,alpha,
-  light:(color,direction,normal),arcRange,angle1range,angle2range,direction1,plotModifiers,tags,onUpdate));
+  light,arcRange,angle1range,angle2range,direction1,plotModifiers,tags,onUpdate));
 cglCircle3d(center,orientation,radius):=(
   size = cglValOrDefault(size,cglDefaults_"torusSize");
   cglTorus3d(center,orientation,radius,size);
@@ -2215,14 +2217,14 @@ cglInterface("draw3d",cglTriangle3d,(p1,p2,p3),(color,colors,texture,textureRGB,
   colorExprRGBA:(texturePos,spacePos,normal),colorBack,colorsBack,
   textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
   colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
-  colorExprRGBABack:(texturePos,spacePos,normal),thickness,alpha,light:(color,direction,normal),uv,normal,normals,
+  colorExprRGBABack:(texturePos,spacePos,normal),thickness,alpha,light,uv,normal,normals,
   normalExpr:(spacePos,texturePos),plotModifiers,vertexModifiers,tags,onUpdate));
 cglInterface("triangle3d",cglTriangle3d,(p1,p2,p3),(color,colors,texture,textureRGB,textureRGBA,interpolateTexture,repeatTexture,
   colorExpr:(texturePos,spacePos,normal),colorExprRGB:(texturePos,spacePos,normal),
   colorExprRGBA:(texturePos,spacePos,normal),colorBack,colorsBack,
   textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
   colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
-  colorExprRGBABack:(texturePos,spacePos,normal),thickness,alpha,light:(color,direction,normal),uv,normal,normals,
+  colorExprRGBABack:(texturePos,spacePos,normal),thickness,alpha,light,uv,normal,normals,
   normalExpr:(spacePos,texturePos),plotModifiers,vertexModifiers,tags,onUpdate));
 cglTriangle3d(p1,p2,p3):=(
   regional(modifiers,vModifiers,defNormal,hasAlpha,usesAlpha,exprData,pixelExpr,colLen,opacityExpr);
@@ -2287,7 +2289,7 @@ cglInterface("triangles3d",cglTriangles3d,(triangles),(color,colors,texture,text
   colorExprRGBA:(texturePos,spacePos,normal),colorBack,colorsBack,
   textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
   colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
-  colorExprRGBABack:(texturePos,spacePos,normal),thickness,alpha,light:(color,direction,normal),uv,normals,
+  colorExprRGBABack:(texturePos,spacePos,normal),thickness,alpha,light,uv,normals,
   normalExpr:(spacePos,texturePos),plotModifiers,vertexModifiers,tags,onUpdate));
 cglTriangles3d(triangles):=(
   regional(modifiers,vModifiers,defNormal,hasAlpha,usesAlpha,exprData,pixelExpr,colLen,opacityExpr,v1,v2,v3,triuv,n,cols,vertices,triangleCount);
@@ -2411,7 +2413,7 @@ cglInterface("polygon3d",cglPolygon3d,(vertices),(triangulationMode,color,colors
   colorExprRGB:(texturePos,spacePos,normal),colorExprRGBA:(texturePos,spacePos,normal),colorBack,colorsBack,
   textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
   colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
-  colorExprRGBABack:(texturePos,spacePos,normal),thickness,alpha,light:(color,direction,normal),uv,
+  colorExprRGBABack:(texturePos,spacePos,normal),thickness,alpha,light,uv,
   normal,normals,normalExpr:(spacePos,texturePos),normalType,plotModifiers,vertexModifiers,tags,onUpdate));
 cglPolygon3d(vertices):=(
   regional(modifiers,vModifiers,triangulator,trianglesAndNormals,hasAlpha,usesAlpha,exprData,pixelExpr,colLen,opacityExpr);
@@ -2527,7 +2529,7 @@ cglInterface("mesh3d",cglMesh3d,(grid),(color,colors,texture,textureRGB,textureR
   colorExprRGBA:(texturePos,spacePos,normal),colorBack,colorsBack,
   textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
   colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
-  colorExprRGBABack:(texturePos,spacePos,normal),thickness,alpha,light:(color,direction,normal),uv,
+  colorExprRGBABack:(texturePos,spacePos,normal),thickness,alpha,light,uv,
   normals,normalExpr:(spacePos,texturePos),normalType,topology,plotModifiers,vertexModifiers,tags,onUpdate));
 cglMesh3d(grid):=(
   regional(Ny,Nx,triangles,modifiers,vModifiers,exprData,pixelExpr,hasAlpha,usesAlpha,colLen,opacityExpr);
@@ -2628,7 +2630,7 @@ cglInterface("surface3d",cglSurface3d,(expr:(x,y,z)),(color,texture,textureRGB,t
   colorExprRGBA:(texturePos,spacePos,normal),colorBack,
   textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
   colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
-  colorExprRGBABack:(texturePos,spacePos,normal),thickness,alpha,light:(color,direction,normal),
+  colorExprRGBABack:(texturePos,spacePos,normal),thickness,alpha,light,
   texture,uv,dF:(x,y,z),cutoffRegion,degree,layers,plotModifiers,tags,onUpdate));
 cglSurface3d(fun) := (
     regional(N,nodes,F,normalExpr,N,B,modifiers,viewRect,bounds,usesAlpha,opacityExpr,exprData,pixelExpr);
@@ -2717,7 +2719,7 @@ cglInterface("plot3d",cglPlot3d,(f:(x,y)),(color,texture,textureRGB,textureRGBA,
   colorBack,textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
   colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
   colorExprRGBABack:(texturePos,spacePos,normal),
-  thickness,alpha,light:(color,direction,normal),texture,uv,df:(x,y),cutoffRegion,degree,layers,plotModifiers,tags,onUpdate));
+  thickness,alpha,light,texture,uv,df:(x,y),cutoffRegion,degree,layers,plotModifiers,tags,onUpdate));
 cglPlot3d(f/*f(x,y)*/):=(
   if(isundefined(degree),
       degree = min(cglTryDetermineDegree(f),cglMaxAutoDeg);
@@ -2729,14 +2731,14 @@ cglInterface("complexplot3d",cglCPlot3d,(f:(z)),(color,texture,textureRGB,textur
   colorExprRGBA:(texturePos,spacePos,normal),colorBack,
   textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
   colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
-  colorExprRGBABack:(texturePos,spacePos,normal),thickness,alpha,light:(color,direction,normal),texture,uv,df:(z),
+  colorExprRGBABack:(texturePos,spacePos,normal),thickness,alpha,light,texture,uv,df:(z),
   cutoffRegion,degree,layers,plotModifiers,tags,onUpdate));
 cglInterface("cplot3d",cglCPlot3d,(f:(z)),(color,texture,textureRGB,textureRGBA,interpolateTexture,
   repeatTexture,colorExpr:(texturePos,spacePos,normal),colorExprRGB:(texturePos,spacePos,normal),
   colorExprRGBA:(texturePos,spacePos,normal),colorBack,
   textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
   colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
-  colorExprRGBABack:(texturePos,spacePos,normal),thickness,alpha,light:(color,direction,normal),texture,uv,df:(z),
+  colorExprRGBABack:(texturePos,spacePos,normal),thickness,alpha,light,texture,uv,df:(z),
   cutoffRegion,degree,layers,plotModifiers,tags,onUpdate));
 cglCPlot3d(f/*f(z)*/):=(
   if(isundefined(color) & isundefined(colorExpr), // TODO find better condition for choosing phase-coloring

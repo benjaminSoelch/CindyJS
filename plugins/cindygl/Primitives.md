@@ -55,10 +55,11 @@ The following modifiers are present on all geometric primitives
 * `colorExprRGB:(texturePos,spacePos,normal)` alias to `colorExpr`
 * `colorExprRGBA:(texturePos,spacePos,normal)` like `colorExpr` but expected to output four-component colors with an alpha-value of the color at the pixel
 * `alpha` the transparency for the given shape
-* `light:(color,direction,normal)` a expression for computing the lighting at a given pixel depending on the surface color, view-direction and normal-vector, in addition to an explicit expression the following pre-defined values can be used:
+* `light` either one of the following pre-defined values
   - `cglNoLight` return the color unmodified
   - `cglSimpleLight` change brightness depending on angle between normal and view-direction
   - `cglDefaultLight` the default lighting engine <!--TODO? short description -->
+or the result of calling the function `cglLightExpr(expr:(color,direction,normal))` to compute lighting based on an expression `expr` depending on the surface color, view-direction and normal-vector
 * `plotModifiers` a dictionary mapping variable names to values, within the shader code (for instance in color or light expressions) reading one of the modifier variables will yield the value passed to the plot function independent of the current global value of that variable.
 <!-- TODO plot modifiers can be modified using cglUpdate(objId,modifiers), TODO? write wrapper function -->
 
