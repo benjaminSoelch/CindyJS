@@ -46,14 +46,22 @@ for normals per triangle the top-left and bottom right corners are used. <!--TOD
 ## Common modifiers
 
 The following modifiers are present on all geometric primitives
-* `color` the surface color <!-- TODO? list pre-defined colors-->
-* `texture` `textureRGB` the (RGB) texture use to color the surface, ignores alpha channel of texture
-* `textureRGBA` the texture use to color the surface, unlike `textureRGB` the alpha channel of the texture is included in the drawing
-* `interpolateTexture` enable/disable interpolation between pixels (`true` by default)
-* `repeatTexture` should the texture be repeated when drawn range is outside `[0,1]^2` (`false` by default)
-* `colorExpr:(texturePos,spacePos,normal)` an explicit expression for the color at each pixel, dependent on the texture position (2D) and the position of the rendered pixel in space, the result of the function should be a list of 3 floats in the range `[0,1]` representing the RGB values of the pixel-color
-* `colorExprRGB:(texturePos,spacePos,normal)` alias to `colorExpr`
-* `colorExprRGBA:(texturePos,spacePos,normal)` like `colorExpr` but expected to output four-component colors with an alpha-value of the color at the pixel
+* `color` the surface color, one of
+   - a list containing float values for the red, green and blue channels
+   - a list containing float values for the red, green, blue and alpha channels
+   - the result of `cglColor(<colorName>)` with a supported color-name
+   - a color expression defined by `cglColorExpr(<expr(texturePos,spacePos,normal)>)`
+    cglColorExpr modifiers:
+      * `hasAlpha` does expression use alpha-channel (`false` by default)
+   - a texture passed using `cglTexture(<textureName>)`
+* `texture` the texture used to color the surface, one of
+  - the name of the RGB texture to use
+  - the result of calling `cglTexture(<textureName>)`
+    cglTexture modifiers:
+      * `hasAlpha` enable/disable alpha-channel (`false` by default)
+      * `interpolateTexture` enable/disable interpolation between pixels (`true` by default)
+      * `repeatTexture` should the texture be repeated when drawn range is outside `[0,1]^2` (`false` by default)
+  - a color-expression created by `cglColorExpr(<expr(texturePos,spacePos,normal)>)`
 * `alpha` the transparency for the given shape
 * `light` either one of the following pre-defined values
   - `cglNoLight` return the color unmodified

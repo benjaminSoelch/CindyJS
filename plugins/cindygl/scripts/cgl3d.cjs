@@ -1526,9 +1526,128 @@ cglMergeDicts(dict1,dict2):=(
 // TODO?can rendering multiple texture-layeres in single shader call speed up rendering for multi-layered surfaces
 
 
+// API TODO: remove explicit colorExpr, remove explicit modifier for textureRGBA
+/** new color API:
+  two modifiers: color & texture (+colors for multi-point objects) + coresponding parameters for back-side
+  color:
+    a) RGB value as list
+    b) cglColor("NAME")
+    c) cglColorExpr(<expr>) // modifer: hasAlpha (defaults to false)
+    d) cglTexture(<name>) // modifers: hasAlpha, interpolate, repeat
+  texture:
+    a) Texture name
+    b) cglTexture(<name>) // modifers: hasAlpha, interpolate, repeat
+    c) cglColorExpr(<expr>) // modifer: hasAlpha (defaults to false)
+  colors -> list of colors
+*/
+CGLcOLORnAMES = {
+  "white":(1,1,1),
+  "grey":(0.5,0.5,0.5),
+  "gray":(0.5,0.5,0.5),
+  "black":(0,0,0),
+  "red":(1,0,0),
+  "green":(0,1,0),
+  "blue":(0,0,1),
+  "cyan":(0,1,1),
+  "magenta":(1,0,1),
+  "yellow":(1,1,0)
+};
+lowercase(str):=(
+  if(length(str)>0,
+    sum(apply(str_(1..length(str)),c,
+      if(c>="A" & c <= "Z",
+        "abcdefghijklmnopqrstuvwxyz"_(indexOf("ABCDEFGHIJKLMNOPQRSTUVWXYZ",c))
+      ,
+        c
+      )
+    ))
+  ,
+    str
+  )
+);
+cglColor(name):=(
+  if(isString(name),
+    name = lowercase(name);
+    if(name_1=="#",
+      cglLogError("hex strings are not supported");
+    ,
+      cglValOrDefault(CGLcOLORnAMES_name,(0.5,0.5,0.5))
+    )
+  , // TODO? verify that name is a valid color
+    name
+  )
+);
+cglInterface("cglColorExpr",cglColorExprImpl,(expr:(texturePos,spacePos,normal)),(hasAlpha));
+cglColorExprImpl(expr):=(
+  {
+    "type": "expr",
+    "expr": expr,
+    "hasAlpha": cglValOrDefault(hasAlpha,false)
+  }
+);
+cglInterface("cglTexture",cglTextureImpl,(name),(hasAlpha,interpolate,repeatTexture));
+cglTextureImpl(name):=(
+  {
+    "type": "texture",
+    "name": name,
+    "hasAlpha": cglValOrDefault(hasAlpha,false),
+    "interpolate": cglValOrDefault(interpolate,true),
+    "repeat": cglValOrDefault(repeatTexture,false)
+  }
+);
 // helper functions for resolving of colorExpression/textures
 // pick the first defined color expression return undefined if there is none
 // code TODO? to which extend can this function be shortened by extracting code
+cglPixelExprFromTexture(texture,hasAlpha,textureAlpha,repeatTexture,interpolateTexture):=(
+    if(textureAlpha,
+      pixelExpr = if(hasAlpha,
+        cglLazy((texturePos,spacePos,normal),
+          regional(col);
+          col=cglTexture(texture,texturePos,repeat->repeatTexture,interpolate->interpolateTexture);
+          (col_1,col_2,col_3,col_4*cglAlpha)
+        ,texture->texture,repeatTexture->repeatTexture,interpolateTexture->interpolateTexture);
+      ,
+        cglLazy((texturePos,spacePos,normal),
+          cglTexture(texture,texturePos,repeat->repeatTexture,interpolate->interpolateTexture)
+        ,texture->texture,repeatTexture->repeatTexture,interpolateTexture->interpolateTexture);
+      );
+    ,
+      pixelExpr = if(hasAlpha,
+        cglLazy((texturePos,spacePos,normal),
+          regional(col);
+          col=cglTextureRGB(texture,texturePos,repeat->repeatTexture,interpolate->interpolateTexture);
+          (col_1,col_2,col_3,cglAlpha)
+        ,texture->texture,repeatTexture->repeatTexture,interpolateTexture->interpolateTexture);
+      ,
+        cglLazy((texturePos,spacePos,normal),
+          cglTextureRGB(texture,texturePos,repeat->repeatTexture,interpolate->interpolateTexture)
+        ,texture->texture,repeatTexture->repeatTexture,interpolateTexture->interpolateTexture);
+      );
+    )
+);
+cglPixelExprFromExpr(expr,hasAlpha,exprAlpha):=(
+  if(exprAlpha,
+    if(hasAlpha,
+      cglLazy((texturePos,spacePos),
+        regional(col);
+        col=cglEval(expr,texturePos,spacePos);
+        (col_1,col_2,col_3,col_4*cglAlpha)
+      ,expr->expr);
+    ,
+      expr
+    );
+  ,
+    if(hasAlpha,
+      cglLazy((texturePos,spacePos),
+        regional(col);
+        col=cglEval(expr,texturePos,spacePos);
+        (col_1,col_2,col_3,cglAlpha)
+      ,expr->expr);
+    ,
+      expr
+    );
+  )
+);
 
 CglColorsIgnore = 0; // ignore colors field
 CglColorsInterpolate = 1; // interpolate between colors_1 and colors_2 usign texPos_2 (cylinder)
@@ -1543,78 +1662,39 @@ cglResolveColorExpr0(hasAlpha,colorsMode,isBack):=(
   usesAlpha = false;
   if(isundefined(pixelExpr) & !isundefined(colorExprRGBA),
     usesAlpha = true;
-    pixelExpr = if(hasAlpha,
-      cglLazy((texturePos,spacePos),
-        regional(col);
-        col=cglEval(colorExprRGBA,texturePos,spacePos);
-        (col_1,col_2,col_3,col_4*cglAlpha)
-      ,colorExprRGBA);
-    ,
-      colorExprRGBA
-    );
+    cglLogWarning("the modifer `colorExprRGBA` is deprecated use `color->cglColorExpr(...)` instead");
+    pixelExpr = cglPixelExprFromExpr(colorExprRGBA,hasAlpha,true);
   );
   // feature TODO warining for re-definition
   if(isundefined(pixelExpr) & !isundefined(colorExprRGB),
-    pixelExpr = if(hasAlpha,
-      cglLazy((texturePos,spacePos),
-        regional(col);
-        col=cglEval(colorExprRGB,texturePos,spacePos);
-        (col_1,col_2,col_3,cglAlpha)
-      ,colorExprRGB->colorExprRGB);
-    ,
-      colorExprRGB
-    );
+    cglLogWarning("the modifer `colorExprRGB` is deprecated use `color->cglColorExpr(...)` instead");
+    pixelExpr = cglPixelExprFromExpr(colorExprRGB,hasAlpha,false);
   );
   if(isundefined(pixelExpr) & !isundefined(colorExpr),
-    pixelExpr = if(hasAlpha,
-      cglLazy((texturePos,spacePos),
-        regional(col);
-        col=cglEval(colorExpr,texturePos,spacePos);
-        (col_1,col_2,col_3,cglAlpha)
-      ,colorExpr->colorExpr);
-    ,
-      colorExpr
-    );
+    cglLogWarning("the modifer `colorExpr` is deprecated use `color->cglColorExpr(...)` instead");
+    pixelExpr = cglPixelExprFromExpr(colorExpr,hasAlpha,false);
   );
   if(isundefined(pixelExpr) & !isundefined(textureRGBA),
+    cglLogWarning("the modifer `textureRGBA` is deprecated use `texture->cglTexture(...,hasAlpha->true)` instead");
     usesAlpha = true;
-    pixelExpr = if(hasAlpha,
-      cglLazy((texturePos,spacePos,normal),
-        regional(col);
-        col=cglTexture(textureRGBA,texturePos,repeat->repeatTexture,interpolate->interpolateTexture);
-        (col_1,col_2,col_3,col_4*cglAlpha)
-      ,textureRGBA->textureRGBA,repeatTexture->repeatTexture,interpolateTexture->interpolateTexture);
-    ,
-      cglLazy((texturePos,spacePos,normal),
-        cglTexture(textureRGBA,texturePos,repeat->repeatTexture,interpolate->interpolateTexture)
-      ,textureRGBA->textureRGBA,repeatTexture->repeatTexture,interpolateTexture->interpolateTexture);
-    );
+    pixelExpr = cglPixelExprFromTexture(textureRGBA,hasAlpha,true,repeatTexture,interpolateTexture);
   );
   if(isundefined(pixelExpr) & !isundefined(textureRGB),
-    pixelExpr = if(hasAlpha,
-      cglLazy((texturePos,spacePos,normal),
-        regional(col);
-        col=cglTextureRGB(textureRGB,texturePos,repeat->repeatTexture,interpolate->interpolateTexture);
-        (col_1,col_2,col_3,cglAlpha)
-      ,textureRGB->textureRGB,repeatTexture->repeatTexture,interpolateTexture->interpolateTexture);
-    ,
-      cglLazy((texturePos,spacePos,normal),
-        cglTextureRGB(textureRGB,texturePos,repeat->repeatTexture,interpolate->interpolateTexture)
-      ,textureRGB->textureRGB,repeatTexture->repeatTexture,interpolateTexture->interpolateTexture);
-    );
+    cglLogWarning("the modifer `textureRGB` is deprecated use `texture->cglTexture(...,hasAlpha->false)` instead");
+    pixelExpr = cglPixelExprFromTexture(textureRGB,hasAlpha,false,repeatTexture,interpolateTexture);
   );
   if(isundefined(pixelExpr) & !isundefined(texture),
-    pixelExpr = if(hasAlpha,
-      cglLazy((texturePos,spacePos,normal),
-        regional(col);
-        col=cglTextureRGB(texture,texturePos,repeat->repeatTexture,interpolate->interpolateTexture);
-        (col_1,col_2,col_3,cglAlpha)
-      ,texture->texture,repeatTexture->repeatTexture,interpolateTexture->interpolateTexture);
+    if(isString(texture),
+      pixelExpr = cglPixelExprFromTexture(texture,hasAlpha,false,repeatTexture,interpolateTexture);
+    ,if(texture:"type"=="texture",
+      usesAlpha = texture:"hasAlpha";
+      pixelExpr = cglPixelExprFromTexture(texture:"name",hasAlpha,texture:"hasAlpha",texture:"repeat",texture:"interpolate");
+    ,if(texture:"type"=="expr",
+      usesAlpha = texture:"hasAlpha";
+      pixelExpr = cglPixelExprFromExpr(texture:"expr",hasAlpha,texture:"hasAlpha");
     ,
-      cglLazy((texturePos,spacePos,normal),
-        cglTextureRGB(texture,texturePos,repeat->repeatTexture,interpolate->interpolateTexture)
-      ,texture->texture,repeatTexture->repeatTexture,interpolateTexture->interpolateTexture);
-    );
+      cglLogError("unexpected value for texture: "+texture);
+    )))
   );
   if(colorsMode != CglColorsIgnore & isundefined(pixelExpr) & !isundefined(colors),
     colors = apply(colors,cglNormalColor(#));
@@ -1664,23 +1744,33 @@ cglResolveColorExpr0(hasAlpha,colorsMode,isBack):=(
     );
   );
   if(isundefined(pixelExpr) & !isundefined(color),
-    color = cglNormalColor(color);
-    usesAlpha = length(color)==4;
-    colorData = if(isBack,cglLazy(cglColorBack),cglLazy(cglColor));
-    pixelExpr = if(hasAlpha,
-      if(length(color)==4,
-        cglLazy((texPos,pos3d,normal),
-          (cglEval(colorData)_1,cglEval(colorData)_2,cglEval(colorData)_3,cglEval(colorData)_4*cglAlpha)
-        ,colorData->colorData);
+    if(isList(color),
+      color = cglNormalColor(color);
+      usesAlpha = length(color)==4;
+      colorData = if(isBack,cglLazy(cglColorBack),cglLazy(cglColor));
+      pixelExpr = if(hasAlpha,
+        if(length(color)==4,
+          cglLazy((texPos,pos3d,normal),
+            (cglEval(colorData)_1,cglEval(colorData)_2,cglEval(colorData)_3,cglEval(colorData)_4*cglAlpha)
+          ,colorData->colorData);
+        ,
+          cglLazy((texPos,pos3d,normal),
+            (cglEval(colorData)_1,cglEval(colorData)_2,cglEval(colorData)_3,cglAlpha)
+          ,colorData->colorData);
+        );
       ,
-        cglLazy((texPos,pos3d,normal),
-          (cglEval(colorData)_1,cglEval(colorData)_2,cglEval(colorData)_3,cglAlpha)
-        ,colorData->colorData);
+        cglLazy((texPos,pos3d,normal),cglEval(colorData),colorData->colorData);
       );
+      modifiers_(if(isBack,"cglColorBack","cglColor")) = color;
+    ,if(color:"type"=="texture",
+      usesAlpha = color:"hasAlpha";
+      pixelExpr = cglPixelExprFromTexture(color:"name",hasAlpha,color:"hasAlpha",color:"repeat",color:"interpolate");
+    ,if(color:"type"=="expr",
+      usesAlpha = color:"hasAlpha";
+      pixelExpr = cglPixelExprFromExpr(color:"expr",hasAlpha,color:"hasAlpha");
     ,
-      cglLazy((texPos,pos3d,normal),cglEval(colorData),colorData->colorData);
-    );
-    modifiers_(if(isBack,"cglColorBack","cglColor")) = color;
+      cglLogError("unexpected value for color: "+texture);
+    )))
   );
   {"pixelExpr":pixelExpr, "usesAlpha": usesAlpha, "modifiers": modifiers, "vModifiers": vModifiers}
 );
@@ -1752,8 +1842,6 @@ cglNormalizeRange(range):=(
   range = apply(range,val,mod(val,1)); // pick representant in 0..1
 );
 
-// API TODO: pass color-expr as lambda-expressions + add wrapper functions for expression creation (colorExpr->makeColorExpr(...))
-// API TODO? merge colorExprs into color and use type to distinguish arguments
 cglInterface("draw3d",cglDraw3d,(pos3d),(color,texture,textureRGB,textureRGBA,interpolateTexture,repeatTexture,
   colorExpr:(texturePos,spacePos,normal),colorExprRGB:(texturePos,spacePos,normal),
   colorExprRGBA:(texturePos,spacePos,normal),colorBack,textureBack,textureRGBBack,textureRGBABack,
