@@ -36,7 +36,7 @@
 
             updateCurve():=(
               reset3d();
-                curve3d(posExpr(t),t0,t1,samples->N,size->r,colorExpr->hue(texturePos_2));
+                curve3d(posExpr(t),t0,t1,samples->N,size->r,color->cglColorExpr(hue(texturePos_2)));
             );
             updateCurve();
         </script>

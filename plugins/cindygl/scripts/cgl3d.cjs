@@ -2080,7 +2080,7 @@ cglConnect3d(points):=(
   points = remove(apply(points,p,if(p == prev,-1,prev=p;p)),-1);
   if(length(points)>=3,
     // update projection if color is computed per pixel
-    if(!isundefined(colorExpr) % !isundefined(texture),
+    if(!isundefined(colorExpr) % !isundefined(texture) % !isundefined(color:"type"),
       projection = cglLazy((normal,height,orientation),
         regional(pos0);
         pos0=cglProjCylinderToSquare(normal,height,orientation);
@@ -2834,11 +2834,15 @@ cglInterface("cplot3d",cglCPlot3d,(f:(z)),(color,texture,textureRGB,textureRGBA,
   cutoffRegion,degree,layers,plotModifiers,tags,onUpdate));
 cglCPlot3d(f/*f(z)*/):=(
   if(isundefined(color) & isundefined(colorExpr), // TODO find better condition for choosing phase-coloring
-    colorExpr = cglLazy((texturePos,spacePos,normal),
-      regional(z);
-      z=cglEval(f,spacePos_1+i*spacePos_2);
-      hue((arctan2(re(z),im(z))+pi)/(2*pi))
-    ,f->f);
+    color = {
+      "type": "expr",
+      "expr": cglLazy((texturePos,spacePos,normal),
+        regional(z);
+        z=cglEval(f,spacePos_1+i*spacePos_2);
+        hue((arctan2(re(z),im(z))+pi)/(2*pi))
+      ,f->f),
+      "hasAlpha": false
+    };
   );
   cglSurface3d(cglLazy((x,y,z),abs(cglEval(f,x+i*y))-z,f->f),degree->cglValOrDefault(degree,-1));
 );

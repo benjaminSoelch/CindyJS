@@ -89,10 +89,10 @@
               if(isClosed,buildLoop(N),buildCurve(N));
               reset3d();
               forall(points,p,
-                sphere3d(p,r1,colorExpr->(spacePos+(1,1,1))/2)
+                sphere3d(p,r1,color->cglColorExpr((spacePos+(1,1,1))/2))
               );
               forall(consecutive(points),l,
-                cylinder3d(l_1,l_2,r2,colorExpr->(spacePos+(1,1,1))/2)
+                cylinder3d(l_1,l_2,r2,color->cglColorExpr((spacePos+(1,1,1))/2))
               )
             );
         </script>
