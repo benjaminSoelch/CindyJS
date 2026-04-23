@@ -1662,25 +1662,25 @@ cglResolveColorExpr0(hasAlpha,colorsMode,isBack):=(
   usesAlpha = false;
   if(isundefined(pixelExpr) & !isundefined(colorExprRGBA),
     usesAlpha = true;
-    cglLogWarning("the modifer `colorExprRGBA` is deprecated use `color->cglColorExpr(...)` instead");
+    cglLogError("the modifer `colorExprRGBA` is deprecated use `color->cglColorExpr(...)` instead");
     pixelExpr = cglPixelExprFromExpr(colorExprRGBA,hasAlpha,true);
   );
   // feature TODO warining for re-definition
   if(isundefined(pixelExpr) & !isundefined(colorExprRGB),
-    cglLogWarning("the modifer `colorExprRGB` is deprecated use `color->cglColorExpr(...)` instead");
+    cglLogError("the modifer `colorExprRGB` is deprecated use `color->cglColorExpr(...)` instead");
     pixelExpr = cglPixelExprFromExpr(colorExprRGB,hasAlpha,false);
   );
   if(isundefined(pixelExpr) & !isundefined(colorExpr),
-    cglLogWarning("the modifer `colorExpr` is deprecated use `color->cglColorExpr(...)` instead");
+    cglLogError("the modifer `colorExpr` is deprecated use `color->cglColorExpr(...)` instead");
     pixelExpr = cglPixelExprFromExpr(colorExpr,hasAlpha,false);
   );
   if(isundefined(pixelExpr) & !isundefined(textureRGBA),
-    cglLogWarning("the modifer `textureRGBA` is deprecated use `texture->cglTexture(...,hasAlpha->true)` instead");
+    cglLogError("the modifer `textureRGBA` is deprecated use `texture->cglTexture(...,hasAlpha->true)` instead");
     usesAlpha = true;
     pixelExpr = cglPixelExprFromTexture(textureRGBA,hasAlpha,true,repeatTexture,interpolateTexture);
   );
   if(isundefined(pixelExpr) & !isundefined(textureRGB),
-    cglLogWarning("the modifer `textureRGB` is deprecated use `texture->cglTexture(...,hasAlpha->false)` instead");
+    cglLogError("the modifer `textureRGB` is deprecated use `texture->cglTexture(...,hasAlpha->false)` instead");
     pixelExpr = cglPixelExprFromTexture(textureRGB,hasAlpha,false,repeatTexture,interpolateTexture);
   );
   if(isundefined(pixelExpr) & !isundefined(texture),
