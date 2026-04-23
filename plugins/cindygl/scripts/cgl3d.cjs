@@ -125,7 +125,6 @@ cglLight2=cglLazy((color,viewDirection,normal),
 // internal state
 /////////////////////
 
-
 // color constants
 cglBlack = (0,0,0);
 cglGray = (0.5,0.5,0.5);
@@ -137,6 +136,18 @@ cglYellow = (1,1,0);
 cglCyan = (0,1,1);
 cglMagenta = (1,0,1);
 
+CGLcOLORnAMES = {
+  "white":(1,1,1),
+  "grey":(0.5,0.5,0.5),
+  "gray":(0.5,0.5,0.5),
+  "black":(0,0,0),
+  "red":(1,0,0),
+  "green":(0,1,0),
+  "blue":(0,0,1),
+  "cyan":(0,1,1),
+  "magenta":(1,0,1),
+  "yellow":(1,1,0)
+};
 
 /////////////////////
 // spheres
@@ -1526,7 +1537,6 @@ cglMergeDicts(dict1,dict2):=(
 // TODO?can rendering multiple texture-layeres in single shader call speed up rendering for multi-layered surfaces
 
 
-// API TODO: remove explicit colorExpr, remove explicit modifier for textureRGBA
 /** new color API:
   two modifiers: color & texture (+colors for multi-point objects) + coresponding parameters for back-side
   color:
@@ -1540,18 +1550,6 @@ cglMergeDicts(dict1,dict2):=(
     c) cglColorExpr(<expr>) // modifer: hasAlpha (defaults to false)
   colors -> list of colors
 */
-CGLcOLORnAMES = {
-  "white":(1,1,1),
-  "grey":(0.5,0.5,0.5),
-  "gray":(0.5,0.5,0.5),
-  "black":(0,0,0),
-  "red":(1,0,0),
-  "green":(0,1,0),
-  "blue":(0,0,1),
-  "cyan":(0,1,1),
-  "magenta":(1,0,1),
-  "yellow":(1,1,0)
-};
 lowercase(str):=(
   if(length(str)>0,
     sum(apply(str_(1..length(str)),c,
