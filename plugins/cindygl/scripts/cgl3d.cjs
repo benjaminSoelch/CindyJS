@@ -2070,6 +2070,17 @@ cglLine3d(point1,point2,radius):=(
   V = point2-point1;
   bounds = cglEval(cutoffExpr,point1,V);
   ids = cglCylinder3d(point1+bounds_1*V,point1+bounds_2*V,radius);
+  cglEvalOnRender(cglLazy(
+    regional(V,bounds);
+    V = normalize(point2-point1);
+    bounds = cglEvalOrDiscard(cglEval(cutoffExpr,point1,V));
+    cglSetVisible(ids,!isundefined(bounds));
+    if(!isundefined(bounds),
+      cglUpdateBounds(ids,point1+bounds_1*V,point1+bounds_2*V,radius);
+    );
+    ,ids->ids,radius->radius,point1->point1,point2->point2,cutoffExpr->cutoffExpr
+  ));
+  ids;
 );
 
 cglJoint(prev,current,next,jointType):=(
