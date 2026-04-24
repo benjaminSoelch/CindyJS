@@ -82,7 +82,6 @@ CodeBuilder.prototype.texturereaders;
 const BUILTIN_DISCARD = "cgldiscard";
 const BUILTIN_TEXTURE4 = "cgltexture";
 const BUILTIN_TEXTURE3 = "cgltexturergb";
-const BUILTIN_EVAL_LAZY = "cgleval";
 const BUILTIN_VIEW_RECT = "cglviewrect";
 const BUILTIN_CGLDEPTH = "cglDepth";
 /** @type {Map<string,{type:string,code:string,expr:string,valueType:type,writable:boolean}>} */
@@ -91,7 +90,6 @@ CodeBuilder.builtIns=new Map([
     [BUILTIN_DISCARD,{type:"operator",code:"discard;\n",expr:"",valueType:type.voidt,writable:false}],
     [BUILTIN_TEXTURE4,{type:"function",code:"",expr:"texture",valueType:type.vec4,args:[type.image,type.vec2],writable:false}],
     [BUILTIN_TEXTURE3,{type:"function",code:"",expr:"texture",valueType:type.vec3,args:[type.image,type.vec2],writable:false}],
-    [BUILTIN_EVAL_LAZY,{type:"function",code:"",expr:"",valueType:undefined,args:undefined,writable:false}],
     // 3D- only
     // TODO make cglViewPos a function for consistency with interpreted CindyScript code
     ["cglViewPos",{type:"uniform",code:"",expr:"pixelViewPos",valueType:type.vec3,writable:false}],
@@ -158,10 +156,6 @@ CodeBuilder.prototype.computeType = function(expr) { //expression
             return CodeBuilder.builtIns.get(name).valueType;
         } else if (expr['ctype'] === 'function') {
             let name = getPlainName(expr['oper']);
-            if(name == BUILTIN_EVAL_LAZY){
-                // type of lazy is type of contained expression
-                return this.getType(expr['args'][0]);
-            }
             return CodeBuilder.builtIns.get(name).valueType;
         }
         cglLogError(`unsupported built-in ${JSON.stringify(expr)}`);
@@ -202,8 +196,8 @@ CodeBuilder.prototype.computeType = function(expr) { //expression
         return type.image;
     } else if (expr['ctype'] === 'list' || expr['ctype'] === 'boolean') {
         return constant(expr);
-    } else if (expr['ctype'] === 'cglLazy') {
-        return type.cglLazy(expr);
+    } else if (expr['ctype'] === 'lambda') {
+        return type.lambda(expr);
     } else if (expr['ctype'] === 'function' || expr['ctype'] === 'infix') {
         if(getPlainName(expr['oper'])=='if') {
             let condType = this.getType(expr['args'][0]);
@@ -281,6 +275,10 @@ CodeBuilder.prototype.computeType = function(expr) { //expression
         let baseType = generalize(this.getType(expr['obj']));
         if (!baseType) return false;
         let key = expr['key'];
+        if (baseType.type === "lambda") {
+            // type of lambda-eval is type of contained expression
+            return baseType;
+        }
         if (baseType.type !== 'tuple' || baseType.names === undefined) {
             cglLogError("element access is only supported on JSON values");
             cglLogDebug(baseType);
@@ -342,7 +340,8 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
     //dfs over executed code
     function rec(expr, bindings, scope, forceconstant) {
         expr.bindings = bindings;
-        if (expr['ctype'] === 'function' &&
+        // FIXME; correctly handle lambda-evaluation code
+        /*if (expr['ctype'] === 'function' &&
             getPlainName(expr['oper']) === BUILTIN_EVAL_LAZY && expr['args'].length > 0
         ) {
             let argCount = expr['args'].length-1;
@@ -444,7 +443,7 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
             myfunctions[scope].variables.push(expr.resName);
             self.initvariable(expr.resName, false);
             variables[expr.resName].assigments.push(expr);
-        }
+        }*/
         // TODO? add support for: sum$2, sum$3, product$2, product$3
         for (let i in expr['args']) {
             let needtobeconstant = forceconstant || (expr['oper'] === "repeat$2" && i == 0) || (expr['oper'] === "repeat$3" && i == 0) || (expr['oper'] === "_" && i == 1);
@@ -458,8 +457,6 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
                 } else if (i == 2) { //take same bindings as for second argument
                     nbindings = expr['args'][1].bindings;
                 }
-            } else if(i==0 && getPlainName(expr['oper']) === BUILTIN_EVAL_LAZY){
-                nbindings = expr['args'][0].bindings;
             }
             rec(expr['args'][i],
                 nbindings,
@@ -966,45 +963,6 @@ CodeBuilder.prototype.compile = function(expr, generateTerm) {
         } : {
             code: builtIn.code
         };
-    } else if(expr['isbuiltin'] && expr['ctype'] === 'function' && getPlainName(expr['oper']) == BUILTIN_EVAL_LAZY){
-        let code = "";
-        // assign arguments to parameters
-        expr.params.forEach((param,index)=>{
-            if(param['inline'])return;// skip inlined parameters
-            code+=this.compile(opAssign(param,expr['args'][index+1]),false).code;
-        });
-        // assign values to modifiers
-        expr.modifs.forEach(([key,value,bindings])=>{
-            if(value['ctype']==='cglLazy')
-                return; // skip textures and lazy values
-            if(value['ctype']==='string' || value['ctype']==='image') {
-                // TODO? seperate map for image uniforms
-                // create fake uniform variable to make image information accessible to TextureReader
-                this.uniforms[bindings[key] || key] = {
-                    expr: value,
-                    type: type.image,
-                    forceconstant: false
-                };
-                return;
-            }
-            code+=this.compile(opAssign({ctype:'variable',name:key,bindings:bindings},value),false).code;
-        });
-        // evaluate "lazy" expression
-        let result = this.compile(expr['args'][0],generateTerm);
-        // store computed result in variable to ensure correct evaluation order for multiple cglLazy-calls in single expression
-        if(result.term) {
-            let resType = this.getType(expr);
-            if(result.term && resType !== type.voidt) {
-                result.code += `${expr.resName} = ${result.term};\n`;
-                result.term = expr.resName;
-            } else {
-                result.code += result.term;
-                result.term = "";
-            }
-        }
-        // insert assignemnt code before expression code
-        result.code = code+result.code;
-        return result;
     } else if(expr['ismodifier']){
         if(expr['ctype'] === 'variable'){
             let vname = expr['name'];
@@ -1419,6 +1377,48 @@ CodeBuilder.prototype.compile = function(expr, generateTerm) {
         }
     } else if (expr['ctype'] === 'userdata') {
         let objt = this.getType(expr['obj']);
+        if (objt.type === "lambda") {
+            let code = "";
+            let lambda = expr['obj'];
+            let args = expr["key"]["value"];
+            // assign arguments to parameters
+            lambda["params"].forEach((param,index)=>{
+                if(param['inline'])return;// skip inlined parameters
+                code+=this.compile(opAssign(param,args[index+1]),false).code;
+            });
+            // assign values to modifiers
+            lambda["modifs"].forEach(([key,value,bindings])=>{
+                if(value['ctype']==='cglLazy')
+                    return; // skip textures and lazy values
+                if(value['ctype']==='string' || value['ctype']==='image') {
+                    // TODO? seperate map for image uniforms
+                    // create fake uniform variable to make image information accessible to TextureReader
+                    this.uniforms[bindings[key] || key] = {
+                        expr: value,
+                        type: type.image,
+                        forceconstant: false
+                    };
+                    return;
+                }
+                code+=this.compile(opAssign({ctype:'variable',name:key,bindings:bindings},value),false).code;
+            });
+            // evaluate lambda expression
+            let result = this.compile(lambda["body"],generateTerm);
+            // store computed result in variable to ensure correct evaluation order for multiple cglLazy-calls in single expression
+            if(result.term) {
+                let resType = this.getType(expr);
+                if(result.term && resType !== type.voidt) {
+                    result.code += `${expr.resName} = ${result.term};\n`;
+                    result.term = expr.resName;
+                } else {
+                    result.code += result.term;
+                    result.term = "";
+                }
+            }
+            // insert assignemnt code before expression code
+            result.code = code+result.code;
+            return result;
+        }
         let key = expr['key'].value;
         if (!objt || objt.names === undefined) {
             cglLogError(`${typeToString(objt)} does not have a field ${key}`);
@@ -1471,8 +1471,8 @@ CodeBuilder.prototype.compileFunction = function(fname, nargs) {
     for (let i in m.variables) {
         let iname = m.variables[i];
         const varType = this.variables[iname].T;
-        if(varType === type.voidt  || varType === type.image || varType.type === 'cglLazy')
-            continue;// skip void, image and lazy variables
+        if(varType === type.voidt  || varType === type.image || varType.type === 'lambda')
+            continue;// skip void, image and lambda variables
         code += `${webgltype(varType)} ${iname};\n`;
     }
     let r = self.compile(m.body, !isvoid);
@@ -1490,12 +1490,12 @@ CodeBuilder.prototype.generateListOfUniforms = function() {
     for (let uname in this.uniforms)
         if (this.uniforms[uname].type.type != 'constant' &&
              this.uniforms[uname].type != type.image &&
-             this.uniforms[uname].type.type != 'cglLazy'
+             this.uniforms[uname].type.type != 'lambda'
         ) {
             ans.push(`uniform ${webgltype(this.uniforms[uname].type)} ${uname};`);
         }
     this.modifierTypes.forEach((value,name)=>{
-        if(value.type.type == 'cglLazy') return;
+        if(value.type.type == 'lambda') return;
         if(!value.used) return;
         // TODO? should image modifiers be allowed
         if(value.isuniform) {

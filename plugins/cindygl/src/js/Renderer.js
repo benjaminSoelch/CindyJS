@@ -152,7 +152,7 @@ Renderer.prototype.recompile = function() {
     this.cpg = this.cb.generateColorPlotProgram(this.expression,this.modifierTypes,this.mode3D);
     this.activeModifierTypes = new Map();
     this.modifierTypes.forEach((value,key)=>{
-        if(!value.used||!value.isuniform||value.type.type == "cglLazy")
+        if(!value.used||!value.isuniform||value.type.type == "lambda")
             return; //ignore unused modifers
         this.activeModifierTypes.set(key,value);
     });
