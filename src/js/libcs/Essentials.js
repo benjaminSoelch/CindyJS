@@ -15,6 +15,7 @@ import {
     infix_div,
     infix_add,
     infix_sub,
+    infix_lambda,
     prefix_not,
     comp_equals,
     comp_almostequals,
@@ -88,6 +89,7 @@ infixmap["="] = infix_assign;
 infixmap[":="] = infix_define;
 infixmap[":=_"] = postfix_undefine;
 infixmap["::="] = operator_not_implemented("::=");
+infixmap["=>"] = infix_lambda;
 // infixmap['->'] not needed thanks to modifierOp special handling
 infixmap[";"] = infix_semicolon;
 
@@ -172,6 +174,12 @@ function niceprint(a, modifs) {
     if (a.ctype === "image") {
         return "IMAGE";
     }
+    if (a.ctype === "lambda") {
+        return "lambda((" + a.params.map((v) => v.name).join(",") + "),...)";
+    }
+    if (a.ctype === "functionreference") {
+        return a.name + "$" + a.arity;
+    }
 
     return "_?_";
 }
@@ -182,26 +190,30 @@ niceprint.errorTypes = ["_?_", "_??_", "_???_", "___"];
 //this is the container for self-defined functions
 //Distinct form evaluator for code clearness :-)
 //*******************************************************
-function evalmyfunctions(name, args, modifs) {
-    const tt = myfunctions[name];
-    if (tt === undefined) {
-        return nada;
-    }
-
+function evalfunction(params, body, args, modifs) {
     const set = [];
     let i;
 
-    for (i = 0; i < tt.arglist.length; i++) {
-        set[i] = evaluate(args[i]);
+    for (i = 0; i < params.length; i++) {
+        if (params[i].ctype == "lambdaarg") {
+            set[i] = {
+                ctype: "lambda",
+                body: args[i],
+                params: params[i].args,
+                modifs: {},
+            };
+        } else {
+            set[i] = evaluate(args[i]);
+        }
     }
     //  evaluate modifiers in caller-scope
     let modValues = {};
     Object.entries(modifs).forEach(function ([key, value]) {
         modValues[key] = evaluate(value);
     });
-    for (i = 0; i < tt.arglist.length; i++) {
-        namespace.newvar(tt.arglist[i].name);
-        namespace.setvar(tt.arglist[i].name, set[i]);
+    for (i = 0; i < params.length; i++) {
+        namespace.newvar(params[i].name);
+        namespace.setvar(params[i].name, set[i]);
     }
     Object.entries(modValues).forEach(function ([key, value]) {
         namespace.newvar(key);
@@ -209,7 +221,15 @@ function evalmyfunctions(name, args, modifs) {
     });
 
     namespace.pushVstack("*");
-    const erg = evaluate(tt.body);
+    const erg = evaluate(body);
+    const captureVar = (key) => {
+        if (erg.modifs[key] === undefined) {
+            erg.modifs[key] = namespace.getvar(key);
+        }
+    };
+    if (erg.ctype === "lambda") {
+        namespace.forEachLocal(captureVar);
+    }
     namespace.cleanVstack();
 
     // remove modifiers again
@@ -217,11 +237,18 @@ function evalmyfunctions(name, args, modifs) {
         namespace.removevar(key);
     });
 
-    for (i = 0; i < tt.arglist.length; i++) {
-        namespace.removevar(tt.arglist[i].name);
+    for (i = 0; i < params.length; i++) {
+        if (erg.ctype === "lambda") captureVar(params[i].name);
+        namespace.removevar(params[i].name);
     }
     return erg;
-    //                    return tt(args,modifs);
+}
+function evalmyfunctions(name, args, modifs) {
+    const tt = myfunctions[name];
+    if (tt === undefined) {
+        return nada;
+    }
+    return evalfunction(tt.arglist, tt.body, args, modifs);
 }
 
 //*******************************************************
@@ -245,6 +272,14 @@ eval_helper.evaluate = function (name, args, modifs) {
     }
     csconsole.err("Called undefined function " + n + " (as " + name + ")");
     return nada;
+};
+eval_helper.hasFunction = function (name, arity) {
+    if (myfunctions.hasOwnProperty(name)) return true;
+    if (evaluator[name]) return true;
+    let arityName = name + "$" + arity;
+    if (myfunctions.hasOwnProperty(arityName)) return true;
+    if (evaluator[arityName]) return true;
+    return false;
 };
 
 eval_helper.equals = function (v0, v1) {
