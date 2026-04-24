@@ -1563,11 +1563,48 @@ lowercase(str):=(
     str
   )
 );
+cglParseHexDigit(d):=(
+  indexOf("0123456789abcdef",d)-1;
+);
+cglParseHexDigits(digits):=(
+  regional(x);
+  x = 0;
+  forall(digits,
+    x = 16*x + cglParseHexDigit(#)
+  );
+  x;
+);
 cglColor(name):=(
   if(isString(name),
     name = lowercase(name);
     if(name_1=="#",
-      cglLogError("hex strings are not supported");
+      regional(colorDigits,r,b,g,a);
+      name = name_(2..length(name));
+      if(length(name)==6,
+        r = cglParseHexDigits(name_(1,2))/255;
+        g = cglParseHexDigits(name_(3,4))/255;
+        b = cglParseHexDigits(name_(5,6))/255;
+        (r,b,g)
+      ,if(length(name)==8,
+        r = cglParseHexDigits(name_(1,2))/255;
+        g = cglParseHexDigits(name_(3,4))/255;
+        b = cglParseHexDigits(name_(5,6))/255;
+        a = cglParseHexDigits(name_(7,8))/255;
+        (r,g,b,a)
+      ,if(length(name)==3,
+        r = cglParseHexDigit(name_1)/15;
+        g = cglParseHexDigit(name_2)/15;
+        b = cglParseHexDigit(name_3)/15;
+        (r,b,g)
+      ,if(length(name)==4,
+        r = cglParseHexDigit(name_1)/15;
+        g = cglParseHexDigit(name_2)/15;
+        b = cglParseHexDigit(name_3)/15;
+        a = cglParseHexDigit(name_4)/15;
+        (r,g,b,a)
+      ,
+        cglLogError("hex color should have 3,4,6 or 8 digits");
+      ))));
     ,
       cglValOrDefault(CGLcOLORnAMES_name,(0.5,0.5,0.5))
     )
