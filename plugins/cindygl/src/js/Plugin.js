@@ -919,6 +919,7 @@ let CindyGL = function(api) {
     updateCoordSytem({});
     api.defineFunction("cglCoordSystem", 0, (args, modifs) => {
         updateCoordSytem(modifs);
+        return nada;
     });
     api.defineFunction("cglViewPos", 0, (args, modifs) => {
         let viewPos = CindyGL.coordinateSystem.transformedViewPos.slice(0,3);
@@ -1026,6 +1027,7 @@ let CindyGL = function(api) {
         return nada;
     });
     api.defineFunction("cglOrthogonalMode", 1, (args, modifs) => {
+        console.warn("cglOrthogonalMode: is not yet part of the stable API and might be removed in future versions");
         let arg = coerce.toBool(api.evaluateAndVal(args[0]),false);
         CindyGL.renderOrthogonal = arg;
         return toCjs(arg);
