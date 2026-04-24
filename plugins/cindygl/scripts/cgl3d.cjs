@@ -1742,6 +1742,7 @@ cglResolveColorExpr0(hasAlpha,colorsMode,isBack):=(
     );
   );
   if(isundefined(pixelExpr) & !isundefined(color),
+    if(isString(color),color=cglColor(color));
     if(isList(color),
       color = cglNormalColor(color);
       usesAlpha = length(color)==4;
