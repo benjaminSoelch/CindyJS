@@ -1584,7 +1584,7 @@ cglColor(name):=(
         r = cglParseHexDigits(name_(1,2))/255;
         g = cglParseHexDigits(name_(3,4))/255;
         b = cglParseHexDigits(name_(5,6))/255;
-        (r,b,g)
+        (r,g,b)
       ,if(length(name)==8,
         r = cglParseHexDigits(name_(1,2))/255;
         g = cglParseHexDigits(name_(3,4))/255;
@@ -1595,7 +1595,7 @@ cglColor(name):=(
         r = cglParseHexDigit(name_1)/15;
         g = cglParseHexDigit(name_2)/15;
         b = cglParseHexDigit(name_3)/15;
-        (r,b,g)
+        (r,g,b)
       ,if(length(name)==4,
         r = cglParseHexDigit(name_1)/15;
         g = cglParseHexDigit(name_2)/15;
