@@ -661,6 +661,14 @@ function Parser(expr) {
     this.usedVariables = {};
 }
 
+function isLambdaArg(arg) {
+    if (arg.ctype !== "function") return false;
+    for (let param of arg.args) {
+        if (param.ctype !== "variable") return false;
+    }
+    return true;
+}
+
 Parser.prototype.postprocess = function (expr) {
     if (expr === null) return cvoid;
     if (expr) {
@@ -670,6 +678,10 @@ Parser.prototype.postprocess = function (expr) {
                 const fun = expr.args[0];
                 if (fun.ctype === "function") {
                     fun.args.forEach(function (arg) {
+                        if (isLambdaArg(arg)) {
+                            arg.ctype = "lambdaarg";
+                            return;
+                        }
                         if (arg === null || arg.ctype !== "variable")
                             throw ParseError("Function argument must be an identifier", arg.start || expr.start);
                     });
@@ -736,6 +748,13 @@ Parser.prototype.postprocess = function (expr) {
         return {
             ctype: "variable",
             name: String(expr.name),
+        };
+    }
+    if (expr.ctype === "lambdaarg") {
+        return {
+            ctype: "lambdaarg",
+            name: String(expr.name),
+            args: expr.args,
         };
     }
     if (expr.ctype === "functionreference") {

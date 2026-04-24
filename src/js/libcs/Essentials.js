@@ -195,7 +195,16 @@ function evalfunction(params, body, args, modifs) {
     let i;
 
     for (i = 0; i < params.length; i++) {
-        set[i] = evaluate(args[i]);
+        if (params[i].ctype == "lambdaarg") {
+            set[i] = {
+                ctype: "lambda",
+                body: args[i],
+                params: params[i].args,
+                modifs: {},
+            };
+        } else {
+            set[i] = evaluate(args[i]);
+        }
     }
     //  evaluate modifiers in caller-scope
     let modValues = {};
