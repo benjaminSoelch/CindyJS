@@ -29,18 +29,18 @@ cglUndefinedVal():=(regional(nada);nada);
 /////////////////////
 // light functions
 /////////////////////
-cglNoLight = cglLazy((color,viewDirection,normal),color);
-cglSimpleLight = cglLazy((color,viewDirection,normal),
+cglNoLight = lambda((color,viewDirection,normal),color);
+cglSimpleLight = lambda((color,viewDirection,normal),
   regional(brightness);
   // normal towards view -> .75*brightness  ; normal away from view -> .45 * brightness
   brightness = viewDirection*normal;
   brightness = 0.25+0.6*abs(brightness)-0.15*brightness;
   brightness*color;
 );
-cglLightNormal = cglLazy((color,viewDirection,normal),
+cglLightNormal = lambda((color,viewDirection,normal),
   (normal+(1,1,1))/2;
 );
-cglLightDepth = cglLazy((color,viewDirection,normal),
+cglLightDepth = lambda((color,viewDirection,normal),
   hue(cglDepth-0.3);
 );
 cglAddLight(material, lightcolor, lightdir, normal, gamma1,gamma2) := (
@@ -63,7 +63,7 @@ cglComputeLight(direction,normal,col,pos):=(
   colo= colo+cglAddLight(col,lightCol, -direction, normal, 3,32);
 );
 // default light computation
-cglDefaultLight = cglLazy((color,direction,normal),
+cglDefaultLight = lambda((color,direction,normal),
   regional(col3,lightCol);
   // apply light calculation only to first 3 components
   // this code should work for both colors of size 3 and 4
@@ -76,8 +76,7 @@ cglDefaultLight = cglLazy((color,direction,normal),
   lightCol_3=col3_3;
   lightCol;
 );
-cglInterface("cglLightExpr",cglLightExprImpl,(expr:(color,direction,normal)),());
-cglLightExprImpl(expr):=expr;
+cglLightExpr(expr(color,direction,normal)):=expr;
 
 cglLight2gamma = [2, 20, 2, 20, 1, 10, 1, 10];
 cglLight2colors = [
@@ -117,7 +116,7 @@ cglLight2(direction, dst, color,normal) := (
   );
   color
 );
-cglLight2=cglLazy((color,viewDirection,normal),
+cglLight2=lambda((color,viewDirection,normal),
   cglLight2(viewDirection,cglRawDepth,color,normal)
 );
 
@@ -206,15 +205,15 @@ cglProjSphereToSquare(normal):=(
 );
 // feature TODO? add projection for non-axis aligned coordinate system
 
-cglSphereProjectionEquirect = cglLazy(normal,cglProjSphereToSquare(normal));
-cglSphereProjectionStereographicC = cglLazy(normal,cglProjSphereToC(normal));
+cglSphereProjectionEquirect = lambda(normal,cglProjSphereToSquare(normal));
+cglSphereProjectionStereographicC = lambda(normal,cglProjSphereToC(normal));
 
 cgl3dSphereShaderCode(direction,isBack):=(
   regional(normal,texturePos,color);
   normal = cglSphereNormal(direction,cglCenter,isBack);
-  texturePos = cglEval(cglProjection,normal);
-  color = cglEval(cglPixelExpr,texturePos,cglViewPos + cglRawDepth*direction,normal);
-  cglEval(cglLight,color,direction,normal);
+  texturePos = cglProjection:(normal);
+  color = cglPixelExpr:(texturePos,cglViewPos + cglRawDepth*direction,normal);
+  cglLight:(color,direction,normal);
 );
 
 /////////////////////
@@ -287,7 +286,7 @@ cglCappedCylinderDepths(rayStart,direction,center,orientation,radius):=(
   [low+w,hi+w];
 );
 
-cglCylinderProjGetDirection1Default = cglLazy((normal,height,orientation),
+cglCylinderProjGetDirection1Default = lambda((normal,height,orientation),
   regional(d1);
   if(|orientation_1|<|orientation_2|,
     d1=normalize(cross(orientation,(1,0,0)));
@@ -299,17 +298,17 @@ cglCylinderProjGetDirection1Default = cglLazy((normal,height,orientation),
 // assumes that normal is normalized, and height is in the range -1..1
 cglProjCylinderToSquare(normal,height,orientation):=(
   regional(d1,d2);
-  d1 = cglEval(cglCylinderProjGetDirection1,normal,height,orientation);
+  d1 = cglCylinderProjGetDirection1:(normal,height,orientation);
   d2 = -normalize(cross(orientation,d1));
   ((arctan2(d1*normal,d2*normal)+pi)/(2*pi),0.5*(height+1));
 );
 
-cglCapVoidShader = cglLazy((direction,cylinderDepths,delta,U,cutVector),
+cglCapVoidShader = lambda((direction,cylinderDepths,delta,U,cutVector),
     cglDiscard();
     (0,0,0,0) // compiler cannot detect that code is unreachable -> have to return correct type
     // bug TODO make compiler realize that code after discard is unreachable
 );
-cglCapOpenShaderNoBack = cglLazy((direction,cylinderDepths,delta,U,cutVector),
+cglCapOpenShaderNoBack = lambda((direction,cylinderDepths,delta,U,cutVector),
     regional(v2,delta2,normal);
     v2 = (cglViewPos+cylinderDepths_2*direction)-cglCenter;
     delta2 = v2*cutVector;
@@ -319,19 +318,19 @@ cglCapOpenShaderNoBack = cglLazy((direction,cylinderDepths,delta,U,cutVector),
     (normal_1,normal_2,normal_3,delta2);
 );
 cglCapOpenShaderBack = cglCapVoidShader;
-cglCapRoundShaderFront = cglLazy((direction,cylinderDepths,delta,U,cutVector),
+cglCapRoundShaderFront = lambda((direction,cylinderDepths,delta,U,cutVector),
     regional(m,normal);
     m = cglCenter+delta*cglOrientation;
     normal = cglSphereNormal(direction,m,false);
     (normal_1,normal_2,normal_3,delta);
 );
-cglCapRoundShaderBack = cglLazy((direction,cylinderDepths,delta,U,cutVector),
+cglCapRoundShaderBack = lambda((direction,cylinderDepths,delta,U,cutVector),
     regional(m,normal);
     m = cglCenter+delta*cglOrientation;
     normal = cglSphereNormal(direction,m,true);
     (normal_1,normal_2,normal_3,delta);
 );
-cglCapFlatShaderFront = cglLazy((direction,cylinderDepths,delta,U,cutVector),
+cglCapFlatShaderFront = lambda((direction,cylinderDepths,delta,U,cutVector),
     regional(m,a,normal);
     m = cglCenter+delta*cglOrientation;
     // <v + a*d,o> = <m,o>
@@ -341,7 +340,7 @@ cglCapFlatShaderFront = cglLazy((direction,cylinderDepths,delta,U,cutVector),
     normal = normalize(cglOrientation*delta);
     (normal_1,normal_2,normal_3,delta)
 );
-cglCapFlatShaderBack = cglLazy((direction,cylinderDepths,delta,U,cutVector),
+cglCapFlatShaderBack = lambda((direction,cylinderDepths,delta,U,cutVector),
     regional(m,a,normal);
     m = cglCenter+delta*cglOrientation;
     // <v + a*d,o> = <m,o>
@@ -351,7 +350,7 @@ cglCapFlatShaderBack = cglLazy((direction,cylinderDepths,delta,U,cutVector),
     normal = -normalize(cglOrientation*delta);
     (normal_1,normal_2,normal_3,delta)
 );
-cglCapAngleFlatShaderFront = cglLazy((direction,cylinderDepths,delta,U,cutVector),
+cglCapAngleFlatShaderFront = lambda((direction,cylinderDepths,delta,U,cutVector),
     regional(m,a,p,o,normal);
     m = cglCenter+delta*cglOrientation;
     // <v + a*d,n> = <m,n>
@@ -364,7 +363,7 @@ cglCapAngleFlatShaderFront = cglLazy((direction,cylinderDepths,delta,U,cutVector
     delta = (p-cglCenter)*U;
     (normal_1,normal_2,normal_3,delta)
 );
-cglCapAngleFlatShaderBack = cglLazy((direction,cylinderDepths,delta,U,cutVector),
+cglCapAngleFlatShaderBack = lambda((direction,cylinderDepths,delta,U,cutVector),
     regional(m,a,p,o,normal);
     m = cglCenter+delta*cglOrientation;
     // <v + a*d,n> = <m,n>
@@ -377,57 +376,57 @@ cglCapAngleFlatShaderBack = cglLazy((direction,cylinderDepths,delta,U,cutVector)
     delta = (p-cglCenter)*U;
     (normal_1,normal_2,normal_3,delta)
 );
-cglCapAngleVoidRoundShaderFront = cglLazy((direction,cylinderDepths,delta,U,cutVector),
+cglCapAngleVoidRoundShaderFront = lambda((direction,cylinderDepths,delta,U,cutVector),
   regional(res,v2);
-  res = cglEval(cglCapRoundShaderFront,direction,cylinderDepths,delta,U,cutVector);
+  res = cglCapRoundShaderFront:(direction,cylinderDepths,delta,U,cutVector);
   v2 = cglViewPos + cglRawDepth * direction - cglCenter;
   if((delta*(v2*cutVector)>1) % (delta*(v2*U)<1),cglDiscard());
   res
 );
-cglCapAngleVoidRoundShaderBack = cglLazy((direction,cylinderDepths,delta,U,cutVector),
+cglCapAngleVoidRoundShaderBack = lambda((direction,cylinderDepths,delta,U,cutVector),
   regional(res,v2);
-  res = cglEval(cglCapRoundShaderBack,direction,cylinderDepths,delta,U,cutVector);
+  res = cglCapRoundShaderBack:(direction,cylinderDepths,delta,U,cutVector);
   v2 = cglViewPos + cglRawDepth * direction - cglCenter;
   if((delta*(v2*cutVector)>1) % (delta*(v2*U)<1),cglDiscard());
   res
 );
 
-cglCutOrthogonal = cglLazy((delta,v),delta);
-cglCutVector1 = cglLazy((delta,v),v*cglCutDir1);
-cglCutVector2 = cglLazy((delta,v),v*cglCutDir2);
-cglCutBoth1 = cglLazy((delta,v),min(delta,v*cglCutDir1)); // code TODO? better name
-cglCutBoth2 = cglLazy((delta,v),max(delta,v*cglCutDir2));
+cglCutOrthogonal = lambda((delta,v),delta);
+cglCutVector1 = lambda((delta,v),v*cglCutDir1);
+cglCutVector2 = lambda((delta,v),v*cglCutDir2);
+cglCutBoth1 = lambda((delta,v),min(delta,v*cglCutDir1)); // code TODO? better name
+cglCutBoth2 = lambda((delta,v),max(delta,v*cglCutDir2));
 
-cglCapCutFlat1 = cglLazy((v2,U),
+cglCapCutFlat1 = lambda((v2,U),
   v2*U<-1
 );
-cglCapCutFlat2 = cglLazy((v2,U),
+cglCapCutFlat2 = lambda((v2,U),
   v2*U>1
 );
-cglCapCutRound1 = cglLazy((v2,U),
+cglCapCutRound1 = lambda((v2,U),
   // v2 = pos3d - center ->  pos3d - m = v2 + center - (center-orientation) = v2 - orientation
-  cglEval(cglCapCutFlat1,v2,U) & (|v2 + cglOrientation| > cglRadius)
+  cglCapCutFlat1:(v2,U) & (|v2 + cglOrientation| > cglRadius)
 );
-cglCapCutRound2 = cglLazy((v2,U),
-  cglEval(cglCapCutFlat2,v2,U) & (|v2 - cglOrientation| > cglRadius)
+cglCapCutRound2 = lambda((v2,U),
+  cglCapCutFlat2:(v2,U) & (|v2 - cglOrientation| > cglRadius)
 );
-cglCapCutAngle1 = cglLazy((v2,U),
+cglCapCutAngle1 = lambda((v2,U),
   v2*cglCutDir1<-1
 );
-cglCapCutAngle2 = cglLazy((v2,U),
+cglCapCutAngle2 = lambda((v2,U),
   v2*cglCutDir2>1
 );
-cglCapCutAngleRound1 = cglLazy((v2,U),
-  cglEval(cglCapCutRound1,v2,U) % cglEval(cglCapCutAngle1,v2,U);
+cglCapCutAngleRound1 = lambda((v2,U),
+  cglCapCutRound1:(v2,U) % cglCapCutAngle1:(v2,U);
 );
-cglCapCutAngleRound2 = cglLazy((v2,U),
-  cglEval(cglCapCutRound2,v2,U) % cglEval(cglCapCutAngle2,v2,U);
+cglCapCutAngleRound2 = lambda((v2,U),
+  cglCapCutRound2:(v2,U) % cglCapCutAngle2:(v2,U);
 );
 
 // wrap getting cut-normal in lazy-function to save uniform variable in case where normal is not needed
-cglCutVectorNone = cglLazy((U),U);
-cglGetCutVector1 = cglLazy((U),cglCutDir1);
-cglGetCutVector2 = cglLazy((U),cglCutDir2);
+cglCutVectorNone = lambda((U),U);
+cglGetCutVector1 = lambda((U),cglCutDir1);
+cglGetCutVector2 = lambda((U),cglCutDir2);
 
 CglCylinderCapVoid = {"name":"Void","shaderFront":cglCapVoidShader,"shaderBack":cglCapVoidShader,
   "shaderNoBack":cglCapVoidShader,"capCut1":cglCapCutFlat1,"capCut2":cglCapCutFlat2};
@@ -470,65 +469,65 @@ cgl3dCylinderShaderCode(direction):=(
   U = BA/(BA*BA);
   v1 = (cglViewPos+l_1*direction)-cglCenter;
   delta = (v1*U);
-  if(cglEval(cglCut1,delta,v1)<-1, // cap1
+  if(cglCut1:(delta,v1)<-1, // cap1
     // opt TODO? is there a less nested algorithm for correctly handling intersecting end-caps
-    if(cglEval(cglCut2,delta,v1)>1, // cap1 & cap2
+    if(cglCut2:(delta,v1)>1, // cap1 & cap2
       // -> pick cut that is further from viewPosition
       // <v + a*d,n> = <m,n>
-      cutVector1=cglEval(cglGetCutVector1,U);
-      cutVector2=cglEval(cglGetCutVector2,U);
+      cutVector1=cglGetCutVector1:(U);
+      cutVector2=cglGetCutVector2:(U);
       a1 = ((cglCenter-cglOrientation)*cutVector1-cglViewPos*cutVector1)/(direction*cutVector1);
       a2 = ((cglCenter+cglOrientation)*cutVector2-cglViewPos*cutVector2)/(direction*cutVector2);
       if(a1<a2,
-        normalAndHeight = cglEval(cglCap2front,direction,l,1,U,cglEval(cglGetCutVector2,U));
+        normalAndHeight = cglCap2front:(direction,l,1,U,cglGetCutVector2:(U));
         v2 = cglViewPos + cglRawDepth*direction - cglCenter;
-        if(cglEval(cglCapCut1,v2,U), // cap1 and cap2
-          normalAndHeight = cglEval(cglCap1front,direction,l,-1,U,cglEval(cglGetCutVector1,U));
+        if(cglCapCut1:(v2,U), // cap1 and cap2
+          normalAndHeight = cglCap1front:(direction,l,-1,U,cglGetCutVector1:(U));
           v2 = cglViewPos + cglRawDepth*direction - cglCenter;
-          if(cglEval(cglCapCut2,v2,U),cglDiscard()); // both intersections with caps are cut of by other cap
+          if(cglCapCut2:(v2,U),cglDiscard()); // both intersections with caps are cut of by other cap
         );
       ,
-        normalAndHeight = cglEval(cglCap1front,direction,l,-1,U,cglEval(cglGetCutVector1,U));
+        normalAndHeight = cglCap1front:(direction,l,-1,U,cglGetCutVector1:(U));
         v2 = cglViewPos + cglRawDepth*direction - cglCenter;
-        if(cglEval(cglCapCut2,v2,U), // cap1 and cap2
-          normalAndHeight = cglEval(cglCap2front,direction,l,1,U,cglEval(cglGetCutVector2,U));
+        if(cglCapCut2:(v2,U), // cap1 and cap2
+          normalAndHeight = cglCap2front:(direction,l,1,U,cglGetCutVector2:(U));
           v2 = cglViewPos + cglRawDepth*direction - cglCenter;
-          if(cglEval(cglCapCut1,v2,U),cglDiscard()); // both intersections with caps are cut of by other cap
+          if(cglCapCut1:(v2,U),cglDiscard()); // both intersections with caps are cut of by other cap
         );
       );
     ,
-      normalAndHeight = cglEval(cglCap1front,direction,l,-1,U,cglEval(cglGetCutVector1,U));
+      normalAndHeight = cglCap1front:(direction,l,-1,U,cglGetCutVector1:(U));
       v2 = cglViewPos + cglRawDepth*direction - cglCenter;
       // opt TODO? omit check for second cap if both caps are cut orthogonal to cylinder
-      if(cglEval(cglCapCut2,v2,U), // cap1 and cap2
-        normalAndHeight = cglEval(cglCap2front,direction,l,1,U,cglEval(cglGetCutVector2,U));
+      if(cglCapCut2:(v2,U), // cap1 and cap2
+        normalAndHeight = cglCap2front:(direction,l,1,U,cglGetCutVector2:(U));
         v2 = cglViewPos + cglRawDepth*direction - cglCenter;
-        if(cglEval(cglCapCut1,v2,U),cglDiscard()); // both intersections with caps are cut of by other cap
+        if(cglCapCut1:(v2,U),cglDiscard()); // both intersections with caps are cut of by other cap
       );
     );
     normal = (normalAndHeight_1,normalAndHeight_2,normalAndHeight_3);
     delta = normalAndHeight_4;
     pos3d = (cglViewPos+cglRawDepth*direction);
-    texturePos = cglEval(cglProjection,normalize((pos3d-cglCenter)-delta*BA),max(-1,min(delta,1)),cglOrientation);
-  ,if(cglEval(cglCut2,delta,v1)>1, // cap2
-    normalAndHeight = cglEval(cglCap2front,direction,l,1,U,cglEval(cglGetCutVector2,U));
+    texturePos = cglProjection:(normalize((pos3d-cglCenter)-delta*BA),max(-1,min(delta,1)),cglOrientation);
+  ,if(cglCut2:(delta,v1)>1, // cap2
+    normalAndHeight = cglCap2front:(direction,l,1,U,cglGetCutVector2:(U));
     v2 = cglViewPos + cglRawDepth*direction - cglCenter;
-    if(cglEval(cglCapCut1,v2,U), // cap1 and cap2
-      normalAndHeight = cglEval(cglCap1front,direction,l,-1,U,cglEval(cglGetCutVector1,U));
+    if(cglCapCut1:(v2,U), // cap1 and cap2
+      normalAndHeight = cglCap1front:(direction,l,-1,U,cglGetCutVector1:(U));
       v2 = cglViewPos + cglRawDepth*direction - cglCenter;
-      if(cglEval(cglCapCut2,v2,U),cglDiscard()); // both intersections with caps are cut of by other cap
+      if(cglCapCut2:(v2,U),cglDiscard()); // both intersections with caps are cut of by other cap
     );
     normal = (normalAndHeight_1,normalAndHeight_2,normalAndHeight_3);
     delta = normalAndHeight_4;
     pos3d = (cglViewPos+cglRawDepth*direction);
-    texturePos = cglEval(cglProjection,normalize((pos3d-cglCenter)-delta*BA),max(-1,min(delta,1)),cglOrientation);
+    texturePos = cglProjection:(normalize((pos3d-cglCenter)-delta*BA),max(-1,min(delta,1)),cglOrientation);
   , // intersection with body of cylinder
     cglSetDepth(l_1,direction);
     normal = normalize(v1-delta*BA);
-    texturePos = cglEval(cglProjection,normal,max(-1,min(delta,1)),cglOrientation);
+    texturePos = cglProjection:(normal,max(-1,min(delta,1)),cglOrientation);
   ));
-  color = cglEval(cglPixelExpr,texturePos,cglViewPos + cglRawDepth*direction,normal);
-  cglEval(cglLight,color,direction,normal);
+  color = cglPixelExpr:(texturePos,cglViewPos + cglRawDepth*direction,normal);
+  cglLight:(color,direction,normal);
 );
 cgl3dCylinderShaderCodeBack(direction):=(
   regional(l,BA,U,v2,delta,normalAndHeight,v3,normal,texturePos,color,pos3d);
@@ -537,63 +536,63 @@ cgl3dCylinderShaderCodeBack(direction):=(
   U = BA/(BA*BA);
   v2 = (cglViewPos+l_2*direction)-cglCenter;
   delta = (v2*U);
-  if(cglEval(cglCut1,delta,v2)<-1, // cap 1
-    if(cglEval(cglCut2,delta,v2)>1, // cap1 & cap2
+  if(cglCut1:(delta,v2)<-1, // cap 1
+    if(cglCut2:(delta,v2)>1, // cap1 & cap2
       // -> pick cut that is further from viewPosition
       // <v + a*d,n> = <m,n>
-      cutVector1=cglEval(cglGetCutVector1,U);
-      cutVector2=cglEval(cglGetCutVector2,U);
+      cutVector1=cglGetCutVector1:(U);
+      cutVector2=cglGetCutVector2:(U);
       a1 = ((cglCenter-cglOrientation)*cutVector1-cglViewPos*cutVector1)/(direction*cutVector1);
       a2 = ((cglCenter+cglOrientation)*cutVector2-cglViewPos*cutVector2)/(direction*cutVector2);
       if(a1<a2,
-        normalAndHeight = cglEval(cglCap2back,direction,l,1,U,cglEval(cglGetCutVector2,U));
+        normalAndHeight = cglCap2back:(direction,l,1,U,cglGetCutVector2:(U));
         v3 = cglViewPos + cglRawDepth*direction - cglCenter;
-        if(cglEval(cglCapCut1,v3,U), // cap1 and cap2
-          normalAndHeight = cglEval(cglCap1back,direction,l,-1,U,cglEval(cglGetCutVector1,U));
+        if(cglCapCut1:(v3,U), // cap1 and cap2
+          normalAndHeight = cglCap1back:(direction,l,-1,U,cglGetCutVector1:(U));
           v3 = cglViewPos + cglRawDepth*direction - cglCenter;
-          if(cglEval(cglCapCut2,v3,U),cglDiscard()); // both intersections with caps are cut of by other cap
+          if(cglCapCut2:(v3,U),cglDiscard()); // both intersections with caps are cut of by other cap
         );
       ,
-        normalAndHeight = cglEval(cglCap1back,direction,l,-1,U,cglEval(cglGetCutVector1,U));
+        normalAndHeight = cglCap1back:(direction,l,-1,U,cglGetCutVector1:(U));
         v3 = cglViewPos + cglRawDepth*direction - cglCenter;
-        if(cglEval(cglCapCut2,v3,U), // cap1 and cap2
-          normalAndHeight = cglEval(cglCap2back,direction,l,1,U,cglEval(cglGetCutVector2,U));
+        if(cglCapCut2:(v3,U), // cap1 and cap2
+          normalAndHeight = cglCap2back:(direction,l,1,U,cglGetCutVector2:(U));
           v3 = cglViewPos + cglRawDepth*direction - cglCenter;
-          if(cglEval(cglCapCut1,v3,U),cglDiscard()); // both intersections with caps are cut of by other cap
+          if(cglCapCut1:(v3,U),cglDiscard()); // both intersections with caps are cut of by other cap
         );
       );
     ,
-      normalAndHeight = cglEval(cglCap1back,direction,l,-1,U,cglEval(cglGetCutVector1,U));
+      normalAndHeight = cglCap1back:(direction,l,-1,U,cglGetCutVector1:(U));
       v3 = cglViewPos + cglRawDepth*direction - cglCenter;
-      if(cglEval(cglCapCut2,v3,U), // cap1 and cap2
-        normalAndHeight = cglEval(cglCap2back,direction,l,1,U,cglEval(cglGetCutVector2,U));
+      if(cglCapCut2:(v3,U), // cap1 and cap2
+        normalAndHeight = cglCap2back:(direction,l,1,U,cglGetCutVector2:(U));
         v3 = cglViewPos + cglRawDepth*direction - cglCenter;
-        if(cglEval(cglCapCut1,v3,U),cglDiscard()); // both intersections with caps are cut of by other cap
+        if(cglCapCut1:(v3,U),cglDiscard()); // both intersections with caps are cut of by other cap
       );
     );
     normal = (normalAndHeight_1,normalAndHeight_2,normalAndHeight_3);
     delta = normalAndHeight_4;
     pos3d = (cglViewPos+cglRawDepth*direction);
-    texturePos = cglEval(cglProjection,normalize((pos3d-cglCenter)-delta*BA),max(-1,min(delta,1)),cglOrientation);
-  ,if(cglEval(cglCut2,delta,v2)>1, // cap2
-    normalAndHeight = cglEval(cglCap2back,direction,l,1,U,cglEval(cglGetCutVector2,U));
+    texturePos = cglProjection:(normalize((pos3d-cglCenter)-delta*BA),max(-1,min(delta,1)),cglOrientation);
+  ,if(cglCut2:(delta,v2)>1, // cap2
+    normalAndHeight = cglCap2back:(direction,l,1,U,cglGetCutVector2:(U));
     v3 = cglViewPos + cglRawDepth*direction - cglCenter;
-    if(cglEval(cglCapCut1,v3,U), // cap1 and cap2
-      normalAndHeight = cglEval(cglCap1back,direction,l,-1,U,cglEval(cglGetCutVector1,U));
+    if(cglCapCut1:(v3,U), // cap1 and cap2
+      normalAndHeight = cglCap1back:(direction,l,-1,U,cglGetCutVector1:(U));
       v3 = cglViewPos + cglRawDepth*direction - cglCenter;
-      if(cglEval(cglCapCut2,v3,U),cglDiscard()); // both intersections with caps are cut of by other cap
+      if(cglCapCut2:(v3,U),cglDiscard()); // both intersections with caps are cut of by other cap
     );
     normal = (normalAndHeight_1,normalAndHeight_2,normalAndHeight_3);
     delta = normalAndHeight_4;
     pos3d = (cglViewPos+cglRawDepth*direction);
-    texturePos = cglEval(cglProjection,normalize((pos3d-cglCenter)-delta*BA),max(-1,min(delta,1)),cglOrientation);
+    texturePos = cglProjection:(normalize((pos3d-cglCenter)-delta*BA),max(-1,min(delta,1)),cglOrientation);
   , // intersection with body of cylinder
     cglSetDepth(l_2,direction);
     normal = normalize(v2-delta*BA);
-    texturePos = cglEval(cglProjection,normal,max(-1,min(delta,1)),cglOrientation);
+    texturePos = cglProjection:(normal,max(-1,min(delta,1)),cglOrientation);
   ));
-  color = cglEval(cglPixelExpr,texturePos,cglViewPos + cglRawDepth*direction,normal);
-  cglEval(cglLight,color,direction,normal);
+  color = cglPixelExpr:(texturePos,cglViewPos + cglRawDepth*direction,normal);
+  cglLight:(color,direction,normal);
 );
 
 /////////////////////
@@ -614,23 +613,23 @@ cgl3dCylinderShaderCodeBack(direction):=(
 // d0  d1  d2  d3 <-roots of p4
 // use lazy-procedures to allow multiple signatures for same code
 // feature TODO? add a way to call same function with multiple signatures
-cglEvalP = cglLazy((coeffs,t),
+cglEvalP = lambda((coeffs,t),
   regional(s);
   s = 0;
   forall(reverse(coeffs),c,s = t*s + c);
   s;
 );
-cglD = cglLazy(coeffs,
+cglD = lambda(coeffs,
   apply(1..(length(coeffs)-1),k,k*coeffs_(k+1));
 );
-cglBinSearchP = cglLazy((poly, x0, x1, def),
+cglBinSearchP = lambda((poly, x0, x1, def),
   regional(v0, v1, m, vm);
-  v0 = cglEval(cglEvalP,poly, x0);
-  v1 = cglEval(cglEvalP,poly, x1);
+  v0 = cglEvalP:(poly, x0);
+  v1 = cglEvalP:(poly, x1);
   if(v0*v1<=0,
     repeat(16,
       m = (x0+x1)/2;
-      vm = cglEval(cglEvalP,poly, m);
+      vm = cglEvalP:(poly, m);
       if(v0*vm<=0,
         (x1 = m; v1 = vm;),
         (x0 = m; v0 = vm;)
@@ -641,16 +640,16 @@ cglBinSearchP = cglLazy((poly, x0, x1, def),
   )
 );
 // wrapper function for cglBinSearchP instantiated for each commonly used degree
-cglBinSearchP4(poly, x0, x1, def) := cglEval(cglBinSearchP,poly, x0, x1, def);
-cglBinSearchP3(poly, x0, x1, def) := cglEval(cglBinSearchP,poly, x0, x1, def);
-cglBinSearchP2(poly, x0, x1, def) := cglEval(cglBinSearchP,poly, x0, x1, def);
-cglBinSearchP1(poly, x0, x1, def) := cglEval(cglBinSearchP,poly, x0, x1, def);
+cglBinSearchP4(poly, x0, x1, def) := cglBinSearchP:(poly, x0, x1, def);
+cglBinSearchP3(poly, x0, x1, def) := cglBinSearchP:(poly, x0, x1, def);
+cglBinSearchP2(poly, x0, x1, def) := cglBinSearchP:(poly, x0, x1, def);
+cglBinSearchP1(poly, x0, x1, def) := cglBinSearchP:(poly, x0, x1, def);
  //finds the k-th root of poly in interval (l, u). returns def if there is none
 cglKthrootP3(k, poly, l, u, def) := (
   regional(p1, p2, p3, a0, b0, b1, c0, c1, c2, count);
   p3 = poly;  //cubic
-  p2 = cglEval(cglD,p3); //quadratic
-  p1 = cglEval(cglD,p2); //linear
+  p2 = cglD:(p3); //quadratic
+  p1 = cglD:(p2); //linear
 
   a0 = cglBinSearchP1(p1, l, u, u);
   b0 = cglBinSearchP2(p2, l, a0, l);
@@ -671,9 +670,9 @@ cglKthrootP4(k, poly, l, u, def) := (
   regional(p1, p2, p3, p4, a0, b0, b1,
     c0, c1, c2, d0, d1, d2, d3,count);
   p4 = poly;  //quartic
-  p3 = cglEval(cglD,p4); //cubic
-  p2 = cglEval(cglD,p3); //quadratic
-  p1 = cglEval(cglD,p2); //linear
+  p3 = cglD:(p4); //cubic
+  p2 = cglD:(p3); //quadratic
+  p1 = cglD:(p2); //linear
 
   a0 = cglBinSearchP1(p1, l, u, u);
   b0 = cglBinSearchP2(p2, l, a0, l);
@@ -703,14 +702,14 @@ cglKthrootP4(k, poly, l, u, def) := (
 /////////////////////
 
 
-cglTorusProjGetDirection1Default = cglLazy((normal,radiusDirection,orientation),
+cglTorusProjGetDirection1Default = lambda((normal,radiusDirection,orientation),
   normalize(cross(orientation,if(abs(orientation_1)<abs(orientation_2),(1,0,0),(0,1,0))));
 );
 // the torus with the given orientation onto the unit square using normal vector and radius-direction as input
 // assumes that normal and radiusDirection are normalized
 cglProjTorusToSquare(normal,radiusDirection,orientation):=(
   regional(v1,v2,phi1,phi2);
-  v1 = cglEval(cglTorusProjGetDirection1,normal,radiusDirection,orientation);
+  v1 = cglTorusProjGetDirection1:(normal,radiusDirection,orientation);
   v2 = -normalize(cross(orientation,v1));
   phi1 = arctan2(radiusDirection*v1,radiusDirection*v2)+pi;
   phi2 = arctan2(normal*radiusDirection,normal*orientation)+pi;
@@ -778,10 +777,10 @@ cgl3dTorusShaderCode(direction,layer):=(
   normal = normalize(pos3d - arcCenter);
   cglSetDepth(v+dst,direction);
   texturePos = cglProjTorusToSquare(normal,arcDirection,orientation);
-  cglEval(cglCheckAngle1,texturePos);
-  cglEval(cglCheckAngle2,texturePos);
-  color = cglEval(cglPixelExpr,texturePos,cglViewPos + cglRawDepth*direction,normal);
-  cglEval(cglLight,color,direction,normal);
+  cglCheckAngle1:(texturePos);
+  cglCheckAngle2:(texturePos);
+  color = cglPixelExpr:(texturePos,cglViewPos + cglRawDepth*direction,normal);
+  cglLight:(color,direction,normal);
 );
 
 /////////////////////
@@ -791,10 +790,10 @@ cgl3dTorusShaderCode(direction,layer):=(
 cgl3dTriangleShaderCode(direction):=(
   regional(color,normal,texCoord);
   cglRawDepth = |cglViewPos-cglSpacePos|; // set raw depth to correct value (depth is handled by v-shader)
-  texCoord = cglEval(cglTextureMapping,cglSpacePos,direction);
-  normal = cglEval(cglNormalExpr,cglSpacePos,texCoord);
-  color = cglEval(cglPixelExpr,texCoord,cglSpacePos,normal);
-  cglEval(cglLight,color,direction,normal);
+  texCoord = cglTextureMapping:(cglSpacePos,direction);
+  normal = cglNormalExpr:(cglSpacePos,texCoord);
+  color = cglPixelExpr:(texCoord,cglSpacePos,normal);
+  cglLight:(color,direction,normal);
 );
 
 CglNormalFlat = 0;
@@ -838,7 +837,7 @@ cglTriangulateCenter(elts):=(
 );
 cglTriangulatePolygon(triangulator,vertices,vNormals,vModifiers,normalType):=(
   regional(triangles,n,vMap,vData);
-  triangles = cglEval(triangulator,vertices);
+  triangles = triangulator:(vertices);
   if(isundefined(vNormals) & normalType != CglNormalPerPixel,
     vNormals = flatten(apply(1..(length(triangles)/3),i,
       n=normalize(cross(triangles_(3*i)-triangles_(3*i-1),triangles_(3*i-2)-triangles_(3*i-1)));
@@ -848,7 +847,7 @@ cglTriangulatePolygon(triangulator,vertices,vNormals,vModifiers,normalType):=(
       // compute average normal
       vNormals = normalize(sum(vNormals)); // for flat normal-type normals is a single normal
     ,if(normalType==NormalPerVertex,
-      vMap = cglEval(triangulator,1..length(vertices));
+      vMap = triangulator:(1..length(vertices));
       vData = apply(vertices,(0,0,0));
       // compute average normal for each vertex
       forall(1..length(vNormals),i,
@@ -859,9 +858,9 @@ cglTriangulatePolygon(triangulator,vertices,vNormals,vModifiers,normalType):=(
       );
     ));
   ,
-    vNormals = cglEval(triangulator,vNormals);
+    vNormals = triangulator:(vNormals);
   );
-  vModifiers=apply(vModifiers,e,cglEval(triangulator,e));
+  vModifiers=apply(vModifiers,e,triangulator:(e));
   (triangles,vNormals,vModifiers)
 );
 
@@ -1023,7 +1022,7 @@ cglSurfaceNsign(direction, a, b) := ( // Descartes rule of sign for the interval
   regional(poly,ans);
   // obtain the coefficients in bernstein basis of cglSurfaceExpr along the ray in interval (a,b) by interpolation within this interval
   poly = cglInterpMat * apply(cglChebNodes,
-    cglEval(cglSurfaceExpr,cglRay(direction, a+#*(b-a))) //evaluate cglSurfaceExpr(ray(direction, ·)) along Chebyshev nodes for (a,b)
+    cglSurfaceExpr:(cglRay(direction, a+#*(b-a))) //evaluate cglSurfaceExpr(ray(direction, ·)) along Chebyshev nodes for (a,b)
   );
   // count the number of sign changes
   ans = 0;
@@ -1039,10 +1038,10 @@ cglSurfaceNsign(direction, a, b) := ( // Descartes rule of sign for the interval
 // bisect cglSurfaceExpr(ray(direction, ·)) in [x0, x1] assuming that cglSurfaceExpr(ray(direction, x0)) and cglSurfaceExpr(ray(direction, x1)) have opposite signs
 cglSurfaceBisectf(direction, x0, x1) := (
     regional(v0, v1, m, vm);
-    v0 = cglEval(cglSurfaceExpr,cglRay(direction, x0));
-    v1 = cglEval(cglSurfaceExpr,cglRay(direction, x1));
+    v0 = cglSurfaceExpr:(cglRay(direction, x0));
+    v1 = cglSurfaceExpr:(cglRay(direction, x1));
     repeat(11,
-        m = (x0 + x1) / 2; vm = cglEval(cglSurfaceExpr,cglRay(direction, m));
+        m = (x0 + x1) / 2; vm = cglSurfaceExpr:(cglRay(direction, m));
         if (min(v0,vm) <= 0 & 0 <= max(v0, vm), // sgn(v0)!=sgn(vm); avoid products due numerics
             (x1 = m; v1 = vm;),
             (x0 = m; v0 = vm;)
@@ -1080,11 +1079,11 @@ cglSurfaceUpdateColor(direction, dst, color) := (
   regional(x,pos3d,normal,pixelCol);
   cglSetDepth(dst,direction);
   x = cglRay(direction, dst); // the intersection point in R^3
-  normal = normalize(cglEval(cglNormalExpr,x));
+  normal = normalize(cglNormalExpr:(x));
   pos3d = cglViewPos+dst*direction;
-  pixelCol = cglEval(cglPixelExpr,cglSurfaceComputeTextureCoords(pos3d,normal),pos3d,normal);
+  pixelCol = cglPixelExpr:(cglSurfaceComputeTextureCoords(pos3d,normal),pos3d,normal);
   color = (1 - cglAlpha) * color + cglAlpha * pixelCol;
-  cglEval(cglLight,color,direction,normal);
+  cglLight:(color,direction,normal);
 );
 
 // id encodes a node in a binary tree using heap-indices
@@ -1196,7 +1195,7 @@ cglSurfaceKthRoot(direction,l,u,K):=(
 cgl3dSurfaceShaderCode(direction) := (
   regional(depths,u,l);
   // discard points outside bounding sphere
-  depths = cglEval(cglCutoffRegion,cglViewPos,direction);
+  depths = cglCutoffRegion:(cglViewPos,direction);
   l = depths_1;
   u = depths_2;
   cglSurfaceIterateRoots(direction,l,u);
@@ -1205,7 +1204,7 @@ cgl3dSurfaceShaderCode(direction) := (
 cgl3dSurfaceLayerShaderCode(direction) := (
   regional(depths,u,l);
   // discard points outside bounding sphere
-  depths = cglEval(cglCutoffRegion,cglViewPos,direction);
+  depths = cglCutoffRegion:(cglViewPos,direction);
   l = depths_1;
   u = depths_2;
   cglSurfaceKthRoot(direction,l,u,K);
@@ -1255,7 +1254,7 @@ cglSurfaceInterpolationMatrix(N):=(
 );
 // FIXME guessing degree this way can lead to wrong results for some rational functions  ( e.g.  (z^3-1)/(z*(z^2+1))  -> 1  )
 // guess the degree of the trivariate polynomial F. This approximation is reliable up to degree ~20.
-cglGuessdegHelper(F, s, x) := log(|cglEval(F,s*x)|)/log(s*|x|); // is approx. degree+log(leadingcoeff)/log(s*|x|) for large s
+cglGuessdegHelper(F, s, x) := log(|F:(s*x)|)/log(s*|x|); // is approx. degree+log(leadingcoeff)/log(s*|x|) for large s
 cglGuessdeg(F) := max(apply(1 .. 2, // take the best result of 2
   regional(x,s,l,best,it);
   x = [random(), random(), random()];
@@ -1275,10 +1274,10 @@ cglGuessdeg(F) := max(apply(1 .. 2, // take the best result of 2
 
 // use central difference to approximate dF
 cglGuessDerivative(F) := ( // opt TODO? avoid code duplication for repeated application of cglEval
-  cglLazy(p,((
-      (cglEval(F,p + [eps, 0, 0]) - cglEval(F,p - [eps, 0, 0])),
-      (cglEval(F,p + [0, eps, 0]) - cglEval(F,p - [0, eps, 0])),
-      (cglEval(F,p + [0, 0, eps]) - cglEval(F,p - [0, 0, eps]))
+  lambda(p,((
+      (F:(p + [eps, 0, 0]) - F:(p - [eps, 0, 0])),
+      (F:(p + [0, eps, 0]) - F:(p - [0, eps, 0])),
+      (F:(p + [0, 0, eps]) - F:(p - [0, 0, eps]))
   ) / (2 * eps)),eps->.001,F->F)
 );
 
@@ -1321,7 +1320,7 @@ cglCuboidDepths(rayStart,direction,center,up,left,front):=(
 );
 
 // bug TODO support coordinate systems where view-plane is not at z = 0
-CglCutoffScreenSphere = {"expr": cglLazy((rayStart,direction),
+CglCutoffScreenSphere = {"expr": lambda((rayStart,direction),
   regional(viewRect,x0,y0,x1,y1);
   viewRect = cglViewRect(); // [x0,y0,x1,y1]
   x0 = viewRect_1;
@@ -1330,7 +1329,7 @@ CglCutoffScreenSphere = {"expr": cglLazy((rayStart,direction),
   y1 = viewRect_4;
   cglSphereDepths(rayStart,direction,(x0+x1,y0+y1,0)/2,min(|x1-x0|,|y1-y0|)/2)
 ),"bounds": CglBoundsUnbounded,"modifs":{}};
-CglCutoffScreenCylinder = {"expr": cglLazy((rayStart,direction),
+CglCutoffScreenCylinder = {"expr": lambda((rayStart,direction),
   regional(viewRect,x0,y0,x1,y1,r);
   viewRect = cglViewRect(); // [x0,y0,x1,y1]
   x0 = viewRect_1;
@@ -1340,7 +1339,7 @@ CglCutoffScreenCylinder = {"expr": cglLazy((rayStart,direction),
   r = min(|x1-x0|,|y1-y0|)/2.5;
   cglCappedCylinderDepths(rayStart,direction,(x0+x1,y0+y1,0)/2,[0,r,0],r)
 ),"bounds": CglBoundsUnbounded,"modifs":{}};
-CglCutoffScreenCylinder(orientation) := {"expr": cglLazy((rayStart,direction),
+CglCutoffScreenCylinder(orientation) := {"expr": lambda((rayStart,direction),
   regional(viewRect,x0,y0,x1,y1,r);
   viewRect = cglViewRect(); // [x0,y0,x1,y1]
   x0 = viewRect_1;
@@ -1350,7 +1349,7 @@ CglCutoffScreenCylinder(orientation) := {"expr": cglLazy((rayStart,direction),
   r = min(|x1-x0|,|y1-y0|)/2.5;
   cglCappedCylinderDepths(rayStart,direction,(x0+x1,y0+y1,0)/2,r*cglBoxOrientation,r)),
   "bounds": CglBoundsUnbounded,"modifs":{"cglBoxOrientation":normalize(orientation)}};
-CglCutoffScreenCube = {"expr": cglLazy((rayStart,direction),
+CglCutoffScreenCube = {"expr": lambda((rayStart,direction),
   regional(viewRect,x0,y0,x1,y1,r);
   viewRect = cglViewRect(); // [x0,y0,x1,y1]
   x0 = viewRect_1;
@@ -1361,23 +1360,23 @@ CglCutoffScreenCube = {"expr": cglLazy((rayStart,direction),
   cglCuboidDepths(rayStart,direction,(0,0,0),[r,0,0],[0,r,0],[0,0,r])
 ),"bounds": CglBoundsUnbounded,"modifs":{}};
 
-CglCutoffSphere(center,radius) := {"expr":cglLazy((rayStart,direction),
+CglCutoffSphere(center,radius) := {"expr":lambda((rayStart,direction),
   cglSphereDepths(rayStart,direction,cglCenter,cglRadius)
 ),"bounds":CglBoundsSphere(center,radius),"modifs":{}};
-CglCutoffCylinder(point1,point2,radius) := {"expr":cglLazy((rayStart,direction),
+CglCutoffCylinder(point1,point2,radius) := {"expr":lambda((rayStart,direction),
   cglCappedCylinderDepths(rayStart,direction,cglCenter,cglOrientation,cglRadius)
 ),"bounds":CglBoundsCylinder(point1,point2,radius),"modifs":{}};
-CglCutoffCube(center,sideLength) := {"expr":cglLazy((rayStart,direction),
+CglCutoffCube(center,sideLength) := {"expr":lambda((rayStart,direction),
   cglCuboidDepths(rayStart,direction,cglCenter,cglCubeAxes_1,cglCubeAxes_2,cglCubeAxes_3)
 ),"bounds":CglBoundsCuboid(center,[sideLength,0,0],[0,sideLength,0],[0,0,sideLength]),"modifs":{}};
 CglCutoffCube(center,sideLength,up,front) := {
-  "expr":cglLazy((rayStart,direction),
+  "expr":lambda((rayStart,direction),
     cglCuboidDepths(rayStart,direction,cglCenter,cglCubeAxes_1,cglCubeAxes_2,cglCubeAxes_3)),
   "bounds":CglBoundsCuboid(center,sideLength*normalize(up),sideLength*normalize(front),
     sideLength*normalize(cross(up,front))),"modifs":{}
 };
 CglCutoffCuboid(center,v1,v2,v3) := {
-  "expr":cglLazy((rayStart,direction),
+  "expr":lambda((rayStart,direction),
     cglCuboidDepths(rayStart,direction,cglCenter,cglCubeAxes_1,cglCubeAxes_2,cglCubeAxes_3)),
   "bounds":CglBoundsCuboid(center,v1,v2,v3),"modifs":{}
 };
@@ -1396,9 +1395,9 @@ CutoffCuboid(center,v1,v2,v3) := CglCutoffCuboid(center,v1,v2,v3);
 cglInterface("cutoffAddPlane",cglCutoffAddPlane,(oldCutoff,normal:(),depth:()),(plotModifiers));
 cglCutoffAddPlane(oldCutoff,normal,depth):=(
   {
-    "expr":cglLazy((rayStart,direction),
+    "expr":lambda((rayStart,direction),
       regional(depths,l,n);
-      depths = cglEval(baseExpr,rayStart,direction);
+      depths = baseExpr:(rayStart,direction);
       // <v + l*d , n> <= x
       // <v,n> + l<d , n> <= x
       // l <= (x-<v,n>)/<d,n>
@@ -1506,7 +1505,7 @@ cglMergeDicts(dict1,dict2):=(
 // bug TODO:
 // FIXME better error message for dynamic array access
 // ? does opengl support dynamic indexing
-// TODO! cglLazy-modifiers can be undefined when evaluating texture code
+// TODO! lambda-modifiers can be undefined when evaluating texture code
 // TODO rendering of mesh with overlapping transparent textures is partially broken
 //    (when multiple transparent triangles are rendered in single call WebGL ignores lower ones)
 //    ? add texture mode to automatically ignore pixels belows certain alpha value
@@ -1636,25 +1635,25 @@ cglTextureImpl(name):=(
 cglPixelExprFromTexture(texture,hasAlpha,textureAlpha,repeatTexture,interpolateTexture):=(
     if(textureAlpha,
       pixelExpr = if(hasAlpha,
-        cglLazy((texturePos,spacePos,normal),
+        lambda((texturePos,spacePos,normal),
           regional(col);
           col=cglTexture(texture,texturePos,repeat->repeatTexture,interpolate->interpolateTexture);
           (col_1,col_2,col_3,col_4*cglAlpha)
         ,texture->texture,repeatTexture->repeatTexture,interpolateTexture->interpolateTexture);
       ,
-        cglLazy((texturePos,spacePos,normal),
+        lambda((texturePos,spacePos,normal),
           cglTexture(texture,texturePos,repeat->repeatTexture,interpolate->interpolateTexture)
         ,texture->texture,repeatTexture->repeatTexture,interpolateTexture->interpolateTexture);
       );
     ,
       pixelExpr = if(hasAlpha,
-        cglLazy((texturePos,spacePos,normal),
+        lambda((texturePos,spacePos,normal),
           regional(col);
           col=cglTextureRGB(texture,texturePos,repeat->repeatTexture,interpolate->interpolateTexture);
           (col_1,col_2,col_3,cglAlpha)
         ,texture->texture,repeatTexture->repeatTexture,interpolateTexture->interpolateTexture);
       ,
-        cglLazy((texturePos,spacePos,normal),
+        lambda((texturePos,spacePos,normal),
           cglTextureRGB(texture,texturePos,repeat->repeatTexture,interpolate->interpolateTexture)
         ,texture->texture,repeatTexture->repeatTexture,interpolateTexture->interpolateTexture);
       );
@@ -1663,9 +1662,9 @@ cglPixelExprFromTexture(texture,hasAlpha,textureAlpha,repeatTexture,interpolateT
 cglPixelExprFromExpr(expr,hasAlpha,exprAlpha):=(
   if(exprAlpha,
     if(hasAlpha,
-      cglLazy((texturePos,spacePos),
+      lambda((texturePos,spacePos),
         regional(col);
-        col=cglEval(expr,texturePos,spacePos);
+        col=expr:(texturePos,spacePos);
         (col_1,col_2,col_3,col_4*cglAlpha)
       ,expr->expr);
     ,
@@ -1673,9 +1672,9 @@ cglPixelExprFromExpr(expr,hasAlpha,exprAlpha):=(
     );
   ,
     if(hasAlpha,
-      cglLazy((texturePos,spacePos),
+      lambda((texturePos,spacePos),
         regional(col);
-        col=cglEval(expr,texturePos,spacePos);
+        col=expr:(texturePos,spacePos);
         (col_1,col_2,col_3,cglAlpha)
       ,expr->expr);
     ,
@@ -1739,39 +1738,39 @@ cglResolveColorExpr0(hasAlpha,colorsMode,isBack):=(
       colors = apply(colors,col,if(length(col)<4,(col_1,col_2,col_3,1),col));
     );
     if(colorsMode == CglColorsVertex,
-      colorData = if(isBack,cglLazy(cglColorBack),cglLazy(cglColor));
+      colorData = if(isBack,lambda((),cglColorBack),lambda((),cglColor));
       pixelExpr = if(hasAlpha,
         if(length(colors_1)==4,
-          cglLazy((texPos,pos3d,normal),
+          lambda((texPos,pos3d,normal),
             regional(col);col = cglEval(colorData);
             (col_1,col_2,col_3,col_4*cglAlpha)
           ,colorData->colorData);
         ,
-          cglLazy((texPos,pos3d,normal),
+          lambda((texPos,pos3d,normal),
             regional(col);col = cglEval(colorData);
             (col_1,col_2,col_3,cglAlpha)
           ,colorData->colorData);
         );
       ,
-        cglLazy((texPos,pos3d,normal),cglEval(colorData),colorData->colorData);
+        lambda((texPos,pos3d,normal),colorData,colorData->colorData);
       );
       vModifiers_(if(isBack,"cglColorBack","cglColor")) = colors;
     ,
-      colorData = if(isBack,cglLazy(cglColorsBack),cglLazy(cglColors));
+      colorData = if(isBack,lambda((),cglColorsBack),lambda((),cglColors));
       pixelExpr = if(hasAlpha,
         if(length(colors_1)==4,
-          cglLazy((texPos,pos3d,normal),
+          lambda((texPos,pos3d,normal),
             regional(col);col = (1-texPos_2) * cglEval(colorData)_1 + texPos_2 * cglEval(colorData)_2;
             (col_1,col_2,col_3,col_4*cglAlpha)
           ,colorData->colorData);
         ,
-          cglLazy((texPos,pos3d,normal),
+          lambda((texPos,pos3d,normal),
             regional(col);col = (1-texPos_2) * cglEval(colorData)_1 + texPos_2 * cglEval(colorData)_2;
             (col_1,col_2,col_3,cglAlpha)
           ,colorData->colorData);
         );
       ,
-        cglLazy((texPos,pos3d,normal),
+        lambda((texPos,pos3d,normal),
             (1-texPos_2) * cglEval(colorData)_1 + texPos_2 * cglEval(colorData)_2
         ,colorData->colorData);
       );
@@ -1783,19 +1782,19 @@ cglResolveColorExpr0(hasAlpha,colorsMode,isBack):=(
     if(isList(color),
       color = cglNormalColor(color);
       usesAlpha = length(color)==4;
-      colorData = if(isBack,cglLazy(cglColorBack),cglLazy(cglColor));
+      colorData = if(isBack,lambda((),cglColorBack),lambda((),cglColor));
       pixelExpr = if(hasAlpha,
         if(length(color)==4,
-          cglLazy((texPos,pos3d,normal),
-            (cglEval(colorData)_1,cglEval(colorData)_2,cglEval(colorData)_3,cglEval(colorData)_4*cglAlpha)
+          lambda((texPos,pos3d,normal),
+            (colorData)_1:(colorData)_2:(colorData)_3:(cglEval(colorData)_4*cglAlpha)
           ,colorData->colorData);
         ,
-          cglLazy((texPos,pos3d,normal),
-            (cglEval(colorData)_1,cglEval(colorData)_2,cglEval(colorData)_3,cglAlpha)
+          lambda((texPos,pos3d,normal),
+            (colorData)_1:(colorData)_2:(colorData)_3:(cglAlpha)
           ,colorData->colorData);
         );
       ,
-        cglLazy((texPos,pos3d,normal),cglEval(colorData),colorData->colorData);
+        lambda((texPos,pos3d,normal),colorData,colorData->colorData);
       );
       modifiers_(if(isBack,"cglColorBack","cglColor")) = color;
     ,if(color:"type"=="texture",
@@ -1834,29 +1833,29 @@ cglResolveColorExpr(hasAlpha,colorsMode):=(
     exprData_"usesAlpha" = usesAlphaFront % usesAlphaBack;
     exprData_"modifiers" = cglMergeDicts(exprData_"modifiers",exprDataBack_"modifiers");
     exprData_"vModifiers" = cglMergeDicts(exprData_"vModifiers",exprDataBack_"vModifiers");
-    defaultAlpha = if(hasAlpha,cglLazy(cglAlpha),cglLazy(1));
+    defaultAlpha = if(hasAlpha,lambda((),cglAlpha),lambda((),1));
     if(usesAlphaFront == usesAlphaBack,
-      exprData_"pixelExpr" = cglLazy((texPos,pos3d,normal),
-        if(normal*cglViewDirection<=0,cglEval(exprFront,texPos,pos3d,normal),cglEval(exprBack,texPos,pos3d,normal))
+      exprData_"pixelExpr" = lambda((texPos,pos3d,normal),
+        if(normal*cglViewDirection<=0,exprFront:(texPos,pos3d,normal),exprBack:(texPos,pos3d,normal))
       ,exprFront->exprData_"pixelExpr",exprBack->exprDataBack_"pixelExpr")
     ,if(usesAlphaFront,
-      exprData_"pixelExpr" = cglLazy((texPos,pos3d,normal),
+      exprData_"pixelExpr" = lambda((texPos,pos3d,normal),
         regional(col);
         if(normal*cglViewDirection<=0,
-          cglEval(exprFront,texPos,pos3d,normal)
+          exprFront:(texPos,pos3d,normal)
         ,
-          col = cglEval(exprBack,texPos,pos3d,normal);
+          col = exprBack:(texPos,pos3d,normal);
           (col_1,col_2,col_3,cglEval(defaultAlpha))
         )
       ,exprFront->exprData_"pixelExpr",exprBack->exprDataBack_"pixelExpr",defaultAlpha->defaultAlpha)
     ,
-      exprData_"pixelExpr" = cglLazy((texPos,pos3d,normal),
+      exprData_"pixelExpr" = lambda((texPos,pos3d,normal),
         regional(col);
         if(normal*cglViewDirection<=0,
-          col = cglEval(exprFront,texPos,pos3d,normal);
+          col = exprFront:(texPos,pos3d,normal);
           (col_1,col_2,col_3,cglEval(defaultAlpha))
         ,
-          cglEval(exprBack,texPos,pos3d,normal)
+          exprBack:(texPos,pos3d,normal)
         )
       ,exprFront->exprData_"pixelExpr",exprBack->exprDataBack_"pixelExpr",defaultAlpha->defaultAlpha)
     ))
@@ -1916,7 +1915,7 @@ cglSphere3d(center,radius):=(
   usesAlpha = exprData_"usesAlpha";
   if(hasAlpha, modifiers_"cglAlpha" = alpha);
   modifiers_"cglPixelExpr" = exprData_"pixelExpr";
-  opacityExpr = if(usesAlpha,false,if(hasAlpha,cglLazy(cglAlpha>=1),true));
+  opacityExpr = if(usesAlpha,false,if(hasAlpha,lambda((),cglAlpha>=1),true));
   needBackFace = hasAlpha % usesAlpha;
   tags = cglValOrDefault(tags,[]);
   if(needBackFace,
@@ -1984,7 +1983,7 @@ cglCylinder3d(point1,point2,radius):=(
   cap2 = cglValOrDefault(cap2,caps);
   renderBack = cglValOrDefault(renderBack,false); // if true back-face should always be rendered
   projection = cglValOrDefault(projection,
-    cglLazy((normal,height,orientation),cglProjCylinderToSquare(normal,height,orientation)));
+    lambda((normal,height,orientation),cglProjCylinderToSquare(normal,height,orientation)));
   overhang = if(cap1_"name" == "Round" % cap2_"name" == "Round",radius,0);
   alpha = cglValOrDefault(alpha,cglDefaults_"cylinderAlpha");
   hasAlpha = !isundefined(alpha);
@@ -2013,7 +2012,7 @@ cglCylinder3d(point1,point2,radius):=(
     modifiers_"cglCutDir1" = n/(0.5*(point2-point1)*n);
     modifiers_"cglDirection1" =
       normalize(n - (normalize(point2-point1)*n)*normalize(point2-point1));
-    modifiers_"cglCylinderProjGetDirection1" = cglLazy((normal,height,orientation),
+    modifiers_"cglCylinderProjGetDirection1" = lambda((normal,height,orientation),
       cglDirection1);
     overhang = max(overhang,radius*tan(arccos(|normalize(n)*normalize(point2-point1)|)));
   );
@@ -2024,17 +2023,17 @@ cglCylinder3d(point1,point2,radius):=(
     modifiers_"cglCutDir2" = n/(0.5*(point2-point1)*n);
     modifiers_"cglDirection1" =
       normalize(n - (normalize(point2-point1)*n)*normalize(point2-point1));
-    modifiers_"cglCylinderProjGetDirection1" = cglLazy((normal,height,orientation),
+    modifiers_"cglCylinderProjGetDirection1" = lambda((normal,height,orientation),
       cglDirection1);
     overhang = max(overhang,radius*tan(arccos(|normalize(n)*normalize(point2-point1)|)));
   );
   if(!isundefined(direction1),
     modifiers_"cglDirection1" = normalize(direction1);
-    modifiers_"cglCylinderProjGetDirection1" = cglLazy((normal,height,orientation),
+    modifiers_"cglCylinderProjGetDirection1" = lambda((normal,height,orientation),
       cglDirection1);
   );
   tags = cglValOrDefault(tags,[]);
-  opacityExpr = if(usesAlpha,false,if(hasAlpha,cglLazy(cglAlpha>=1),true));
+  opacityExpr = if(usesAlpha,false,if(hasAlpha,lambda((),cglAlpha>=1),true));
   if(needBackFace,
     ids = [colorplot3d(cgl3dCylinderShaderCodeBack(#),point1,point2,radius,overhang->overhang,
       plotModifiers->modifiers,tags->["cylinder","backside"]++tags,opaqueIf->opacityExpr)];
@@ -2068,12 +2067,12 @@ cglLine3d(point1,point2,radius):=(
   cutoffRegion = cglValOrDefault(cutoffRegion,cglDefaults_"lineCutoff");
   cutoffExpr = cutoffRegion_"expr";
   V = point2-point1;
-  bounds = cglEval(cutoffExpr,point1,V);
+  bounds = cutoffExpr:(point1,V);
   ids = cglCylinder3d(point1+bounds_1*V,point1+bounds_2*V,radius);
-  cglEvalOnRender(cglLazy(
+  cglEvalOnRender(lambda(
     regional(V,bounds);
     V = normalize(point2-point1);
-    bounds = cglEvalOrDiscard(cglEval(cutoffExpr,point1,V));
+    bounds = cglEvalOrDiscard(cutoffExpr:(point1,V));
     cglSetVisible(ids,!isundefined(bounds));
     if(!isundefined(bounds),
       cglUpdateBounds(ids,point1+bounds_1*V,point1+bounds_2*V,radius);
@@ -2128,7 +2127,7 @@ cglConnect3d(points):=(
   if(length(points)>=3,
     // update projection if color is computed per pixel
     if(!isundefined(colorExpr) % !isundefined(texture) % !isundefined(color:"type"),
-      projection = cglLazy((normal,height,orientation),
+      projection = lambda((normal,height,orientation),
         regional(pos0);
         pos0=cglProjCylinderToSquare(normal,height,orientation);
         (pos0_1,cglSegmentEnd*pos0_2+cglSegmentStart*(1-pos0_2))
@@ -2213,11 +2212,11 @@ cglInterface("curve3d",cglCurve3d,(expr:(t),from,to),(color,colors,texture,textu
 cglCurve3d(expr,from,to):=(
   samples = cglValOrDefault(samples,cglDefaults_"curveSamples")-1;
   if(from==to,
-    cglSphere3d(cglEval(expr,from),size);
+    cglSphere3d(expr:(from),size);
   ,
     cglConnect3d(apply(0..samples,k,
       t = k/samples;
-      cglEval(expr,t*to+(1-t)*from);
+      expr:(t*to+(1-t)*from);
     ));
   );
 );
@@ -2255,45 +2254,45 @@ cglTorus3d(center,orientation,radius1,radius2):=(
     angle1range = cglNormalizeRange(angle1range);
     modifiers_"cglAngle1Range" = angle1range;
     if(angle1range_1<angle1range_2,
-      modifiers_"cglCheckAngle1" = cglLazy(texturePos,
+      modifiers_"cglCheckAngle1" = lambda(texturePos,
         if(texturePos_1<cglAngle1Range_1 % texturePos_1>cglAngle1Range_2,cglDiscard());
       );
     ,if(angle1range_1>angle1range_2,
-      modifiers_"cglCheckAngle1" = cglLazy(texturePos,
+      modifiers_"cglCheckAngle1" = lambda(texturePos,
         if(texturePos_1<cglAngle1Range_1 & texturePos_1>cglAngle1Range_2,cglDiscard());
       );
     ,
-      modifiers_"cglCheckAngle1" = cglLazy(texturePos,);
+      modifiers_"cglCheckAngle1" = lambda(texturePos,);
     ));
   ,
-    modifiers_"cglCheckAngle1" = cglLazy(texturePos,);
+    modifiers_"cglCheckAngle1" = lambda(texturePos,);
   );
   if(!isundefined(angle2range),
     needBackFace = true;
     angle2range = cglNormalizeRange(angle2range);
     modifiers_"cglAngle2Range" = angle2range;
     if(angle2range_1<angle2range_2,
-      modifiers_"cglCheckAngle2" = cglLazy(texturePos,
+      modifiers_"cglCheckAngle2" = lambda(texturePos,
         if(texturePos_2<cglAngle2Range_1 % texturePos_2>cglAngle2Range_2,cglDiscard());
       );
     ,if(angle2range_1>angle2range_2,
-      modifiers_"cglCheckAngle2" = cglLazy(texturePos,
+      modifiers_"cglCheckAngle2" = lambda(texturePos,
         if(texturePos_2<cglAngle2Range_1 & texturePos_2>cglAngle2Range_2,cglDiscard());
       );
     ,
-      modifiers_"cglCheckAngle2" = cglLazy(texturePos,);
+      modifiers_"cglCheckAngle2" = lambda(texturePos,);
     ));
   ,
-    modifiers_"cglCheckAngle2" = cglLazy(texturePos,);
+    modifiers_"cglCheckAngle2" = lambda(texturePos,);
   );
 
   modifiers_"cglTorusProjGetDirection1" = cglTorusProjGetDirection1Default;
   if(!isundefined(direction1),
     modifiers_"cglDirection1" = normalize(direction1);
-    modifiers_"cglTorusProjGetDirection1" = cglLazy((normal,height,orientation),cglDirection1);
+    modifiers_"cglTorusProjGetDirection1" = lambda((normal,height,orientation),cglDirection1);
   );
   tags = cglValOrDefault(tags,[]);
-  opacityExpr = if(usesAlpha,false,if(hasAlpha,cglLazy(cglAlpha>=1),true));
+  opacityExpr = if(usesAlpha,false,if(hasAlpha,lambda((),cglAlpha>=1),true));
   if(needBackFace,
     ids = [colorplot3d(cgl3dTorusShaderCode(#,4),
       center-radius2*orientation, center+radius2*orientation, radius1+radius2,
@@ -2383,7 +2382,7 @@ cglTriangle3d(p1,p2,p3):=(
     if(isundefined(normalExpr),
       normals = cglCheckSize(normals,3,"wrong length for normals",defNormal);
       vModifiers_"cglNormal" = normals;
-      normalExpr = cglLazy((spacePos,texturePos),normalize(cglNormal));
+      normalExpr = lambda((spacePos,texturePos),normalize(cglNormal));
     ,
       cglLogWarning(" modifier `normals` is ignored if `normalExpr` is given");
     );
@@ -2391,17 +2390,17 @@ cglTriangle3d(p1,p2,p3):=(
   if(!isundefined(normal),
     if(isundefined(normalExpr),
       modifiers_"cglNormal" = normal;
-      normalExpr = cglLazy((spacePos,texturePos),cglNormal);
+      normalExpr = lambda((spacePos,texturePos),cglNormal);
     ,
       cglLogWarning("modifier `normal` is ignored if `normals` or `normalExpr` is given");
     );
   );
   if(isundefined(normalExpr),
     modifiers_"cglNormal" = defNormal;
-    normalExpr = cglLazy((spacePos,texturePos),cglNormal);
+    normalExpr = lambda((spacePos,texturePos),cglNormal);
   );
   modifiers_"cglNormalExpr" = normalExpr;
-  modifiers_"cglTextureMapping" = cglLazy((pos3d,direction),cglTexCoords);
+  modifiers_"cglTextureMapping" = lambda((pos3d,direction),cglTexCoords);
   vModifiers_"cglTexCoords" = uv;
   if(!isundefined(colors),
     colors = cglCheckSize(colors,3,"wrong length for colors",color);
@@ -2413,7 +2412,7 @@ cglTriangle3d(p1,p2,p3):=(
   if(hasAlpha, modifiers_"cglAlpha" = alpha);
   modifiers_"cglPixelExpr" = exprData_"pixelExpr";
   tags = cglValOrDefault(tags,[]);
-  opacityExpr = if(usesAlpha,false,if(hasAlpha,cglLazy(cglAlpha>=1),true));
+  opacityExpr = if(usesAlpha,false,if(hasAlpha,lambda((),cglAlpha>=1),true));
   colorplot3d(cgl3dTriangleShaderCode(#),[p1,p2,p3],
     plotModifiers->modifiers,vModifiers->vModifiers,tags->["triangle"]++tags,opaqueIf->opacityExpr);
 );
@@ -2507,16 +2506,16 @@ cglTriangles3d(triangles):=(
       );
     ));
     vModifiers_"cglNormal" = normals;
-    normalExpr = cglLazy((spacePos,texturePos),normalize(cglNormal));
+    normalExpr = lambda((spacePos,texturePos),normalize(cglNormal));
   ,
     if(!isundefined(normals),
       cglLogWarning(" modifier `normals` is ignored if `normalExpr` is given");
     );
     modifiers_"cglNormal" = defNormal;
-    normalExpr = cglLazy((spacePos,texturePos),cglNormal);
+    normalExpr = lambda((spacePos,texturePos),cglNormal);
   );
   modifiers_"cglNormalExpr" = normalExpr;
-  modifiers_"cglTextureMapping" = cglLazy((pos3d,direction),cglTexCoords);
+  modifiers_"cglTextureMapping" = lambda((pos3d,direction),cglTexCoords);
   vModifiers_"cglTexCoords" = uv;
   if(!isundefined(colors),
     if(length(colors)!=length(vertices),
@@ -2542,7 +2541,7 @@ cglTriangles3d(triangles):=(
   if(hasAlpha, modifiers_"cglAlpha" = alpha);
   modifiers_"cglPixelExpr" = exprData_"pixelExpr";
   tags = cglValOrDefault(tags,[]);
-  opacityExpr = if(usesAlpha,false,if(hasAlpha,cglLazy(cglAlpha>=1),true));
+  opacityExpr = if(usesAlpha,false,if(hasAlpha,lambda((),cglAlpha>=1),true));
   colorplot3d(cgl3dTriangleShaderCode(#),vertices,
     plotModifiers->modifiers,vModifiers->vModifiers,tags->["triangles"]++tags,opaqueIf->opacityExpr);
 );
@@ -2593,20 +2592,20 @@ cglPolygon3d(vertices):=(
     if(isundefined(normalExpr),
       cglLogWarning("modifier `normalExpr` has to be set when using per-pixel normals");
       normals = cglUndefinedVal();
-      normalExpr = cglLazy((spacePos,texturePos),normalize(cglNormal));
+      normalExpr = lambda((spacePos,texturePos),normalize(cglNormal));
       normalType = CglNormalPerVertex;
     );
   ,if(normalType == CglNormalPerVertex,
-    normalExpr = cglLazy((spacePos,texturePos),normalize(cglNormal));
+    normalExpr = lambda((spacePos,texturePos),normalize(cglNormal));
     if(!isundefined(normals),
       normals = cglCheckSize(normals,length(vertices),"wrong length for normals");
     );
   ,if(normalType == CglNormalPerTriangle,
     normals = cglUndefinedVal();
-    normalExpr = cglLazy((spacePos,texturePos),cglNormal);
+    normalExpr = lambda((spacePos,texturePos),cglNormal);
   ,if(normalType == CglNormalFlat,
     normals = normal; // for flat normal-type normals is a single normal
-    normalExpr = cglLazy((spacePos,texturePos),cglNormal);
+    normalExpr = lambda((spacePos,texturePos),cglNormal);
   ,
     cglLogError("unknown normal-type: "+text(normalType));
   ))));
@@ -2631,7 +2630,7 @@ cglPolygon3d(vertices):=(
       ((p_1-xmin)/(xmax-xmin),(p_2-ymin)/(ymax-ymin))
     );
   );
-  modifiers_"cglTextureMapping" = cglLazy((pos3d,direction),cglTexCoords);
+  modifiers_"cglTextureMapping" = lambda((pos3d,direction),cglTexCoords);
   vModifiers_"cglTexCoords" = uv;
   if(!isundefined(colors),
     colors = cglCheckSize(colors,length(vertices),"wrong length for colors",color);
@@ -2643,11 +2642,11 @@ cglPolygon3d(vertices):=(
   if(hasAlpha, modifiers_"cglAlpha" = alpha);
   modifiers_"cglPixelExpr" = exprData_"pixelExpr";
   if(triangulationMode==CglTriangulateSpiral,
-    triangulator = cglLazy(elts,cglTriangulateSpiralRec(elts));
+    triangulator = lambda(elts,cglTriangulateSpiralRec(elts));
   ,if(triangulationMode==CglTriangulateCorner,
-    triangulator = cglLazy(elts,cglTriangulateCorner(elts));
+    triangulator = lambda(elts,cglTriangulateCorner(elts));
   ,
-    triangulator = cglLazy(elts,cglTriangulateCenter(elts));
+    triangulator = lambda(elts,cglTriangulateCenter(elts));
   ));
   trianglesAndNormals = cglTriangulatePolygon(triangulator,vertices,normals,vModifiers,normalType);
   vModifiers = trianglesAndNormals_3;
@@ -2657,7 +2656,7 @@ cglPolygon3d(vertices):=(
     vModifiers_"cglNormal" =trianglesAndNormals_2;
   ));
   tags = cglValOrDefault(tags,[]);
-  opacityExpr = if(usesAlpha,false,if(hasAlpha,cglLazy(cglAlpha>=1),true));
+  opacityExpr = if(usesAlpha,false,if(hasAlpha,lambda((),cglAlpha>=1),true));
   colorplot3d(cgl3dTriangleShaderCode(#),trianglesAndNormals_1,
     plotModifiers->modifiers,vModifiers->vModifiers,tags->["polygon"]++tags,opaqueIf->opacityExpr);
 );
@@ -2705,9 +2704,9 @@ cglMesh3d(grid):=(
   if(normalType != CglNormalPerPixel,
     if(normalType == CglNormalPerVertex,
       // interpolated vector may not be normalized
-      normalExpr = cglLazy((spacePos,texturePos),normalize(cglNormal));
+      normalExpr = lambda((spacePos,texturePos),normalize(cglNormal));
     ,
-      normalExpr = cglLazy((spacePos,texturePos),cglNormal);
+      normalExpr = lambda((spacePos,texturePos),cglNormal);
     );
     if(isundefined(normals),
       normals = cglMeshGuessNormals(grid,Nx,Ny,normalType,topology);
@@ -2734,7 +2733,7 @@ cglMesh3d(grid):=(
     nx = if(topology_1==CglTopologyOpen,Nx-1,Nx);
     uv=apply(0..ny,y,apply(0..nx,x,(x/nx,y/ny)));
   );
-  modifiers_"cglTextureMapping" = cglLazy((pos3d,direction),cglTexCoords);
+  modifiers_"cglTextureMapping" = lambda((pos3d,direction),cglTexCoords);
   vModifiers_"cglTexCoords" = uv;
   vModifiers=apply(vModifiers,samples,cglMeshSamplesToTriangles(samples,Nx,Ny,topology,cglSampleVertex));
   // bring vertex colors in correct format (one color per vertex)
@@ -2750,7 +2749,7 @@ cglMesh3d(grid):=(
     vModifiers_"cglNormal" = normals;
   );
   tags = cglValOrDefault(tags,[]);
-  opacityExpr = if(usesAlpha,false,if(hasAlpha,cglLazy(cglAlpha>=1),true));
+  opacityExpr = if(usesAlpha,false,if(hasAlpha,lambda((),cglAlpha>=1),true));
   colorplot3d(cgl3dTriangleShaderCode(#),triangles,
     plotModifiers->modifiers,vModifiers->vModifiers,tags->["polygon"]++tags,opaqueIf->opacityExpr);
 );
@@ -2779,8 +2778,8 @@ cglSurface3d(fun) := (
     cutoffRegion = cglValOrDefault(cutoffRegion,cglDefaults_"surfaceCutoff");
     layers = cglValOrDefault(layers,0);
     // convert function to form taking vector insteads of 3 arguments
-    F = cglLazy(p,cglEval(fun, p.x, p.y, p.z),fun->fun);
-    normalExpr = if(isundefined(dF),cglGuessDerivative(F),cglLazy(p,cglEval(dF,p_1,p_2,p_3)));
+    F = lambda(p,fun:( p.x, p.y, p.z),fun->fun);
+    normalExpr = if(isundefined(dF),cglGuessDerivative(F),lambda(p,dF:(p_1,p_2,p_3)));
     if(isundefined(degree),
       N = min(cglTryDetermineDegree(fun),cglMaxAutoDeg);
       if(isundefined(N),
@@ -2817,7 +2816,7 @@ cglSurface3d(fun) := (
     modifiers_"cglColor0" = if(usesAlpha,(0,0,0,0),(0,0,0));
     modifiers = cglMergeDicts(modifiers,cutoffRegion_"modifs");
     bounds = cutoffRegion_"bounds";
-    opacityExpr = if(usesAlpha,false,cglLazy(cglAlpha>=1));
+    opacityExpr = if(usesAlpha,false,lambda((),cglAlpha>=1));
     // code TODO? is there a way to avoid duplicate code for bounding box selection
     // ? allow passing lazy-func as first parameter of colorplot3d
     if(layers==0,
@@ -2863,7 +2862,7 @@ cglPlot3d(f/*f(x,y)*/):=(
   if(isundefined(degree),
       degree = min(cglTryDetermineDegree(f),cglMaxAutoDeg);
   );
-  cglSurface3d(cglLazy((x,y,z),cglEval(f,x,y)-z,f->f),degree->degree);
+  cglSurface3d(lambda((x,y,z),f:(x,y)-z,f->f),degree->degree);
 );
 cglInterface("complexplot3d",cglCPlot3d,(f:(z)),(color,texture,textureRGB,textureRGBA,interpolateTexture,
   repeatTexture, colorExpr:(texturePos,spacePos,normal),colorExprRGB:(texturePos,spacePos,normal),
@@ -2883,13 +2882,13 @@ cglCPlot3d(f/*f(z)*/):=(
   if(isundefined(color) & isundefined(colorExpr), // TODO find better condition for choosing phase-coloring
     color = {
       "type": "expr",
-      "expr": cglLazy((texturePos,spacePos,normal),
+      "expr": lambda((texturePos,spacePos,normal),
         regional(z);
-        z=cglEval(f,spacePos_1+i*spacePos_2);
+        z=f:(spacePos_1+i*spacePos_2);
         hue((arctan2(re(z),im(z))+pi)/(2*pi))
       ,f->f),
       "hasAlpha": false
     };
   );
-  cglSurface3d(cglLazy((x,y,z),abs(cglEval(f,x+i*y))-z,f->f),degree->cglValOrDefault(degree,-1));
+  cglSurface3d(lambda((x,y,z),abs(f:(x+i*y))-z,f->f),degree->cglValOrDefault(degree,-1));
 );
