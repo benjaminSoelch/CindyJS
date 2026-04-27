@@ -274,11 +274,9 @@ CodeBuilder.prototype.computeType = function(expr) { //expression
     } else if (expr['ctype'] === 'userdata') {
         let baseType = generalize(this.getType(expr['obj']));
         if (!baseType) return false;
+        if (expr.params !== undefined) // lambdaExpression
+            return this.getType(expr['obj']);
         let key = expr['key'];
-        if (baseType.type === "lambda") {
-            // type of lambda-eval is type of contained expression
-            return baseType;
-        }
         if (baseType.type !== 'tuple' || baseType.names === undefined) {
             cglLogError("element access is only supported on JSON values");
             cglLogDebug(baseType);
@@ -337,113 +335,115 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
         return ans;
     }
 
-    //dfs over executed code
-    function rec(expr, bindings, scope, forceconstant) {
-        expr.bindings = bindings;
-        // FIXME; correctly handle lambda-evaluation code
-        /*if (expr['ctype'] === 'function' &&
-            getPlainName(expr['oper']) === BUILTIN_EVAL_LAZY && expr['args'].length > 0
-        ) {
-            let argCount = expr['args'].length-1;
-            let exprExpr = expr['args'][0];
-            if(exprExpr['ctype'] !== 'variable'){
-                // TODO? allow other expressions
-                cglLogError(`unexpected argument for ${
-                    BUILTIN_EVAL_LAZY
-                } expected variable got`,exprExpr);
+    function resolveLambdaData(expr, bindings, scope, forceconstant) {
+        let lambdaExpr = expr['obj'];
+        let argsExpr = expr['key'];
+        let args;
+        if(argsExpr['ctype'] === 'list') {
+            args = argsExpr['value'];
+        } else if(argsExpr['ctype'] === 'function' && argsExpr['oper'].toLowerCase() === "genlist") {
+            args = argsExpr['args'];
+        } else if(argsExpr['ctype'] === 'void') {
+            args = [];
+        } else {
+            args = [argsExpr];
+        }
+        if(lambdaExpr['ctype'] !== 'variable'){
+            return;
+        }
+        let exprName = lambdaExpr['name'];
+        exprName = bindings[exprName] || exprName;
+        let exprData;
+        if(self.modifierTypes.has(exprName)){
+            let modifierData = self.modifierTypes.get(exprName);
+            let exprType = modifierData.type;
+            if(!exprType.value || !exprType.value.ctype || exprType.value.ctype !== 'lambda'){
                 return;
             }
-            let exprName = exprExpr['name'];
-            exprName = bindings[exprName] || exprName;
-            let exprData;
-            if(self.modifierTypes.has(exprName)){
-                let modifierData = self.modifierTypes.get(exprName);
-                let exprType = modifierData.type;
-                if(!exprType.value || !exprType.value.ctype || exprType.value.ctype !== 'cglLazy'){
-                    cglLogError(`unexpected argument for ${
-                        BUILTIN_EVAL_LAZY
-                    } expected cglLazy got`,exprType, exprExpr);
-                    return;
-                }
-                modifierData.used = true;
-                exprData = exprType.value;
-            } else if (variables[exprName] && variables[exprName].T && variables[exprName].T.type === 'cglLazy') {
-                exprData = variables[exprName].T.value;
+            modifierData.used = true;
+            exprData = exprType.value;
+        } else if (variables[exprName] && variables[exprName].T && variables[exprName].T.type === 'lambda') {
+            exprData = variables[exprName].T.value;
+        } else {
+            let val = self.api.evaluate(lambdaExpr);
+            if(val['ctype'] !== 'lambda'){
+                return;
+            }
+            exprData = val;
+        }
+        if(args.length !== exprData['params'].length){
+            cglLogError(`wrong number of arguments for lambda function expected ${
+                exprData['params'].length
+            } got ${args.length}`);
+            return;
+        }
+        // create independent set of bindings for body of expression
+        let nbindings = {};
+        Object.entries(exprData['modifs']).forEach(([key,value])=>{
+            // TODO? are non-lambda modifiers handled correctly
+            let iname = generateUniqueHelperString();
+            nbindings[key] = iname;
+            if (!myfunctions[scope].variables) myfunctions[scope].variables = [];
+            myfunctions[scope].variables.push(iname);
+            self.initvariable(iname, false);
+            variables[iname].assigments.push(value);
+            if(value['ctype'] === 'image' || value['ctype'] === 'string' || value['ctype'] === 'lambda') {
+                variables[iname].T = guessTypeOfValue(value);
             } else {
-                let val = self.api.evaluate(exprExpr);
-                if(val['ctype'] !== 'cglLazy'){
-                    cglLogError(`unexpected argument for ${
-                        BUILTIN_EVAL_LAZY
-                    } expected cglLazy got`,val);
-                    return;
-                }
-                exprData = val;
+                variables[iname].T = constant(value);
             }
-            if(argCount !== exprData.params.length){
-                cglLogError(`wrong number of arguments for lazy function expected ${
-                    exprData.params.length
-                } got ${argCount}`);
-                return;
-            }
-            // create independent set of bindings for body of expression
-            let nbindings = {};
-            exprData.modifs.forEach(([key,value])=>{
-                // TODO? are non-lazy modifiers handled correctly
+        });
+        let inlined = {}; // remember which arguments where inlined
+        exprData['params'].forEach((param_,index) => {
+            // !!! do not modify the original param, modifications can leak into different uses of the same lambda-expression
+            const param = Object.assign({}, param_);
+            let vname = param['name'];
+            // TODO? should modification to lambda-argument modifiy passed in variable
+            if(args[index]['ctype']==='variable') {
+                // resuse same variable if argument is variable
+                let argname = args[index]['name'];
+                nbindings[vname] = bindings[argname] || argname;
+                inlined[vname] = true;
+            } else {
                 let iname = generateUniqueHelperString();
-                nbindings[key] = iname;
+                nbindings[vname] = iname;
                 if (!myfunctions[scope].variables) myfunctions[scope].variables = [];
                 myfunctions[scope].variables.push(iname);
                 self.initvariable(iname, false);
-                variables[iname].assigments.push(value);
-                if(value['ctype'] === 'image' || value['ctype'] === 'string' || value['ctype'] === 'cglLazy') {
-                    variables[iname].T = guessTypeOfValue(value);
-                } else {
-                    variables[iname].T = constant(value);
-                }
-            });
-            let inlined = {}; // remember which arguments where inlined
-            exprData.params.forEach((param_,index) => {
-                // !!! do not modify the original param, modifications can leak into different uses of the same lazy-expression
-                const param = Object.assign({}, param_);
-                let vname = param['name'];
-                // TODO? should modification to lazy-argument modifiy passed in variable
-                if(expr['args'][index+1]['ctype']==='variable') {
-                    // resuse same variable if argument is variable
-                    let argname = expr['args'][index+1]['name'];
-                    nbindings[vname] = bindings[argname] || argname;
-                    inlined[vname] = true;
-                } else {
-                    let iname = generateUniqueHelperString();
-                    nbindings[vname] = iname;
-                    if (!myfunctions[scope].variables) myfunctions[scope].variables = [];
-                    myfunctions[scope].variables.push(iname);
-                    self.initvariable(iname, false);
-                    variables[iname].assigments.push(expr['args'][index+1]);
-                }
-            });
-            // clone expression to allow more than one instantiation
-            expr['args'][0] = cloneExpression(exprData.expr);
-            // expression added to code in indirect way -> some functions may not yet have been copied
-            self.copyRequiredFunctions(expr['args'][0]);
-            expr['args'][0].bindings = nbindings;
-            expr.params = exprData.params.map(param=>{
-                // create independent copy of parameter
-                let newParam = Object.assign({}, param);
-                newParam["inline"] = inlined.hasOwnProperty(param['name']);
-                newParam.bindings = nbindings;
-                return newParam;
-            });
-            expr.modifs = exprData.modifs.map(([name,value])=>{
-                return [name,value,nbindings];
-            });
-            // prepare variable for result of expression
-            expr.resName = generateUniqueHelperString();
-            
-            if (!myfunctions[scope].variables) myfunctions[scope].variables = [];
-            myfunctions[scope].variables.push(expr.resName);
-            self.initvariable(expr.resName, false);
-            variables[expr.resName].assigments.push(expr);
-        }*/
+                variables[iname].assigments.push(args[index]);
+            }
+        });
+        // clone expression to allow more than one instantiation
+        expr['obj'] = cloneExpression(exprData['body']);
+        // expression added to code in indirect way -> some functions may not yet have been copied
+        self.copyRequiredFunctions(expr['obj']);
+        rec(expr['obj'],nbindings,scope,forceconstant);
+        expr.params = exprData['params'].map(param=>{
+            // create independent copy of parameter
+            let newParam = Object.assign({}, param);
+            newParam["inline"] = inlined.hasOwnProperty(param['name']);
+            newParam.bindings = nbindings;
+            return newParam;
+        });
+        expr.modifs = Object.entries(exprData['modifs']).map(([name,value])=>{
+            return [name,value,nbindings];
+        });
+        // prepare variable for result of expression
+        expr.resName = generateUniqueHelperString();
+        
+        if (!myfunctions[scope].variables) myfunctions[scope].variables = [];
+        myfunctions[scope].variables.push(expr.resName);
+        self.initvariable(expr.resName, false);
+        variables[expr.resName].assigments.push(expr);
+    }
+    //dfs over executed code
+    function rec(expr, bindings, scope, forceconstant) {
+        expr.bindings = bindings;
+        if (expr['ctype'] === 'userdata') {
+            rec(expr['obj'], bindings, scope, forceconstant);
+            rec(expr['key'], bindings, scope, forceconstant);
+            resolveLambdaData(expr,bindings,scope,forceconstant);
+        }
         // TODO? add support for: sum$2, sum$3, product$2, product$3
         for (let i in expr['args']) {
             let needtobeconstant = forceconstant || (expr['oper'] === "repeat$2" && i == 0) || (expr['oper'] === "repeat$3" && i == 0) || (expr['oper'] === "_" && i == 1);
@@ -464,11 +464,13 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
                 needtobeconstant);
         }
         if (expr['ctype'] === 'field') rec(expr['obj'], bindings, scope, forceconstant);
-        if (expr['ctype'] === 'userdata') rec(expr['obj'], bindings, scope, forceconstant);
         if (expr['ctype'] === 'jsonatom') rec(expr['value'], bindings, scope, forceconstant);
 
         if (expr['ctype'] === 'variable') {
             let vname = expr['name'];
+            if(CodeBuilder.builtIns.has(vname)) {
+                expr['isbuiltin'] = true;
+            }
             // TODO? special handling for built-in variables
             vname = bindings[vname] || vname;
             if (forceconstant && self.variables[vname]) {
@@ -703,7 +705,7 @@ CodeBuilder.prototype.determineUniforms = function(expr) {
             return expr["dependsOnPixel"] = dependsOnPixel(expr['obj']);
         }
         if (expr['ctype'] === 'userdata') {
-            return expr["dependsOnPixel"] = dependsOnPixel(expr['obj']);
+            return expr["dependsOnPixel"] = dependsOnPixel(expr['obj']) || dependsOnPixel(expr['key']);
         }
         if (expr['ctype'] === 'jsonatom') {
             return expr["dependsOnPixel"] = dependsOnPixel(expr['value']);
@@ -1388,8 +1390,8 @@ CodeBuilder.prototype.compile = function(expr, generateTerm) {
             });
             // assign values to modifiers
             lambda["modifs"].forEach(([key,value,bindings])=>{
-                if(value['ctype']==='cglLazy')
-                    return; // skip textures and lazy values
+                if(value['ctype']==='lambda')
+                    return; // skip textures and lambda values
                 if(value['ctype']==='string' || value['ctype']==='image') {
                     // TODO? seperate map for image uniforms
                     // create fake uniform variable to make image information accessible to TextureReader
@@ -1404,7 +1406,7 @@ CodeBuilder.prototype.compile = function(expr, generateTerm) {
             });
             // evaluate lambda expression
             let result = this.compile(lambda["body"],generateTerm);
-            // store computed result in variable to ensure correct evaluation order for multiple cglLazy-calls in single expression
+            // store computed result in variable to ensure correct evaluation order for multiple lambda-calls in single expression
             if(result.term) {
                 let resType = this.getType(expr);
                 if(result.term && resType !== type.voidt) {
