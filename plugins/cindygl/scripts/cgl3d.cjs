@@ -1401,8 +1401,8 @@ cglCutoffAddPlane(oldCutoff,normal,depth):=(
       // <v + l*d , n> <= x
       // <v,n> + l<d , n> <= x
       // l <= (x-<v,n>)/<d,n>
-      n = cglEval(normal); // current compiler does not support direct multplication with constant vector
-      l = (cglEval(depth)-(rayStart*n))/(direction*n);
+      n = normal:(); // current compiler does not support direct multplication with constant vector
+      l = (depth:()-(rayStart*n))/(direction*n);
       if(n*direction>0,
         depths_2 = min(depths_2,l);
       ,
@@ -1742,17 +1742,17 @@ cglResolveColorExpr0(hasAlpha,colorsMode,isBack):=(
       pixelExpr = if(hasAlpha,
         if(length(colors_1)==4,
           lambda((texPos,pos3d,normal),
-            regional(col);col = cglEval(colorData);
+            regional(col);col = colorData:();
             (col_1,col_2,col_3,col_4*cglAlpha)
           ,colorData->colorData);
         ,
           lambda((texPos,pos3d,normal),
-            regional(col);col = cglEval(colorData);
+            regional(col);col = colorData:();
             (col_1,col_2,col_3,cglAlpha)
           ,colorData->colorData);
         );
       ,
-        lambda((texPos,pos3d,normal),colorData,colorData->colorData);
+        lambda((texPos,pos3d,normal),colorData:(),colorData->colorData);
       );
       vModifiers_(if(isBack,"cglColorBack","cglColor")) = colors;
     ,
@@ -1760,18 +1760,18 @@ cglResolveColorExpr0(hasAlpha,colorsMode,isBack):=(
       pixelExpr = if(hasAlpha,
         if(length(colors_1)==4,
           lambda((texPos,pos3d,normal),
-            regional(col);col = (1-texPos_2) * cglEval(colorData)_1 + texPos_2 * cglEval(colorData)_2;
+            regional(col);col = (1-texPos_2) * colorData:()_1 + texPos_2 * colorData:()_2;
             (col_1,col_2,col_3,col_4*cglAlpha)
           ,colorData->colorData);
         ,
           lambda((texPos,pos3d,normal),
-            regional(col);col = (1-texPos_2) * cglEval(colorData)_1 + texPos_2 * cglEval(colorData)_2;
+            regional(col);col = (1-texPos_2) * colorData:()_1 + texPos_2 * colorData:()_2;
             (col_1,col_2,col_3,cglAlpha)
           ,colorData->colorData);
         );
       ,
         lambda((texPos,pos3d,normal),
-            (1-texPos_2) * cglEval(colorData)_1 + texPos_2 * cglEval(colorData)_2
+            (1-texPos_2) * colorData:()_1 + texPos_2 * colorData:()_2
         ,colorData->colorData);
       );
       modifiers_(if(isBack,"cglColorsBack","cglColors")) = colors;
@@ -1786,7 +1786,7 @@ cglResolveColorExpr0(hasAlpha,colorsMode,isBack):=(
       pixelExpr = if(hasAlpha,
         if(length(color)==4,
           lambda((texPos,pos3d,normal),
-            (colorData)_1:(colorData)_2:(colorData)_3:(cglEval(colorData)_4*cglAlpha)
+            (colorData)_1:(colorData)_2:(colorData)_3:(colorData:()_4*cglAlpha)
           ,colorData->colorData);
         ,
           lambda((texPos,pos3d,normal),
@@ -1794,7 +1794,7 @@ cglResolveColorExpr0(hasAlpha,colorsMode,isBack):=(
           ,colorData->colorData);
         );
       ,
-        lambda((texPos,pos3d,normal),colorData,colorData->colorData);
+        lambda((texPos,pos3d,normal),colorData:(),colorData->colorData);
       );
       modifiers_(if(isBack,"cglColorBack","cglColor")) = color;
     ,if(color:"type"=="texture",
@@ -1845,7 +1845,7 @@ cglResolveColorExpr(hasAlpha,colorsMode):=(
           exprFront:(texPos,pos3d,normal)
         ,
           col = exprBack:(texPos,pos3d,normal);
-          (col_1,col_2,col_3,cglEval(defaultAlpha))
+          (col_1,col_2,col_3,defaultAlpha:())
         )
       ,exprFront->exprData_"pixelExpr",exprBack->exprDataBack_"pixelExpr",defaultAlpha->defaultAlpha)
     ,
@@ -1853,7 +1853,7 @@ cglResolveColorExpr(hasAlpha,colorsMode):=(
         regional(col);
         if(normal*cglViewDirection<=0,
           col = exprFront:(texPos,pos3d,normal);
-          (col_1,col_2,col_3,cglEval(defaultAlpha))
+          (col_1,col_2,col_3,defaultAlpha:())
         ,
           exprBack:(texPos,pos3d,normal)
         )

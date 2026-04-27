@@ -274,8 +274,9 @@ CodeBuilder.prototype.computeType = function(expr) { //expression
     } else if (expr['ctype'] === 'userdata') {
         let baseType = generalize(this.getType(expr['obj']));
         if (!baseType) return false;
-        if (expr.params !== undefined) // lambdaExpression
-            return this.getType(expr['obj']);
+        if (expr.params !== undefined) {// lambdaExpression
+            return generalize(this.getType(expr['obj']));
+        }
         let key = expr['key'];
         if (baseType.type !== 'tuple' || baseType.names === undefined) {
             cglLogError("element access is only supported on JSON values");
@@ -398,26 +399,18 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
             // !!! do not modify the original param, modifications can leak into different uses of the same lambda-expression
             const param = Object.assign({}, param_);
             let vname = param['name'];
-            // TODO? should modification to lambda-argument modifiy passed in variable
-            if(args[index]['ctype']==='variable') {
-                // resuse same variable if argument is variable
-                let argname = args[index]['name'];
-                nbindings[vname] = bindings[argname] || argname;
-                inlined[vname] = true;
-            } else {
-                let iname = generateUniqueHelperString();
-                nbindings[vname] = iname;
-                if (!myfunctions[scope].variables) myfunctions[scope].variables = [];
-                myfunctions[scope].variables.push(iname);
-                self.initvariable(iname, false);
-                variables[iname].assigments.push(args[index]);
-            }
+            let iname = generateUniqueHelperString();
+            nbindings[vname] = iname;
+            if (!myfunctions[scope].variables) myfunctions[scope].variables = [];
+            myfunctions[scope].variables.push(iname);
+            self.initvariable(iname, false);
+            variables[iname].assigments.push(args[index]);
         });
         // clone expression to allow more than one instantiation
         expr['obj'] = cloneExpression(exprData['body']);
+        expr.args = args;
         // expression added to code in indirect way -> some functions may not yet have been copied
         self.copyRequiredFunctions(expr['obj']);
-        rec(expr['obj'],nbindings,scope,forceconstant);
         expr.params = exprData['params'].map(param=>{
             // create independent copy of parameter
             let newParam = Object.assign({}, param);
@@ -428,6 +421,7 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
         expr.modifs = Object.entries(exprData['modifs']).map(([name,value])=>{
             return [name,value,nbindings];
         });
+        rec(expr['obj'],nbindings,scope,forceconstant);
         // prepare variable for result of expression
         expr.resName = generateUniqueHelperString();
         
@@ -1378,18 +1372,16 @@ CodeBuilder.prototype.compile = function(expr, generateTerm) {
             });
         }
     } else if (expr['ctype'] === 'userdata') {
-        let objt = this.getType(expr['obj']);
-        if (objt.type === "lambda") {
-            let code = "";
-            let lambda = expr['obj'];
-            let args = expr["key"]["value"];
+        if (expr.params !== undefined) {
+            let code = "";;
+            let args = expr.args;
             // assign arguments to parameters
-            lambda["params"].forEach((param,index)=>{
+            expr.params.forEach((param,index)=>{
                 if(param['inline'])return;// skip inlined parameters
-                code+=this.compile(opAssign(param,args[index+1]),false).code;
+                code+=this.compile(opAssign(param,args[index]),false).code;
             });
             // assign values to modifiers
-            lambda["modifs"].forEach(([key,value,bindings])=>{
+            expr.modifs.forEach(([key,value,bindings])=>{
                 if(value['ctype']==='lambda')
                     return; // skip textures and lambda values
                 if(value['ctype']==='string' || value['ctype']==='image') {
@@ -1405,10 +1397,10 @@ CodeBuilder.prototype.compile = function(expr, generateTerm) {
                 code+=this.compile(opAssign({ctype:'variable',name:key,bindings:bindings},value),false).code;
             });
             // evaluate lambda expression
-            let result = this.compile(lambda["body"],generateTerm);
+            let result = this.compile(expr["obj"],generateTerm);
             // store computed result in variable to ensure correct evaluation order for multiple lambda-calls in single expression
             if(result.term) {
-                let resType = this.getType(expr);
+                let resType = this.getType(expr["obj"]);
                 if(result.term && resType !== type.voidt) {
                     result.code += `${expr.resName} = ${result.term};\n`;
                     result.term = expr.resName;
@@ -1421,6 +1413,7 @@ CodeBuilder.prototype.compile = function(expr, generateTerm) {
             result.code = code+result.code;
             return result;
         }
+        let objt = this.getType(expr['obj']);
         let key = expr['key'].value;
         if (!objt || objt.names === undefined) {
             cglLogError(`${typeToString(objt)} does not have a field ${key}`);
