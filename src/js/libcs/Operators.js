@@ -27,8 +27,8 @@ import { List } from "libcs/List";
 import { Json } from "libcs/Json";
 import { Dict } from "libcs/Dict";
 import { General } from "libcs/General";
-import { evaluator, niceprint, eval_helper, myfunctions } from "libcs/Essentials";
-import { namespace } from "libcs/Namespace";
+import { evaluator, niceprint, eval_helper, myfunctions, evalfunction } from "libcs/Essentials";
+import { namespace, nameWithArity } from "libcs/Namespace";
 import { Accessor } from "libcs/Accessors";
 import {
     textRendererCanvas,
@@ -610,6 +610,33 @@ evaluator.regional = function (args, modifs) {
     return nada;
 };
 
+evaluator.protect = function (args, modifs) {
+    //VARIADIC!
+
+    for (let i = 0; i < args.length; i++) {
+        if (args[i].ctype === "variable") {
+            const v = args[i].name;
+            namespace.protect(v);
+        } else if (args[i].ctype === "functionreference") {
+            namespace.protect(args[i].name, args[i].arity);
+        }
+    }
+    return nada;
+};
+evaluator.unprotect = function (args, modifs) {
+    //VARIADIC!
+
+    for (let i = 0; i < args.length; i++) {
+        if (args[i].ctype === "variable") {
+            const v = args[i].name;
+            namespace.unprotect(v);
+        } else if (args[i].ctype === "functionreference") {
+            namespace.unprotect(args[i].name, args[i].arity);
+        }
+    }
+    return nada;
+};
+
 evaluator.genList = function (args, modifs) {
     //VARIADIC!
     return List.turnIntoCSList(args.map(evaluate));
@@ -881,6 +908,10 @@ function infix_define(args, modifs, self) {
     if (args[0].ctype === "function") {
         const fname = args[0].oper;
         const ar = args[0].args;
+        if (namespace.isprotected(fname, ar.length)) {
+            console.warn("cannot redefine protected function " + nameWithArity(fname, ar.length));
+            return nada;
+        }
         const body = args[1];
         let generation = 1;
         if (myfunctions.hasOwnProperty(fname)) {
@@ -914,6 +945,10 @@ function postfix_undefine(args, modifs) {
         return nada;
     }
     if (args[0].ctype === "function") {
+        if (namespace.isprotected(args[0].oper, args[0].args.length)) {
+            console.warn("cannot undefine protected function " + nameWithArity(args[0].oper, args[0].args.length));
+            return nada;
+        }
         delete myfunctions[args[0].oper];
     }
     return nada;
@@ -2172,6 +2207,11 @@ evaluator.isundefined$1 = function (args, modifs) {
         return {
             ctype: "boolean",
             value: true,
+        };
+    } else if (v0.ctype === "functionreference") {
+        return {
+            ctype: "boolean",
+            value: !eval_helper.hasFunction(v0.name, v0.arity),
         };
     }
     return {
@@ -4786,6 +4826,88 @@ evaluator.eval$1 = function (args, modifs) {
 };
 
 ///////////////////////////////
+//      LAMBDA FUNCTIONS     //
+///////////////////////////////
+
+evaluator.lambda$2 = function (args, modifs) {
+    return infix_lambda(args, modifs);
+};
+function infix_lambda(args, modifs) {
+    if (args.length != 2) return nada;
+    let params;
+    if (args[0].ctype === "list") {
+        params = args[0].value;
+    } else if (args[0].ctype === "function" && args[0].oper.toLowerCase() === "genlist") {
+        params = args[0].args;
+    } else if (args[0].ctype === "void") {
+        params = [];
+    } else {
+        params = [args[0]];
+    }
+    for (let i = 0; i < params.length; i++) {
+        if (params[i].ctype !== "variable") {
+            console.error("lambda parameter should be variable got: " + args[i].ctype);
+            return nada;
+        }
+    }
+    // evaluate modifiers when creating lambda
+    let modValues = {};
+    Object.entries(modifs).forEach(function ([key, value]) {
+        modValues[key] = evaluate(value);
+    });
+    return {
+        ctype: "lambda",
+        body: args[1],
+        params: params,
+        modifs: modValues,
+    };
+}
+evaluator.islambda$1 = function (args, modifs) {
+    const v0 = evaluate(args[0]);
+    if (v0.ctype === "lambda") {
+        return {
+            ctype: "boolean",
+            value: true,
+        };
+    }
+    return {
+        ctype: "boolean",
+        value: false,
+    };
+};
+eval_helper.evalLambda = function (lambda, args, modifs) {
+    lambda = evaluate(lambda);
+    if (lambda.ctype === "functionreference") return evalref(lambda, args, modifs);
+    if (lambda.ctype !== "lambda") return nada;
+    if (lambda.params.length != args.length) {
+        console.warn("wrong number of arguments for lambda expression");
+        // pad arguments to correct length
+        while (args.length < lambda.params.length) {
+            args.push(nada);
+        }
+    }
+    let callModifs = {};
+    Object.entries(modifs).forEach(function ([key, value]) {
+        callModifs[key] = value;
+    });
+    // prefer lambda modifiers over modifiers passed to eval
+    Object.entries(lambda.modifs).forEach(function ([key, value]) {
+        callModifs[key] = value;
+    });
+    return evalfunction(lambda.params, lambda.body, args, callModifs);
+};
+function evalref(fptr, args, modifs) {
+    if (fptr.arity != args.length) {
+        console.warn("wrong number of arguments for function-reference");
+        // pad arguments to correct length
+        while (args.length < fptr.arity.length + 1) {
+            args.push(nada);
+        }
+    }
+    return eval_helper.evaluate(fptr.name + "$" + fptr.arity, args, modifs);
+}
+
+///////////////////////////////
 //   Calling external code   //
 ///////////////////////////////
 
@@ -5832,6 +5954,7 @@ export {
     infix_div,
     infix_add,
     infix_sub,
+    infix_lambda,
     prefix_not,
     comp_equals,
     comp_almostequals,

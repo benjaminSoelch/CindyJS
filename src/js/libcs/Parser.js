@@ -71,6 +71,10 @@ const operatorLevels = [
     },
     {
         rassoc: true,
+        lambda: ["=>", "⇒"],
+    },
+    {
+        rassoc: true,
         assign: ["="],
         define: [":="],
         undefine: [":=_"],
@@ -239,6 +243,7 @@ const reExponent = "(?: [Ee](?: [+-])?(?: [0-9])+)";
 // fractional part, possibly followed by an exponent, or a leading dot
 // followed by a non-empty fractional part, possibly followed by an
 // exponent.
+// TODO! is it intended to apply expandSpaces twice to reIdentifier
 const reNumber = expandSpaces(
     "(?:[0-9](?: [0-9])*(?: \\." +
         // exclude certain expressions after a potential occuring '.',
@@ -253,6 +258,10 @@ const reNumber = expandSpaces(
         "?"
 );
 
+// function reference
+// identifier name followed by $ and integer
+const reFuncReference = "(?:" + reIdentifier + ")" + expandSpaces(" \\$(?: [0-9])+");
+
 const reNextToken = [
     //                 token text
     "(" + whitespaceToken + ")", //    whitespace
@@ -263,6 +272,7 @@ const reNextToken = [
     anyOfGroup(brackets.split("")), // bracket
     "(" + subNum + ")", //             subscript
     "(" + supNum + ")", //             superscript
+    "(" + reFuncReference + ")", // funRef
     "(" + reIdentifier + ")", //       identifier
     '("[^"]*")', //                    string literal
     "($)", //                          EOF
@@ -270,7 +280,21 @@ const reNextToken = [
 
 const reSpace = new RegExp(inTokenWhitespace.replace(/\*$/, "+"), "g");
 
-const tokenTypes = ["ANY", "WS", "COMMENT", "START_COMMENT", "NUM", "OP", "BRA", "SUB", "SUP", "ID", "STR", "EOF"];
+const tokenTypes = [
+    "ANY",
+    "WS",
+    "COMMENT",
+    "START_COMMENT",
+    "NUM",
+    "OP",
+    "BRA",
+    "SUB",
+    "SUP",
+    "FUNREF",
+    "ID",
+    "STR",
+    "EOF",
+];
 
 (function sanityCheck() {
     const re = new RegExp(reNextToken, "g");
@@ -482,6 +506,12 @@ function parseRec(tokens, closing) {
                 if (seq.length & 1) throw ParseError("Missing operator", tok.start, tok.text);
                 seq.push(tok);
                 break;
+            case "FUNREF":
+                tok.ctype = "functionreference";
+                tok.name = tok.text;
+                if (seq.length & 1) throw ParseError("Missing operator", tok.start, tok.text);
+                seq.push(tok);
+                break;
             case "NUM":
                 tok.ctype = "number";
                 tok.value = {
@@ -631,6 +661,14 @@ function Parser(expr) {
     this.usedVariables = {};
 }
 
+function isLambdaArg(arg) {
+    if (arg.ctype !== "function") return false;
+    for (let param of arg.args) {
+        if (param.ctype !== "variable") return false;
+    }
+    return true;
+}
+
 Parser.prototype.postprocess = function (expr) {
     if (expr === null) return cvoid;
     if (expr) {
@@ -640,6 +678,10 @@ Parser.prototype.postprocess = function (expr) {
                 const fun = expr.args[0];
                 if (fun.ctype === "function") {
                     fun.args.forEach(function (arg) {
+                        if (isLambdaArg(arg)) {
+                            arg.ctype = "lambdaarg";
+                            return;
+                        }
                         if (arg === null || arg.ctype !== "variable")
                             throw ParseError("Function argument must be an identifier", arg.start || expr.start);
                     });
@@ -706,6 +748,21 @@ Parser.prototype.postprocess = function (expr) {
         return {
             ctype: "variable",
             name: String(expr.name),
+        };
+    }
+    if (expr.ctype === "lambdaarg") {
+        return {
+            ctype: "lambdaarg",
+            name: String(expr.name),
+            args: expr.args,
+        };
+    }
+    if (expr.ctype === "functionreference") {
+        const parts = expr.name.split(/\$/);
+        return {
+            ctype: "functionreference",
+            name: String(parts[0]),
+            arity: +parts[1], // convert to number
         };
     }
     if (expr.ctype === "number") {

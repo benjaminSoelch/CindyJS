@@ -76,10 +76,10 @@ function expressionsAreEqual(a, b) {
         }
         return true;
     } else if (a instanceof Object && b instanceof Object) {
-        if(a['ctype']=='cglLazy') {
-            if(b['ctype']!='cglLazy') return false;
-            return arraysAreEqual(a.params,b.params) && expressionsAreEqual(a.expr,b.expr) && 
-                arraysAreEqual(a.modifs, b.modifs,(a,b)=>(
+        if(a['ctype']=='lambda') {
+            if(b['ctype']!='lambda') return false;
+            return arraysAreEqual(a["params"],b["params"]) && expressionsAreEqual(a.body,b.body) && 
+                arraysAreEqual(Object.entries(a["modifs"]), Object.entries(b["modifs"]),(a,b)=>(
                     a[0] === b[0] && expressionsAreEqual(a[1], b[1]) 
                 ));
         }
@@ -184,8 +184,8 @@ function guessTypeOfValue(tval) {
         return type.image;
     } else if (tval['ctype'] === 'geo' && tval['value']['kind'] === 'L') {
         return type.line;
-    } else if (tval['ctype'] === 'cglLazy') {
-        return type.cglLazy(tval);
+    } else if (tval['ctype'] === 'lambda') {
+        return type.lambda(tval);
     } else if (tval['ctype'] === 'JSON') {
         // ! the ordering depends on the current location of the user, which is probably fine as compiled code is not persistent
         let entries = Object.entries(tval['value']).sort((a,b)=>a[0].localeCompare(b[0]));

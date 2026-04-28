@@ -10,8 +10,8 @@ let constant = (value) => ({ /* variables that are constant in GLSL */
     value: value
 });
 
-let lazyExprType = (value) =>({ /* cglLazy expressions */
-    type: 'cglLazy',
+let lambdaExprType = (value) =>({ /* lambda expressions */
+    type: 'lambda',
     value: value
 });
 
@@ -53,7 +53,7 @@ const type = { //assert all indices are different
     mat4: list(4, list(4, 3)),
     // positivefloat: 14 //@TODO: positive int < int, positive real < real. positivefloat+ positivefloat = positivefloat...
     // nonnegativefloat: 15 //@TODO: negative float...
-    cglLazy: val => lazyExprType(val),
+    lambda: val => lambdaExprType(val),
 };
 Object.freeze(type);
 
@@ -75,7 +75,7 @@ function typeToString(t) {
     } else {
         if (t.type === 'list') return `${typeToString(t.parameters)}[${t.length}]`;
         if (t.type === 'constant') return `const[${JSON.stringify(t.value['value'])}]`;
-        if (t.type === 'cglLazy') return `cglLazy((${t.value.params.map(v=>v['name']).join(',')}),...)`;
+        if (t.type === 'lambda') return `lambda((${t.value["params"].map(v=>v['name']).join(',')}),...)`;
         if (t.type === 'tuple') {
             if (!t.names) return `tuple(${t.elements.map(v=>typeToString(v)).join(',')})`;
             return `tuple(${t.elements.map((v,i)=>`${t.names[i]}: ${typeToString(v)}`).join(',')})`;
@@ -156,7 +156,7 @@ function eltNamesEqual(a,b) {
 let typesareequal = (a, b) => (a === b) ||
     (a.type === 'constant' && b.type === 'constant' && expressionsAreEqual(a.value, b.value)) ||
     (a.type === 'list' && b.type === 'list' && a.length === b.length && typesareequal(a.parameters, b.parameters)) ||
-    (a.type === 'cglLazy' && b.type === 'cglLazy' && expressionsAreEqual(a.value,b.value))  ||
+    (a.type === 'lambda' && b.type === 'lambda' && expressionsAreEqual(a.value,b.value))  ||
     (a.type === 'tuple' && b.type === 'tuple' && typeListEqual(a.elements,b.elements) && eltNamesEqual(a.names,b.names));
 
 function issubtypeof(a, b) {

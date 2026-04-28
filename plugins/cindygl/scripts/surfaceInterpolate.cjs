@@ -265,41 +265,41 @@ coordsPnFct(n):=(
           if(n>11,
             cglLogError("unimplemented: coordsP"+text(n))
           ,// n==11
-            cglLazy(p,coordsP11(p))
+            lambda(p,coordsP11(p))
           )
         ,
           if(n==10,
-            cglLazy(p,coordsP10(p))
+            lambda(p,coordsP10(p))
           ,// n==9
-            cglLazy(p,coordsP9(p))
+            lambda(p,coordsP9(p))
           )
         )
       ,
         if(n==8,
-          cglLazy(p,coordsP8(p))
+          lambda(p,coordsP8(p))
         ,// n==7
-          cglLazy(p,coordsP7(p))
+          lambda(p,coordsP7(p))
         )
       )
     ,
       if(n==6,
-        cglLazy(p,coordsP6(p))
+        lambda(p,coordsP6(p))
       ,// n==5
-        cglLazy(p,coordsP5(p))
+        lambda(p,coordsP5(p))
       )
     );
   ,
     if(n>2,
       if(n==4,
-        cglLazy(p,coordsP4(p))
+        lambda(p,coordsP4(p))
       ,// n==3
-        cglLazy(p,cubedCoords(p))
+        lambda(p,cubedCoords(p))
       )
     ,
       if(n==2,
-        cglLazy(p,squaredCoords(p))
+        lambda(p,squaredCoords(p))
       ,// n==1
-        cglLazy(p,p);
+        lambda(p,p);
       )
     )
   )
@@ -323,7 +323,7 @@ interpolateSurface(points):=(
   degree = min(maxDegree,degree);
   // 1. convert samples to d-th power coordinates
   coordPFct = coordsPnFct(degree);
-  samples = apply(points,p,cglEval(coordPFct,hom(p)));
+  samples = apply(points,p,coordPFct:(hom(p)));
   // 2. build matrix of samples points & find solution(s) for matrix equation
   // TODO checking the kernel is slow for large matrices -> find better way to obtain solution in singual case
   if(length(samples) <= length(samples_1)-1,
@@ -340,10 +340,10 @@ interpolateSurface(points):=(
   // 5. create surface function from kernel vector
   {
     "degree": degree,
-    "f": cglLazy((x,y,z),cglEval(coordP,(x,y,z,1))*cglCoeffVec,coordP->coordPFct),
-    "df":  cglLazy((x,y,z),
+    "f": lambda((x,y,z),coordP:((x,y,z,1))*cglCoeffVec,coordP->coordPFct),
+    "df":  lambda((x,y,z),
       regional(p,n,kx,ky,kz);
-      p = cglEval(coordP,(x,y,z,1));
+      p = coordP:((x,y,z,1));
       n = (0,0,0);
       // kx, ky, kz count how often does x/y/z appear in the coordinates of the current term
       // coordsP... returns the coefficients sorted in lexicographical order, 

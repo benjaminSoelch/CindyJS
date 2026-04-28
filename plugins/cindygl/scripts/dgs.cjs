@@ -33,10 +33,10 @@ dgs3dUpdateCutoff():=(
 );
 dgs3dHandleZoom(zoom):=(
   dgs3dUpdateCutoff();
-  forall(dgs3dPoints,p,cglEval(p:"redraw",p));
-  forall(dgs3dLines,l,cglEval(l:"redraw",l));
-  forall(dgs3dPlanes,p,cglEval(p:"redraw",p));
-  forall(dgs3dQuadrics,q,cglEval(q:"redraw",q));
+  forall(dgs3dPoints,p,p:"redraw":(p));
+  forall(dgs3dLines,l,l:"redraw":(l));
+  forall(dgs3dPlanes,p,p:"redraw":(p));
+  forall(dgs3dQuadrics,q,q:"redraw":(q));
 );
 dgs3dUpdateCutoff();
 
@@ -145,7 +145,7 @@ DGS3DmOVErETRY = 1;
 dgs3dTryRecomputeChildren(obj):=(
   regional(retry);
   obj = dgs3dObjById(obj);
-  retry = cglEval(obj:"recompute",obj) != DGS3DmOVEoK;
+  retry = obj:"recompute":(obj) != DGS3DmOVEoK;
   // try recalculating direct children
   forall(obj:"children",child,
     child = dgs3dObjById(child);
@@ -163,7 +163,7 @@ dgs3dResetChildren(obj):=(
 );
 dgs3dRedrawChildren(obj):=(
   obj = dgs3dObjById(obj);
-  cglEval(obj:"redraw",obj);
+  obj:"redraw":(obj);
   forall(obj:"children",child,
     dgs3dRedrawChildren(child);
   );
@@ -512,39 +512,39 @@ dgs3dNewObject(type,parents):=(
     "type":type, "id": objId, "drawId": -1,
     "parents": parents, "children": [],
     "visible": cglValOrDefault(visible,true),
-    "recompute": cglLazy(self,DGS3DmOVEoK), "redraw": cglLazy(self,)
+    "recompute": lambda(self,DGS3DmOVEoK), "redraw": lambda(self,)
   };
   dgs3dObjects:objId = obj;
   if(type == "point",
     dgs3dPoints:objId = obj;
     obj:"color" = cglValOrDefault(color,cglRed);
     obj:"alpha" = cglValOrDefault(alpha,1);
-    obj:"redraw" = cglLazy(self,dgs3dRenderPoint(self));
+    obj:"redraw" = lambda(self,dgs3dRenderPoint(self));
   ,if(type == "line",
     dgs3dLines:objId = obj;
     obj:"color" = cglValOrDefault(color,cglBlack);
     obj:"alpha" = cglValOrDefault(alpha,1);
-    obj:"redraw" = cglLazy(self,dgs3dRenderLine(self));
+    obj:"redraw" = lambda(self,dgs3dRenderLine(self));
   ,if(type == "plane",
     dgs3dPlanes:objId = obj;
     obj:"color" = cglValOrDefault(color,cglCyan);
     obj:"alpha" = cglValOrDefault(alpha,0.67);
-    obj:"redraw" = cglLazy(self,dgs3dRenderPlane(self));
+    obj:"redraw" = lambda(self,dgs3dRenderPlane(self));
   ,if(type == "quadric",
     dgs3dQuadrics:objId = obj;
     obj:"color" = cglValOrDefault(color,(0.5,0,1));
     obj:"alpha" = cglValOrDefault(alpha,0.67);
-    obj:"redraw" = cglLazy(self,dgs3dRenderQuadric(self));
+    obj:"redraw" = lambda(self,dgs3dRenderQuadric(self));
   ,if(type == "conic",
     dgs3dQuadrics:objId = obj;
     obj:"color" = cglValOrDefault(color,(0.25,1,0));
     obj:"alpha" = cglValOrDefault(alpha,1);
-    obj:"redraw" = cglLazy(self,dgs3dRenderConic(self));
+    obj:"redraw" = lambda(self,dgs3dRenderConic(self));
   ,if(type == "intersection2Q",
     dgs3dQuadrics:objId = obj;
     obj:"color" = cglValOrDefault(color,(0.25,1,0));
     obj:"alpha" = cglValOrDefault(alpha,1);
-    obj:"redraw" = cglLazy(self,dgs3dRenderIntersection2Q(self));
+    obj:"redraw" = lambda(self,dgs3dRenderIntersection2Q(self));
   ,if(type == "pointSet",
     // nothing to do
   ,
@@ -562,7 +562,7 @@ dgs3dUpdateColor(obj):=(
   obj:"color" = cglValOrDefault(color,obj:"color");
   obj:"alpha" = cglValOrDefault(alpha,obj:"alpha");
   obj:"visible" = cglValOrDefault(alpha,obj:"visible");
-  cglEval(obj:"redraw",obj);
+  obj:"redraw":(obj);
 );
 
 // TODO do not render objects with complex coordinates
@@ -749,15 +749,15 @@ dgs3dJoin2P(p1,p2):=(
   regional(obj);
   obj = dgs3dNewObject("line",[p1,p2]);
   obj:"size" = cglValOrDefault(size,cglDefaults:"cylinderSize");
-  obj:"recompute" = cglLazy(self,
+  obj:"recompute" = lambda(self,
     regional(a,b);
     a = (self:"parents"_1):"coords";
     b = (self:"parents"_2):"coords";
     self:"coords" = dgs3dEpsilon44(a,b);
     DGS3DmOVEoK
   );
-  cglEval(obj:"recompute",obj);
-  cglEval(obj:"redraw",obj);
+  obj:"recompute":(obj);
+  obj:"redraw":(obj);
   obj
 );
 
@@ -765,15 +765,15 @@ dgs3dJoin2P(p1,p2):=(
 dgs3dJoinPL(p1,l1):=(
   regional(obj);
   obj = dgs3dNewObject("plane",[p1,l1]);
-  obj:"recompute" = cglLazy(self,
+  obj:"recompute" = lambda(self,
     regional(p,l,PQ);
     p = self:"parents"_1;
     l = self:"parents"_2;
     self:"coords" = dgs3dEpsilon46(p:"coords",dgs3dDualLine(l:"coords"));
     DGS3DmOVEoK
   );
-  cglEval(obj:"recompute",obj);
-  cglEval(obj:"redraw",obj);
+  obj:"recompute":(obj);
+  obj:"redraw":(obj);
   obj
 );
 
@@ -784,7 +784,7 @@ dgs3dPointOnLine(l,p0):=(
   obj = dgs3dNewObject("point",[l]);
   obj:"size" = cglValOrDefault(size,cglDefaults:"sphereSize");
   obj:"coords" = dgs3dPoint4(p0);
-  obj:"recompute" = cglLazy(self,
+  obj:"recompute" = lambda(self,
     regional(p,l,K);
     // project old-position onto line
     p = self:"coords";
@@ -795,8 +795,8 @@ dgs3dPointOnLine(l,p0):=(
     self:"coords" = p;
     DGS3DmOVEoK
   );
-  cglEval(obj:"recompute",obj);
-  cglEval(obj:"redraw",obj);
+  obj:"recompute":(obj);
+  obj:"redraw":(obj);
   if(cglValOrDefault(pinned,false),
     obj:"movable" = false;
   ,
@@ -825,26 +825,26 @@ dgs3dJoin3(a,b,c):=(
 dgs3dJoin3P(p1,p2,p3):=(
   regional(obj);
   obj = dgs3dNewObject("plane",[p1,p2,p3]);
-  obj:"recompute" = cglLazy(self,
+  obj:"recompute" = lambda(self,
     self:"coords" = dgs3dEpsilon444(self:"parents"_1:"coords",self:"parents"_2:"coords",self:"parents"_3:"coords");
     DGS3DmOVEoK
   );
-  cglEval(obj:"recompute",obj);
-  cglEval(obj:"redraw",obj);
+  obj:"recompute":(obj);
+  obj:"redraw":(obj);
   obj
 );
 // l1: point, l2: point, l3: point, visible: bool = should object be drawn
 dgs3dJoin3L(l1,l2,l3):=(
   regional(obj);
   obj = dgs3dNewObject("quadric",[l1,l2,l3]);
-  obj:"recompute" = cglLazy(self,
+  obj:"recompute" = lambda(self,
     regional(M);
     M = dgs3dLineMatrix(l1:"coords")*dgs3dLineMatrix(dgs3dDualLine(l2:"coords"))*dgs3dLineMatrix(l3:"coords");
     self:"coords" = M + transpose(M);
     DGS3DmOVEoK
   );
-  cglEval(obj:"recompute",obj);
-  cglEval(obj:"redraw",obj);
+  obj:"recompute":(obj);
+  obj:"redraw":(obj);
   obj
 );
 
@@ -855,7 +855,7 @@ dgs3dPointOnPlane(s,p0):=(
   obj = dgs3dNewObject("point",[s]);
   obj:"size" = cglValOrDefault(size,cglDefaults:"sphereSize");
   obj:"coords" = dgs3dPoint4(p0);
-  obj:"recompute" = cglLazy(self,
+  obj:"recompute" = lambda(self,
     regional(p4,p,s,n);
     // project old-position onto plane
     p4 = self:"coords";
@@ -866,8 +866,8 @@ dgs3dPointOnPlane(s,p0):=(
     self:"coords" = (p_1,p_2,p_3,1);
     DGS3DmOVEoK
   );
-  cglEval(obj:"recompute",obj);
-  cglEval(obj:"redraw",obj);
+  obj:"recompute":(obj);
+  obj:"redraw":(obj);
   if(cglValOrDefault(pinned,false),
     obj:"movable" = false;
   ,
@@ -887,7 +887,7 @@ dgs3dPointOnQuadric(q,p0):=(
   obj = dgs3dNewObject("point",[q]);
   obj:"size" = cglValOrDefault(size,cglDefaults:"sphereSize");
   obj:"coords" = dgs3dPoint4(p0);
-  obj:"recompute" = cglLazy(self,
+  obj:"recompute" = lambda(self,
     regional(p,Q,n,l,AB,a,b,ab);
     p = self:"coords";
     Q = (self:"parents"_1):"coords";
@@ -915,8 +915,8 @@ dgs3dPointOnQuadric(q,p0):=(
       DGS3DmOVErETRY
     );
   );
-  cglEval(obj:"recompute",obj);
-  cglEval(obj:"redraw",obj);
+  obj:"recompute":(obj);
+  obj:"redraw":(obj);
   if(cglValOrDefault(pinned,false),
     obj:"movable" = false;
   ,
@@ -937,7 +937,7 @@ dgs3dPointOnConic(q,p0):=(
   obj = dgs3dNewObject("point",[q]);
   obj:"size" = cglValOrDefault(size,cglDefaults:"sphereSize");
   obj:"coords" = dgs3dPoint4(p0);
-  obj:"recompute" = cglLazy(self,
+  obj:"recompute" = lambda(self,
     regional(P,P3,Qp,Q,p,np,nq);
     P = self:"coords";
     Qp = (self:"parents"_1):"coords";
@@ -976,8 +976,8 @@ dgs3dPointOnConic(q,p0):=(
       DGS3DmOVErETRY
     );
   );
-  cglEval(obj:"recompute",obj);
-  cglEval(obj:"redraw",obj);
+  obj:"recompute":(obj);
+  obj:"redraw":(obj);
   if(cglValOrDefault(pinned,false),
     obj:"movable" = false;
   ,
@@ -1034,15 +1034,15 @@ dgs3dMeet2P(P1,P2):=(
   regional(obj);
   obj = dgs3dNewObject("line",[P1,P2]);
   obj:"size" = cglValOrDefault(size,cglDefaults:"cylinderSize");
-  obj:"recompute" = cglLazy(self,
+  obj:"recompute" = lambda(self,
     regional(A,B);
     A = (self:"parents"_1):"coords";
     B = (self:"parents"_2):"coords";
     self:"coords" = dgs3dDualLine(dgs3dEpsilon44(A,B));
     DGS3DmOVEoK
   );
-  cglEval(obj:"recompute",obj);
-  cglEval(obj:"redraw",obj);
+  obj:"recompute":(obj);
+  obj:"redraw":(obj);
   obj
 );
 // P1: plane, l1: line, size:real = radius, visible: bool = should object be drawn
@@ -1050,15 +1050,15 @@ dgs3dMeetPL(P1,l1):=(
   regional(obj);
   obj = dgs3dNewObject("point",[P1,l1]);
   obj:"size" = cglValOrDefault(size,cglDefaults:"sphereSize");
-  obj:"recompute" = cglLazy(self,
+  obj:"recompute" = lambda(self,
     regional(p,l);
     p = self:"parents"_1;
     l = self:"parents"_2;
     self:"coords" = dgs3dEpsilon46(p:"coords",l:"coords");
     DGS3DmOVEoK
   );
-  cglEval(obj:"recompute",obj);
-  cglEval(obj:"redraw",obj);
+  obj:"recompute":(obj);
+  obj:"redraw":(obj);
   obj
 );
 // l1: line, l2: line, size:real = radius, visible: bool = should object be drawn
@@ -1066,7 +1066,7 @@ dgs3dMeet2L(l1,l2):=(
   regional(obj);
   obj = dgs3dNewObject("point",[l1,l2]);
   obj:"size" = cglValOrDefault(size,cglDefaults:"sphereSize");
-  obj:"recompute" = cglLazy(self,
+  obj:"recompute" = lambda(self,
     regional(l1,l2);
     l1 = dgs3dLineMatrix(dgs3dDualLine((self:"parents"_1):"coords"));
     l2 = dgs3dLineMatrix((self:"parents"_2):"coords");
@@ -1078,8 +1078,8 @@ dgs3dMeet2L(l1,l2):=(
     self:"coords" = (l1*l2)*(1,pi,1,0);
     DGS3DmOVEoK
   );
-  cglEval(obj:"recompute",obj);
-  cglEval(obj:"redraw",obj);
+  obj:"recompute":(obj);
+  obj:"redraw":(obj);
   obj
 );
 dgs3dTracePointPair(self,AB):=(
@@ -1123,11 +1123,11 @@ dgs3dTracePointSet(self,pts):=(
   DGS3DmOVEoK
 );
 dgs3dFinishPointSet(obj):=(
-  cglEval(obj:"recompute",obj);
-  cglEval(obj:"redraw",obj);
+  obj:"recompute":(obj);
+  obj:"redraw":(obj);
   forall(obj:"children",child,
     child:"size" = cglValOrDefault(size,cglDefaults:"sphereSize");
-    cglEval(child:"recompute",child);
+    child:"recompute":(child);
     dgs3dRenderPoint(child);
   );
   obj
@@ -1137,7 +1137,7 @@ dgs3dMeetQL(Q1,l1):=(
   regional(obj);
   obj = dgs3dNewObject("pointSet",[Q1,l1]);
   obj:"children" = [dgs3dNewObject("point",[obj]),dgs3dNewObject("point",[obj])];
-  obj:"recompute" = cglLazy(self,
+  obj:"recompute" = lambda(self,
     regional(Q,l,AB,oldA,oldB,d11,d12,d21,d22);
     Q = self:"parents"_1:"coords";
     l = self:"parents"_2:"coords";
@@ -1173,12 +1173,12 @@ dgs3dMeet3P(P1,P2,P3):=(
   regional(obj);
   obj = dgs3dNewObject("point",[P1,P2,P3]);
   obj:"size" = cglValOrDefault(size,cglDefaults:"sphereSize");
-  obj:"recompute" = cglLazy(self,
+  obj:"recompute" = lambda(self,
     self:"coords" = dgs3dEpsilon444(self:"parents"_1:"coords",self:"parents"_2:"coords",self:"parents"_3:"coords");
     DGS3DmOVEoK
   );
-  cglEval(obj:"recompute",obj);
-  cglEval(obj:"redraw",obj);
+  obj:"recompute":(obj);
+  obj:"redraw":(obj);
   obj
 );
 // Q1: quadric, p1: plane, p2: plane ; size:real = radius, visible: bool = should object be drawn
@@ -1186,7 +1186,7 @@ dgs3dMeetQpp(Q1,p1,p2):=(
   regional(obj);
   obj = dgs3dNewObject("pointSet",[Q1,p1,p2]);
   obj:"children" = [dgs3dNewObject("point",[obj]),dgs3dNewObject("point",[obj])];
-  obj:"recompute" = cglLazy(self,
+  obj:"recompute" = lambda(self,
     regional(Q,p1,p2,AB,oldA,oldB,d11,d12,d21,d22);
     Q = self:"parents"_1:"coords";
     p1 = self:"parents"_2:"coords";
@@ -1201,7 +1201,7 @@ dgs3dMeetCp(C,p):=(
   regional(obj);
   obj = dgs3dNewObject("pointSet",[C,p]);
   obj:"children" = [dgs3dNewObject("point",[obj]),dgs3dNewObject("point",[obj])];
-  obj:"recompute" = cglLazy(self,
+  obj:"recompute" = lambda(self,
     regional(Q,C,AB,oldA,oldB,d11,d12,d21,d22);
     C = self:"parents"_1:"coords";
     p = self:"parents"_2:"coords";
@@ -1237,7 +1237,7 @@ dgs3dMeetQQp(Q1,Q2,p):=(
   regional(obj);
   obj = dgs3dNewObject("pointSet",[Q1,Q2,p]);
   obj:"children" = apply(1..4,dgs3dNewObject("point",[obj]));
-  obj:"recompute" = cglLazy(self,
+  obj:"recompute" = lambda(self,
     regional(Q1,Q2,p,AB,oldA,oldB,d11,d12,d21,d22);
     Q1 = self:"parents"_1:"coords";
     Q2 = self:"parents"_2:"coords";
@@ -1252,7 +1252,7 @@ dgs3dMeetQuadricConic(Q,C):=(
   regional(obj);
   obj = dgs3dNewObject("pointSet",[Q,C]);
   obj:"children" = apply(1..4,dgs3dNewObject("point",[obj]));
-  obj:"recompute" = cglLazy(self,
+  obj:"recompute" = lambda(self,
     regional(Q,C,AB,oldA,oldB,d11,d12,d21,d22);
     Q = self:"parents"_1:"coords";
     C = self:"parents"_2:"coords";;
@@ -1266,7 +1266,7 @@ dgs3dMeetIntQ2Plane(Q2,p):=(
   regional(obj);
   obj = dgs3dNewObject("pointSet",[Q2,p]);
   obj:"children" = apply(1..4,dgs3dNewObject("point",[obj]));
-  obj:"recompute" = cglLazy(self,
+  obj:"recompute" = lambda(self,
     regional(Q2,p,AB,oldA,oldB,d11,d12,d21,d22);
     Q2 = self:"parents"_1:"coords";
     p = self:"parents"_2:"coords";;
@@ -1281,7 +1281,7 @@ dgs3dMeet3Q(Q1,Q2,Q3):=(
   regional(obj);
   obj = dgs3dNewObject("pointSet",[Q1,Q2,Q3]);
   obj:"children" = apply(1..8,dgs3dNewObject("point",[obj]));
-  obj:"recompute" = cglLazy(self,
+  obj:"recompute" = lambda(self,
     regional(Q1,Q2,Q3,sols);
     Q1 = self:"parents"_1:"coords";
     Q2 = self:"parents"_2:"coords";
@@ -1538,12 +1538,12 @@ dgs3dPolarPlane(Q,p):=(
   regional(obj);
   obj = dgs3dNewObject("plane",[Q,p]);
   obj:"size" = cglValOrDefault(size,cglDefaults:"sphereSize");
-  obj:"recompute" = cglLazy(self,
+  obj:"recompute" = lambda(self,
     self:"coords" = self:"parents"_1:"coords" * self:"parents"_2:"coords";
     DGS3DmOVEoK
   );
-  cglEval(obj:"recompute",obj);
-  cglEval(obj:"redraw",obj);
+  obj:"recompute":(obj);
+  obj:"redraw":(obj);
   obj
 );
 // Q: quadric, l: line => line, visible: bool = should object be drawn
@@ -1551,15 +1551,15 @@ dgs3dPolarLine(Q,l):=(
   regional(obj);
   obj = dgs3dNewObject("line",[Q,l]);
   obj:"size" = cglValOrDefault(size,cglDefaults:"cylinderSize");
-  obj:"recompute" = cglLazy(self,
+  obj:"recompute" = lambda(self,
     regional(L,Q);
     Q = self:"parents"_1:"coords";
     L = dgs3dLineMatrix(self:"parents"_2:"coords");
     self:"coords"= dgs3dLineFromDualMatrix(adjoint4(Q)*L*adjoint4(Q));
     DGS3DmOVEoK
   );
-  cglEval(obj:"recompute",obj);
-  cglEval(obj:"redraw",obj);
+  obj:"recompute":(obj);
+  obj:"redraw":(obj);
   obj
 );
 // Q: quadric, P: plane => point, visible: bool = should object be drawn
@@ -1567,12 +1567,12 @@ dgs3dPolarPoint(Q,P):=(
   regional(obj);
   obj = dgs3dNewObject("point",[Q,P]);
   obj:"size" = cglValOrDefault(size,cglDefaults:"sphereSize");
-  obj:"recompute" = cglLazy(self,
+  obj:"recompute" = lambda(self,
     self:"coords" = adjoint4(self:"parents"_1:"coords") * self:"parents"_2:"coords";
     DGS3DmOVEoK
   );
-  cglEval(obj:"recompute",obj);
-  cglEval(obj:"redraw",obj);
+  obj:"recompute":(obj);
+  obj:"redraw":(obj);
   obj
 );
 
@@ -1583,15 +1583,15 @@ dgs3dQuadric9point(pts):=(
     cglLogWarning("wrong number of points expected 9 got "+length(pts));
   );
   obj = dgs3dNewObject("quadric",pts);
-  obj:"recompute" = cglLazy(self,
+  obj:"recompute" = lambda(self,
     regional(pts,v);
     pts = apply(self:"parents",p,dgs3dSqCoords(p:"coords"));
     v = transpose(kernel(pts++[(0,0,0,0,0,0,0,0,0,0)]))_1;
     self:"coords" = ((2*v_1,v_2,v_3,v_4),(v_2,2*v_5,v_6,v_7),(v_3,v_6,2*v_8,v_9),(v_4,v_7,v_9,2*v_10));
     DGS3DmOVEoK
   );
-  cglEval(obj:"recompute",obj);
-  cglEval(obj:"redraw",obj);
+  obj:"recompute":(obj);
+  obj:"redraw":(obj);
   obj
 );
 // pts: [plane; 9] => quadric, visible: bool = should object be drawn
@@ -1601,7 +1601,7 @@ dgs3dQuadric9plane(planes):=(
     cglLogWarning("wrong number of planes expected 9 got "+length(planes));
   );
   obj = dgs3dNewObject("quadric",planes);
-  obj:"recompute" = cglLazy(self,
+  obj:"recompute" = lambda(self,
     regional(planes,v,M);
     planes = apply(self:"parents",p,dgs3dSqCoords(p:"coords"));
     v = transpose(kernel(planes++[(0,0,0,0,0,0,0,0,0,0)]))_1;
@@ -1609,8 +1609,8 @@ dgs3dQuadric9plane(planes):=(
     self:"coords" = adjoint4(M);
     DGS3DmOVEoK
   );
-  cglEval(obj:"recompute",obj);
-  cglEval(obj:"redraw",obj);
+  obj:"recompute":(obj);
+  obj:"redraw":(obj);
   obj
 );
 
@@ -1634,30 +1634,30 @@ dgs3dParallelLine(l,p):=(
   regional(obj);
   obj = dgs3dNewObject("line",[l,p]);
   obj:"size" = cglValOrDefault(size,cglDefaults:"cylinderSize");
-  obj:"recompute" = cglLazy(self,
+  obj:"recompute" = lambda(self,
     regional(l,p);
     l = self:"parents"_1:"coords";
     p = self:"parents"_2:"coords";
     self:"coords" = dgs3dEpsilon44(p,dgs3dEpsilon46((0,0,0,1),l));
     DGS3DmOVEoK
   );
-  cglEval(obj:"recompute",obj);
-  cglEval(obj:"redraw",obj);
+  obj:"recompute":(obj);
+  obj:"redraw":(obj);
   obj
 );
 // P: plane, p: point => plane; size:real = radius, visible: bool = should object be drawn
 dgs3dParallelPlane(P,p):=(
   regional(obj);
   obj = dgs3dNewObject("plane",[P,p]);
-  obj:"recompute" = cglLazy(self,
+  obj:"recompute" = lambda(self,
     regional(P,p);
     P = self:"parents"_1:"coords";
     p = self:"parents"_2:"coords";
     self:"coords" = dgs3dEpsilon46(p,dgs3dEpsilon44((0,0,0,1),P));
     DGS3DmOVEoK
   );
-  cglEval(obj:"recompute",obj);
-  cglEval(obj:"redraw",obj);
+  obj:"recompute":(obj);
+  obj:"redraw":(obj);
   obj
 );
 // x: plane|line, p: point => line|plane|; size:real = radius, visible: bool = should object be drawn
@@ -1680,22 +1680,22 @@ dgs3dOrthogonalLine(P,p):=(
   regional(obj);
   obj = dgs3dNewObject("line",[P,p]);
   obj:"size" = cglValOrDefault(size,cglDefaults:"cylinderSize");
-  obj:"recompute" = cglLazy(self,
+  obj:"recompute" = lambda(self,
     regional(P,p);
     P = self:"parents"_1:"coords";
     p = self:"parents"_2:"coords";
     self:"coords" = dgs3dEpsilon44(p,p+(P_1,P_2,P_3,0));
     DGS3DmOVEoK
   );
-  cglEval(obj:"recompute",obj);
-  cglEval(obj:"redraw",obj);
+  obj:"recompute":(obj);
+  obj:"redraw":(obj);
   obj
 );
 // l: line, p: point => line; size:real = radius, visible: bool = should object be drawn
 dgs3dOrthogonalPlane(l,p):=(
   regional(obj);
   obj = dgs3dNewObject("plane",[l,p]);
-  obj:"recompute" = cglLazy(self,
+  obj:"recompute" = lambda(self,
     regional(l,p,K,n);
     l = self:"parents"_1:"coords";
     p = self:"parents"_2:"coords";
@@ -1705,8 +1705,8 @@ dgs3dOrthogonalPlane(l,p):=(
     self:"coords" = (n_1*p_4,n_2*p_4,n_3*p_4,-(p_1,p_2,p_3)*n);
     DGS3DmOVEoK
   );
-  cglEval(obj:"recompute",obj);
-  cglEval(obj:"redraw",obj);
+  obj:"recompute":(obj);
+  obj:"redraw":(obj);
   obj
 );
 // l1: line, l2: line => line; size:real = radius, visible: bool = should object be drawn
@@ -1714,7 +1714,7 @@ dgs3dOrthogonal2L(l1,l2):=(
   regional(obj);
   obj = dgs3dNewObject("line",[l1,l2]);
   obj:"size" = cglValOrDefault(size,cglDefaults:"cylinderSize");
-  obj:"recompute" = cglLazy(self,
+  obj:"recompute" = lambda(self,
     regional(l1,l2,K1,K2,p1,p2,n1,n2,n,sol,p);
     l1 = self:"parents"_1:"coords";
     l2 = self:"parents"_2:"coords";
@@ -1740,8 +1740,8 @@ dgs3dOrthogonal2L(l1,l2):=(
     self:"coords" = dgs3dEpsilon44((p_1,p_2,p_3,1),(p_1+n_1,p_2+n_2,p_3+n_3,1));
     DGS3DmOVEoK
   );
-  cglEval(obj:"recompute",obj);
-  cglEval(obj:"redraw",obj);
+  obj:"recompute":(obj);
+  obj:"redraw":(obj);
   obj
 );
 
@@ -1779,15 +1779,15 @@ dgs3dMeetQP(Q,p):=(
   regional(obj);
   obj = dgs3dNewObject("conic",[Q,p]);
   obj:"size" = cglValOrDefault(size,cglDefaults:"cylinderSize");
-  obj:"recompute" = cglLazy(self,
+  obj:"recompute" = lambda(self,
     regional(Q,p);
     Q = self:"parents"_1:"coords";
     p = self:"parents"_2:"coords";
     self:"coords" = [Q,p];
     DGS3DmOVEoK
   );
-  cglEval(obj:"recompute",obj);
-  cglEval(obj:"redraw",obj);
+  obj:"recompute":(obj);
+  obj:"redraw":(obj);
   obj
 );
 // Q1: quadric, Q2: quadric => intersection2Q; size:real = radius, visible: bool = should object be drawn
@@ -1795,15 +1795,15 @@ dgs3dMeet2Q(Q1,Q2):=(
   regional(obj);
   obj = dgs3dNewObject("intersection2Q",[Q1,Q2]);
   obj:"size" = cglValOrDefault(size,cglDefaults:"cylinderSize");
-  obj:"recompute" = cglLazy(self,
+  obj:"recompute" = lambda(self,
     regional(Q1,Q2);
     Q1 = self:"parents"_1:"coords";
     Q2 = self:"parents"_2:"coords";
     self:"coords" = [Q1,Q2];
     DGS3DmOVEoK
   );
-  cglEval(obj:"recompute",obj);
-  cglEval(obj:"redraw",obj);
+  obj:"recompute":(obj);
+  obj:"redraw":(obj);
   obj
 );
 // TODO? transformations

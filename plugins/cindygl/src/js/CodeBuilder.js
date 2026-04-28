@@ -82,7 +82,6 @@ CodeBuilder.prototype.texturereaders;
 const BUILTIN_DISCARD = "cgldiscard";
 const BUILTIN_TEXTURE4 = "cgltexture";
 const BUILTIN_TEXTURE3 = "cgltexturergb";
-const BUILTIN_EVAL_LAZY = "cgleval";
 const BUILTIN_VIEW_RECT = "cglviewrect";
 const BUILTIN_CGLDEPTH = "cglDepth";
 /** @type {Map<string,{type:string,code:string,expr:string,valueType:type,writable:boolean}>} */
@@ -91,7 +90,6 @@ CodeBuilder.builtIns=new Map([
     [BUILTIN_DISCARD,{type:"operator",code:"discard;\n",expr:"",valueType:type.voidt,writable:false}],
     [BUILTIN_TEXTURE4,{type:"function",code:"",expr:"texture",valueType:type.vec4,args:[type.image,type.vec2],writable:false}],
     [BUILTIN_TEXTURE3,{type:"function",code:"",expr:"texture",valueType:type.vec3,args:[type.image,type.vec2],writable:false}],
-    [BUILTIN_EVAL_LAZY,{type:"function",code:"",expr:"",valueType:undefined,args:undefined,writable:false}],
     // 3D- only
     // TODO make cglViewPos a function for consistency with interpreted CindyScript code
     ["cglViewPos",{type:"uniform",code:"",expr:"pixelViewPos",valueType:type.vec3,writable:false}],
@@ -158,10 +156,6 @@ CodeBuilder.prototype.computeType = function(expr) { //expression
             return CodeBuilder.builtIns.get(name).valueType;
         } else if (expr['ctype'] === 'function') {
             let name = getPlainName(expr['oper']);
-            if(name == BUILTIN_EVAL_LAZY){
-                // type of lazy is type of contained expression
-                return this.getType(expr['args'][0]);
-            }
             return CodeBuilder.builtIns.get(name).valueType;
         }
         cglLogError(`unsupported built-in ${JSON.stringify(expr)}`);
@@ -202,8 +196,8 @@ CodeBuilder.prototype.computeType = function(expr) { //expression
         return type.image;
     } else if (expr['ctype'] === 'list' || expr['ctype'] === 'boolean') {
         return constant(expr);
-    } else if (expr['ctype'] === 'cglLazy') {
-        return type.cglLazy(expr);
+    } else if (expr['ctype'] === 'lambda') {
+        return type.lambda(expr);
     } else if (expr['ctype'] === 'function' || expr['ctype'] === 'infix') {
         if(getPlainName(expr['oper'])=='if') {
             let condType = this.getType(expr['args'][0]);
@@ -280,6 +274,9 @@ CodeBuilder.prototype.computeType = function(expr) { //expression
     } else if (expr['ctype'] === 'userdata') {
         let baseType = generalize(this.getType(expr['obj']));
         if (!baseType) return false;
+        if (expr.params !== undefined) {// lambdaExpression
+            return generalize(this.getType(expr['obj']));
+        }
         let key = expr['key'];
         if (baseType.type !== 'tuple' || baseType.names === undefined) {
             cglLogError("element access is only supported on JSON values");
@@ -339,111 +336,107 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
         return ans;
     }
 
+    function resolveLambdaData(expr, bindings, scope, forceconstant) {
+        let lambdaExpr = expr['obj'];
+        let argsExpr = expr['key'];
+        let args;
+        if(argsExpr['ctype'] === 'list') {
+            args = argsExpr['value'];
+        } else if(argsExpr['ctype'] === 'function' && argsExpr['oper'].toLowerCase() === "genlist") {
+            args = argsExpr['args'];
+        } else if(argsExpr['ctype'] === 'void') {
+            args = [];
+        } else {
+            args = [argsExpr];
+        }
+        if(lambdaExpr['ctype'] !== 'variable'){
+            return;
+        }
+        let exprName = lambdaExpr['name'];
+        exprName = bindings[exprName] || exprName;
+        let exprData;
+        if(self.modifierTypes.has(exprName)){
+            let modifierData = self.modifierTypes.get(exprName);
+            let exprType = modifierData.type;
+            if(!exprType.value || !exprType.value.ctype || exprType.value.ctype !== 'lambda'){
+                return;
+            }
+            modifierData.used = true;
+            exprData = exprType.value;
+        } else if (variables[exprName] && variables[exprName].T && variables[exprName].T.type === 'lambda') {
+            exprData = variables[exprName].T.value;
+        } else {
+            let val = self.api.evaluate(lambdaExpr);
+            if(val['ctype'] !== 'lambda'){
+                return;
+            }
+            exprData = val;
+        }
+        if(args.length !== exprData['params'].length){
+            cglLogError(`wrong number of arguments for lambda function expected ${
+                exprData['params'].length
+            } got ${args.length}`);
+            return;
+        }
+        // create independent set of bindings for body of expression
+        let nbindings = {};
+        Object.entries(exprData['modifs']).forEach(([key,value])=>{
+            // TODO? are non-lambda modifiers handled correctly
+            let iname = generateUniqueHelperString();
+            nbindings[key] = iname;
+            if (!myfunctions[scope].variables) myfunctions[scope].variables = [];
+            myfunctions[scope].variables.push(iname);
+            self.initvariable(iname, false);
+            variables[iname].assigments.push(value);
+            if(value['ctype'] === 'image' || value['ctype'] === 'string' || value['ctype'] === 'lambda') {
+                variables[iname].T = guessTypeOfValue(value);
+            } else {
+                variables[iname].T = constant(value);
+            }
+        });
+        let inlined = {}; // remember which arguments where inlined
+        exprData['params'].forEach((param_,index) => {
+            // !!! do not modify the original param, modifications can leak into different uses of the same lambda-expression
+            const param = Object.assign({}, param_);
+            let vname = param['name'];
+            let iname = generateUniqueHelperString();
+            nbindings[vname] = iname;
+            if (!myfunctions[scope].variables) myfunctions[scope].variables = [];
+            myfunctions[scope].variables.push(iname);
+            self.initvariable(iname, false);
+            variables[iname].assigments.push(args[index]);
+        });
+        // clone expression to allow more than one instantiation
+        expr['obj'] = cloneExpression(exprData['body']);
+        expr.args = args;
+        // expression added to code in indirect way -> some functions may not yet have been copied
+        self.copyRequiredFunctions(expr['obj']);
+        expr.params = exprData['params'].map(param=>{
+            // create independent copy of parameter
+            let newParam = Object.assign({}, param);
+            newParam["inline"] = inlined.hasOwnProperty(param['name']);
+            newParam.bindings = nbindings;
+            return newParam;
+        });
+        expr.modifs = Object.entries(exprData['modifs']).map(([name,value])=>{
+            return [name,value,nbindings];
+        });
+        rec(expr['obj'],nbindings,scope,forceconstant);
+        // prepare variable for result of expression
+        expr.resName = generateUniqueHelperString();
+        
+        if (!myfunctions[scope].variables) myfunctions[scope].variables = [];
+        myfunctions[scope].variables.push(expr.resName);
+        self.initvariable(expr.resName, false);
+        variables[expr.resName].assigments.push(expr);
+    }
     //dfs over executed code
     function rec(expr, bindings, scope, forceconstant) {
         expr.bindings = bindings;
-        if (expr['ctype'] === 'function' &&
-            getPlainName(expr['oper']) === BUILTIN_EVAL_LAZY && expr['args'].length > 0
-        ) {
-            let argCount = expr['args'].length-1;
-            let exprExpr = expr['args'][0];
-            if(exprExpr['ctype'] !== 'variable'){
-                // TODO? allow other expressions
-                cglLogError(`unexpected argument for ${
-                    BUILTIN_EVAL_LAZY
-                } expected variable got`,exprExpr);
-                return;
-            }
-            let exprName = exprExpr['name'];
-            exprName = bindings[exprName] || exprName;
-            let exprData;
-            if(self.modifierTypes.has(exprName)){
-                let modifierData = self.modifierTypes.get(exprName);
-                let exprType = modifierData.type;
-                if(!exprType.value || !exprType.value.ctype || exprType.value.ctype !== 'cglLazy'){
-                    cglLogError(`unexpected argument for ${
-                        BUILTIN_EVAL_LAZY
-                    } expected cglLazy got`,exprType, exprExpr);
-                    return;
-                }
-                modifierData.used = true;
-                exprData = exprType.value;
-            } else if (variables[exprName] && variables[exprName].T && variables[exprName].T.type === 'cglLazy') {
-                exprData = variables[exprName].T.value;
-            } else {
-                let val = self.api.evaluate(exprExpr);
-                if(val['ctype'] !== 'cglLazy'){
-                    cglLogError(`unexpected argument for ${
-                        BUILTIN_EVAL_LAZY
-                    } expected cglLazy got`,val);
-                    return;
-                }
-                exprData = val;
-            }
-            if(argCount !== exprData.params.length){
-                cglLogError(`wrong number of arguments for lazy function expected ${
-                    exprData.params.length
-                } got ${argCount}`);
-                return;
-            }
-            // create independent set of bindings for body of expression
-            let nbindings = {};
-            exprData.modifs.forEach(([key,value])=>{
-                // TODO? are non-lazy modifiers handled correctly
-                let iname = generateUniqueHelperString();
-                nbindings[key] = iname;
-                if (!myfunctions[scope].variables) myfunctions[scope].variables = [];
-                myfunctions[scope].variables.push(iname);
-                self.initvariable(iname, false);
-                variables[iname].assigments.push(value);
-                if(value['ctype'] === 'image' || value['ctype'] === 'string' || value['ctype'] === 'cglLazy') {
-                    variables[iname].T = guessTypeOfValue(value);
-                } else {
-                    variables[iname].T = constant(value);
-                }
-            });
-            let inlined = {}; // remember which arguments where inlined
-            exprData.params.forEach((param_,index) => {
-                // !!! do not modify the original param, modifications can leak into different uses of the same lazy-expression
-                const param = Object.assign({}, param_);
-                let vname = param['name'];
-                // TODO? should modification to lazy-argument modifiy passed in variable
-                if(expr['args'][index+1]['ctype']==='variable') {
-                    // resuse same variable if argument is variable
-                    let argname = expr['args'][index+1]['name'];
-                    nbindings[vname] = bindings[argname] || argname;
-                    inlined[vname] = true;
-                } else {
-                    let iname = generateUniqueHelperString();
-                    nbindings[vname] = iname;
-                    if (!myfunctions[scope].variables) myfunctions[scope].variables = [];
-                    myfunctions[scope].variables.push(iname);
-                    self.initvariable(iname, false);
-                    variables[iname].assigments.push(expr['args'][index+1]);
-                }
-            });
-            // clone expression to allow more than one instantiation
-            expr['args'][0] = cloneExpression(exprData.expr);
-            // expression added to code in indirect way -> some functions may not yet have been copied
-            self.copyRequiredFunctions(expr['args'][0]);
-            expr['args'][0].bindings = nbindings;
-            expr.params = exprData.params.map(param=>{
-                // create independent copy of parameter
-                let newParam = Object.assign({}, param);
-                newParam["inline"] = inlined.hasOwnProperty(param['name']);
-                newParam.bindings = nbindings;
-                return newParam;
-            });
-            expr.modifs = exprData.modifs.map(([name,value])=>{
-                return [name,value,nbindings];
-            });
-            // prepare variable for result of expression
-            expr.resName = generateUniqueHelperString();
-            
-            if (!myfunctions[scope].variables) myfunctions[scope].variables = [];
-            myfunctions[scope].variables.push(expr.resName);
-            self.initvariable(expr.resName, false);
-            variables[expr.resName].assigments.push(expr);
+        if (expr['ctype'] === 'userdata') {
+            rec(expr['obj'], bindings, scope, forceconstant);
+            rec(expr['key'], bindings, scope, forceconstant);
+            resolveLambdaData(expr,bindings,scope,forceconstant);
         }
         // TODO? add support for: sum$2, sum$3, product$2, product$3
         for (let i in expr['args']) {
@@ -458,8 +451,6 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
                 } else if (i == 2) { //take same bindings as for second argument
                     nbindings = expr['args'][1].bindings;
                 }
-            } else if(i==0 && getPlainName(expr['oper']) === BUILTIN_EVAL_LAZY){
-                nbindings = expr['args'][0].bindings;
             }
             rec(expr['args'][i],
                 nbindings,
@@ -467,11 +458,13 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
                 needtobeconstant);
         }
         if (expr['ctype'] === 'field') rec(expr['obj'], bindings, scope, forceconstant);
-        if (expr['ctype'] === 'userdata') rec(expr['obj'], bindings, scope, forceconstant);
         if (expr['ctype'] === 'jsonatom') rec(expr['value'], bindings, scope, forceconstant);
 
         if (expr['ctype'] === 'variable') {
             let vname = expr['name'];
+            if(CodeBuilder.builtIns.has(vname)) {
+                expr['isbuiltin'] = true;
+            }
             // TODO? special handling for built-in variables
             vname = bindings[vname] || vname;
             if (forceconstant && self.variables[vname]) {
@@ -706,7 +699,7 @@ CodeBuilder.prototype.determineUniforms = function(expr) {
             return expr["dependsOnPixel"] = dependsOnPixel(expr['obj']);
         }
         if (expr['ctype'] === 'userdata') {
-            return expr["dependsOnPixel"] = dependsOnPixel(expr['obj']);
+            return expr["dependsOnPixel"] = dependsOnPixel(expr['obj']) || dependsOnPixel(expr['key']);
         }
         if (expr['ctype'] === 'jsonatom') {
             return expr["dependsOnPixel"] = dependsOnPixel(expr['value']);
@@ -966,45 +959,6 @@ CodeBuilder.prototype.compile = function(expr, generateTerm) {
         } : {
             code: builtIn.code
         };
-    } else if(expr['isbuiltin'] && expr['ctype'] === 'function' && getPlainName(expr['oper']) == BUILTIN_EVAL_LAZY){
-        let code = "";
-        // assign arguments to parameters
-        expr.params.forEach((param,index)=>{
-            if(param['inline'])return;// skip inlined parameters
-            code+=this.compile(opAssign(param,expr['args'][index+1]),false).code;
-        });
-        // assign values to modifiers
-        expr.modifs.forEach(([key,value,bindings])=>{
-            if(value['ctype']==='cglLazy')
-                return; // skip textures and lazy values
-            if(value['ctype']==='string' || value['ctype']==='image') {
-                // TODO? seperate map for image uniforms
-                // create fake uniform variable to make image information accessible to TextureReader
-                this.uniforms[bindings[key] || key] = {
-                    expr: value,
-                    type: type.image,
-                    forceconstant: false
-                };
-                return;
-            }
-            code+=this.compile(opAssign({ctype:'variable',name:key,bindings:bindings},value),false).code;
-        });
-        // evaluate "lazy" expression
-        let result = this.compile(expr['args'][0],generateTerm);
-        // store computed result in variable to ensure correct evaluation order for multiple cglLazy-calls in single expression
-        if(result.term) {
-            let resType = this.getType(expr);
-            if(result.term && resType !== type.voidt) {
-                result.code += `${expr.resName} = ${result.term};\n`;
-                result.term = expr.resName;
-            } else {
-                result.code += result.term;
-                result.term = "";
-            }
-        }
-        // insert assignemnt code before expression code
-        result.code = code+result.code;
-        return result;
     } else if(expr['ismodifier']){
         if(expr['ctype'] === 'variable'){
             let vname = expr['name'];
@@ -1418,6 +1372,47 @@ CodeBuilder.prototype.compile = function(expr, generateTerm) {
             });
         }
     } else if (expr['ctype'] === 'userdata') {
+        if (expr.params !== undefined) {
+            let code = "";;
+            let args = expr.args;
+            // assign arguments to parameters
+            expr.params.forEach((param,index)=>{
+                if(param['inline'])return;// skip inlined parameters
+                code+=this.compile(opAssign(param,args[index]),false).code;
+            });
+            // assign values to modifiers
+            expr.modifs.forEach(([key,value,bindings])=>{
+                if(value['ctype']==='lambda')
+                    return; // skip textures and lambda values
+                if(value['ctype']==='string' || value['ctype']==='image') {
+                    // TODO? seperate map for image uniforms
+                    // create fake uniform variable to make image information accessible to TextureReader
+                    this.uniforms[bindings[key] || key] = {
+                        expr: value,
+                        type: type.image,
+                        forceconstant: false
+                    };
+                    return;
+                }
+                code+=this.compile(opAssign({ctype:'variable',name:key,bindings:bindings},value),false).code;
+            });
+            // evaluate lambda expression
+            let result = this.compile(expr["obj"],generateTerm);
+            // store computed result in variable to ensure correct evaluation order for multiple lambda-calls in single expression
+            if(result.term) {
+                let resType = this.getType(expr["obj"]);
+                if(result.term && resType !== type.voidt) {
+                    result.code += `${expr.resName} = ${result.term};\n`;
+                    result.term = expr.resName;
+                } else {
+                    result.code += result.term;
+                    result.term = "";
+                }
+            }
+            // insert assignemnt code before expression code
+            result.code = code+result.code;
+            return result;
+        }
         let objt = this.getType(expr['obj']);
         let key = expr['key'].value;
         if (!objt || objt.names === undefined) {
@@ -1471,8 +1466,8 @@ CodeBuilder.prototype.compileFunction = function(fname, nargs) {
     for (let i in m.variables) {
         let iname = m.variables[i];
         const varType = this.variables[iname].T;
-        if(varType === type.voidt  || varType === type.image || varType.type === 'cglLazy')
-            continue;// skip void, image and lazy variables
+        if(varType === type.voidt  || varType === type.image || varType.type === 'lambda')
+            continue;// skip void, image and lambda variables
         code += `${webgltype(varType)} ${iname};\n`;
     }
     let r = self.compile(m.body, !isvoid);
@@ -1490,12 +1485,12 @@ CodeBuilder.prototype.generateListOfUniforms = function() {
     for (let uname in this.uniforms)
         if (this.uniforms[uname].type.type != 'constant' &&
              this.uniforms[uname].type != type.image &&
-             this.uniforms[uname].type.type != 'cglLazy'
+             this.uniforms[uname].type.type != 'lambda'
         ) {
             ans.push(`uniform ${webgltype(this.uniforms[uname].type)} ${uname};`);
         }
     this.modifierTypes.forEach((value,name)=>{
-        if(value.type.type == 'cglLazy') return;
+        if(value.type.type == 'lambda') return;
         if(!value.used) return;
         // TODO? should image modifiers be allowed
         if(value.isuniform) {

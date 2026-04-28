@@ -270,7 +270,7 @@ let CindyGL = function(api) {
      * @param {CindyJS.anyval} paramArg
      * @returns {Array<CindyJS.anyval>}
      *  */
-    function cglLazyParams(paramArg){
+    function lambdaParams(paramArg){
         if(paramArg['ctype'] === "list") {
             return paramArg['value'];
         } else if(paramArg['ctype'] === "function" && paramArg['oper'] === "genList"){
@@ -279,7 +279,6 @@ let CindyGL = function(api) {
             return [paramArg];
         }
     }
-    let cglEvalCallCount=0;
     /** replace all occurences of names in argValues in the given expression with their corresponding value
         @param {Map<string,CindyJS.anyval>} argValues
     */
@@ -316,8 +315,8 @@ let CindyGL = function(api) {
                 let argValues2 = /** @type {Map<string,CindyJS.anyval>}*/ (new Map(argValues));
                 argValues2.delete(itrName);
                 newArgs = [replaceVariables(expr['args'][0],argValues),expr['args'][1],replaceVariables(expr['args'][2],argValues2)];
-            } else if(expr['ctype'] === 'function' && expr['oper'] === "cgllazy$2") {
-                const params = cglLazyParams(expr['args'][0]);
+            } else if(expr['ctype'] === 'function' && expr['oper'] === "lambda$2") {
+                const params = lambdaParams(expr['args'][0]);
                 // seperate scope within body -> create copy of argValues
                 let argValues2 = /** @type {Map<string,CindyJS.anyval>}*/ (new Map(argValues));
                 params.forEach(v=>{
@@ -330,8 +329,8 @@ let CindyGL = function(api) {
                     // regional variable
                     newArgs = expr['args'].map((oldArg)=>replaceVariables(oldArg,argValues));
                 } else {
-                    // TODO? how to handle (conditional) assignment to cgl-lazy parameter
-                    cglLogError(`assignemnt to cglLazy parameter "${expr['args'][0]['name']}" is not supported`);
+                    // TODO? how to handle (conditional) assignment to lambda parameter
+                    cglLogError(`assignemnt to lambda parameter "${expr['args'][0]['name']}" is not supported`);
                 }
             } else if(expr['oper'] === ":=") {
                 const lhs = expr['args'][0];
@@ -348,7 +347,7 @@ let CindyGL = function(api) {
                     let renamed = Object.assign({}, v);
                     // regional variables in api.evaluate leak into enclosing scope
                     // -> set name to invalid identifier to ensure variable stays within eval-block
-                    renamed['name']=`${cglEvalCallCount}_${v['name']}`;
+                    renamed['name']=`0_${v['name']}`;
                     argValues.set(v['name'],renamed); // regional shaddows argument
                     return renamed;
                 });
@@ -367,7 +366,7 @@ let CindyGL = function(api) {
             }
             return newExpr;
         }
-        // TODO is this enough to replace all lazy params
+        // TODO is this enough to replace all lambda params
         return expr;
     }
 
@@ -651,15 +650,15 @@ let CindyGL = function(api) {
             return;
         }
         expr = tryEvaluate(expr,api,expr);
-        if(expr['ctype']==='cglLazy'){
+        if(expr['ctype']==='lambda'){
             if(expr.params.length>0) {
                 cglLogWarning("opacity expression should not have any parameters");
             }
-            expr = expr.expr;
+            expr = expr.body;
         } else {
             expr = obj3d.opaqueIfExpr;
         }
-        expr = replaceVariables(expr,obj3d.plotModifiers);
+        expr = replaceVariables(expr,obj3d.plotModifiers); // TODO: is there a better way to update plot-modifiers while parsing
         const value = tryEvaluate(expr,api,nada);
         if(value['ctype']!=='boolean'){
             delete obj3d.opaque;
@@ -682,7 +681,7 @@ let CindyGL = function(api) {
             computeOpacity(obj3d,api);
         }
         if(modifs.hasOwnProperty('onUpdate')) {
-            obj3d.onUpdate = tryResolveLazy(modifs['onUpdate']);
+            obj3d.onUpdate = tryResolveLambda(modifs['onUpdate']);
         }
         return {"ctype":"cgl3dObject","value":obj3d};
     });
@@ -769,7 +768,7 @@ let CindyGL = function(api) {
             computeOpacity(obj3d,api);
         }
         if(modifs.hasOwnProperty('onUpdate')) {
-            obj3d.onUpdate = tryResolveLazy(modifs['onUpdate']);
+            obj3d.onUpdate = tryResolveLambda(modifs['onUpdate']);
         }
         return {"ctype":"cgl3dObject","value":obj3d};
     });
@@ -792,7 +791,7 @@ let CindyGL = function(api) {
             computeOpacity(obj3d,api);
         }
         if(modifs.hasOwnProperty('onUpdate')) {
-            obj3d.onUpdate = tryResolveLazy(modifs['onUpdate']);
+            obj3d.onUpdate = tryResolveLambda(modifs['onUpdate']);
         }
         return {"ctype":"cgl3dObject","value":obj3d};
     });
@@ -823,7 +822,7 @@ let CindyGL = function(api) {
             computeOpacity(obj3d,api);
         }
         if(modifs.hasOwnProperty('onUpdate')) {
-            obj3d.onUpdate = tryResolveLazy(modifs['onUpdate']);
+            obj3d.onUpdate = tryResolveLambda(modifs['onUpdate']);
         }
         return {"ctype":"cgl3dObject","value":obj3d};
     });
@@ -849,7 +848,7 @@ let CindyGL = function(api) {
             computeOpacity(obj3d,api);
         }
         if(modifs.hasOwnProperty('onUpdate')) {
-            obj3d.onUpdate = tryResolveLazy(modifs['onUpdate']);
+            obj3d.onUpdate = tryResolveLambda(modifs['onUpdate']);
         }
         return {"ctype":"cgl3dObject","value":obj3d};
     });
@@ -965,7 +964,7 @@ let CindyGL = function(api) {
         }
         if(obj3d.onUpdate && obj3d.onUpdate["ctype"] !== "undefined") {
             obj3d.updating = true;
-            cglEvalImpl(obj3d.onUpdate,[boundyAsCS(obj3d)],{});
+            api.evaluate({ctype:"userdata","obj":obj3d.onUpdate,"key":toCjs([boundyAsCS(obj3d)])});
             obj3d.updating = false;
         }
     }
@@ -991,11 +990,11 @@ let CindyGL = function(api) {
         }
         try{
             let value = api.evaluate(args[0]);
-            if(value['ctype'] === 'cglLazy'){
+            if(value['ctype'] === 'lambda'){
                 if(value.params.length>0) {
                     cglLogWarning("cglTryEval expression should not take parameters");
                 }
-                value = value.expr;
+                value = value.body;
             }
             return api.evaluateAndVal(value);
         } catch(error) {
@@ -1015,51 +1014,51 @@ let CindyGL = function(api) {
         }
     }
     function parseInterfaceArgs(csVal) {
-        let argList = cglLazyParams(csVal);
+        let argList = lambdaParams(csVal);
         // use :<param-list> to mark parameter as function
         return argList.map(val => (
             val['ctype'] === 'userdata' ?{
                 name: asName(val['obj']),
-                args: cglLazyParams(val['key']),
+                args: lambdaParams(val['key']),
             } :{
                 name: asName(val),
                 args: null
             }
         ));
     }
-    // avoid evaluating non-lazy expressions when possible to prevent unintended side effects
-    function tryResolveLazy(value) {
-        // cglLazy can only be the result of evaluating a variable, function, user-data or element-access
+    // avoid evaluating non-lambda expressions when possible to prevent unintended side effects
+    function tryResolveLambda(value) {
+        // lambda can only be the result of evaluating a variable, function, user-data or element-access
         if(value['ctype'] === "variable" || value['ctype'] === "function" || value['ctype'] === "userdata"
                 || (value['ctype'] === "infix" && value['oper'] === '_'))
             value = tryEvaluate(value,api,value);
-        if(value['ctype'] === 'cglLazy') {
+        if(value['ctype'] === 'lambda') {
             return value;
         }
         return nada;
     }
     /**
      * @param {Array<*>} params 
-     * @param {boolean} tryUnwrap don't wrap if expr is already a cglLazy
+     * @param {boolean} tryUnwrap don't wrap if expr is already a lambda
      */
-    function wrapLazy(expr,params,tryUnwrap) {
+    function wrapLambda(expr,params,tryUnwrap) {
         if(tryUnwrap) {
-            let value = tryResolveLazy(expr);
-            if(value['ctype'] === 'cglLazy') {
+            let value = tryResolveLambda(expr);
+            if(value['ctype'] === 'lambda') {
                 if(value.params.length === params.length) {
                     return value;
                 }
-                cglLogError("lazy expression has wrong number of arguments: "+
+                cglLogError("lambda expression has wrong number of arguments: "+
                     `got: ${value.params.length} expected: ${params.length} (${params.map(p=>p['name']).join(",")})`
                 );
-                // TODO? add dummy parameters if given lazy does not have enough paramters
+                // TODO? add dummy parameters if given lambda does not have enough paramters
             }
         }
         return {
-            ctype: "cglLazy",
+            ctype: "lambda",
             params: params,
-            expr: cloneExpression(expr),
-            modifs: []
+            body: cloneExpression(expr),
+            modifs: {}
         };
     }
     /* cglInterface(<name>,<implName>,<args>,<modifs>)
@@ -1074,15 +1073,13 @@ let CindyGL = function(api) {
         let fn_args = parseInterfaceArgs(args[2]);
         // list of expected modifiers
         let fn_modifs = parseInterfaceArgs(args[3]);
-        createCglEval(0); // create eval for argument wrappers
         // create wrapper-function with given signature
         api.defineFunction(fn_name,fn_args.length,(args,modifs) => {
             let callArgs = new Array(args.length);
-            // convert function-arguments (marked with parameter-list as user-data) to cglLazy
+            // convert function-arguments (marked with parameter-list as user-data) to lambda
             for(let i=0;i<fn_args.length;i++) {
                 if (fn_args[i].args != null) {
-                    callArgs[i] = wrapLazy(args[i],fn_args[i].args,true);
-                    createCglEval(fn_args[i].args.length);
+                    callArgs[i] = wrapLambda(args[i],fn_args[i].args,true);
                 } else {
                     callArgs[i] = args[i];
                 }
@@ -1096,10 +1093,9 @@ let CindyGL = function(api) {
                     // set missing modifiers to nada to avoid collision with global
                     callMods[modName]=nada;
                 } else if (fn_modifs[i].args != null) {
-                    // convert function-arguments (marked with parameter-list as user-data) to cglLazy
-                    callMods[modName]=wrapLazy(mod,fn_modifs[i].args,true);
+                    // convert function-arguments (marked with parameter-list as user-data) to lambda
+                    callMods[modName]=wrapLambda(mod,fn_modifs[i].args,true);
                     modValues[modName]=callMods[modName];
-                    createCglEval(fn_modifs[i].args.length);
                 } else {
                     callMods[modName]=mod;
                     modValues[modName]=api.evaluate(mod);
@@ -1124,11 +1120,11 @@ let CindyGL = function(api) {
     });
     api.defineFunction("cglTryDetermineDegree",1,(args,modifs) => {
         let arg = api.evaluate(args[0]);
-        if(arg['ctype'] !== 'cglLazy') {
-            cglLogError("expected cglLazy expression, if the first argument should be used as an expression add checked variables as second parameter");
+        if(arg['ctype'] !== 'lambda') {
+            cglLogError("expected lambda expression, if the first argument should be used as an expression add checked variables as second parameter");
             return nada;
         }
-        const degreeData = tryDetermineDegree(arg.expr,arg.params.map(asName));
+        const degreeData = tryDetermineDegree(arg.body,arg.params.map(asName));
         if(degreeData.degree === undefined)
             return nada;
         return toCjsNumber(degreeData.degree);
