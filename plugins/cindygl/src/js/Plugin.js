@@ -901,13 +901,15 @@ let CindyGL = function(api) {
     });
     function prepareRender3d(x0,y0,x1,y1,iw,ih,canvaswrapper,modifs){
         initGLIfRequired();
-        Renderer.resetCachedState();
         let needsTranslucent = true; // TODO: make customizable through modifier
+        let layerCount = getRealModifier(modifs,"layers",needsTranslucent);
+        Renderer.resetCachedState();
         gl.clear(gl.DEPTH_BUFFER_BIT|gl.COLOR_BUFFER_BIT);
         if (CindyGL.sceneRenderer !== undefined) cglLogWarning("once one rendering pass can be active at a given type, call `cglFinishRender3d` before calling `cglStartRender3d` a second time");
-        CindyGL.sceneRenderer = (layerCount != 0 && needsTranslucent) ?
+        CindyGL.sceneRenderer = (layerCount != 0) ?
              new Cgl3dLayeredSceneRenderer(iw,ih,canvaswrapper,layerCount) :
             new Cgl3dSimpleSceneRenderer(iw,ih,canvaswrapper);
+        CindyGL.sceneRenderer.bounds = [x0,y0,x1,y1];
         return nada;
     }
     api.defineFunction("cgl3dRenderOpaque", 1, (args, modifs) => {
@@ -931,9 +933,10 @@ let CindyGL = function(api) {
             cglLogError("no active rendering pass, call `cglStartRender3d` before calling `cglFinishRender3d`");
             return nada;
         }
-        finishRender3d(modifs);
+        let bounds = CindyGL.sceneRenderer.bounds;
+        finishRender3d(bounds[0],bounds[1],bounds[2],bounds[3],CindyGL.sceneRenderer.iw,CindyGL.sceneRenderer.ih,modifs);
     });
-    function finishRender3d(modifs){
+    function finishRender3d(x0,y0,x1,y1,iw,ih,modifs){
         if(CindyGL.sceneRenderer.canvaswrapper!=null) {
           gl.flush(); //renders stuff to canvaswrapper
           gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -957,17 +960,6 @@ let CindyGL = function(api) {
         // TODO: set field of object
         return nada;
     });
-    function changedBounds(obj3d) {
-        if(obj3d.updating) {
-            cglLogWarning("recursive update loop, ignoring update");
-            return;
-        }
-        if(obj3d.onUpdate && obj3d.onUpdate["ctype"] !== "undefined") {
-            obj3d.updating = true;
-            api.evaluate({ctype:"userdata","obj":obj3d.onUpdate,"key":toCjs([boundyAsCS(obj3d)])});
-            obj3d.updating = false;
-        }
-    }
     // custom error class for errors produced by calling cglDiscard
     class CglDiscardError extends Error {
         constructor(message) {
