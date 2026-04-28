@@ -833,13 +833,24 @@ let CindyGL = function(api) {
         CindyGL.sceneRenderer.bounds = [x0,y0,x1,y1];
         return nada;
     }
+    function getRenderObjects(arg) {
+        if (arg['ctype'] === "JSON") {
+            // TODO: how expensive is this
+            return Object.values(arg['value'])
+        } else if (arg['ctype'] === "list") {
+            return arg['value']
+        } else if (arg['ctype'] === "cgl3dObject") {
+            return [arg['value']];
+        } else {
+            cglLogError("unsupported argument for render: ",arg);
+        }
+    }
     api.defineFunction("cgl3dRenderOpaque", 1, (args, modifs) => {
         if (CindyGL.sceneRenderer === null){
             cglLogError("no active rendering pass, call `cglStartRender3d` before calling `cglRenderOpaque`");
             return nada;
         }
-        let objects = {}; // FIXME: resolve objects
-        CindyGL.sceneRenderer.renderOpaque(objects);
+        CindyGL.sceneRenderer.renderOpaque(getRenderObjects(args[0]));
         return nada;
     });
     api.defineFunction("cgl3dRenderTranslucent", 1, (args, modifs) => {
@@ -847,8 +858,7 @@ let CindyGL = function(api) {
             cglLogError("no active rendering pass, call `cglStartRender3d` before calling `cglRenderOpaque`");
             return nada;
         }
-        let objects = {};
-        CindyGL.sceneRenderer.renderTranslucent(objects);
+        CindyGL.sceneRenderer.renderTranslucent(getRenderObjects(args[0]));
         return nada;
     });
     api.defineFunction("cgl3dFinishRender3d", 0, (args, modifs) => {

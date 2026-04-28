@@ -870,8 +870,8 @@ Renderer.prototype.resetAttribLocations = function() {
 // interface Cgl3dSceneRenderer:
 // functions:
 //   constructor(iw: float, ih: float, ...) -> Cgl3dSceneRenderer
-//   renderOpaque(objects: Map<number,CindyGL3DObject>)
-//   renderTranslucent(objects: Map<number,CindyGL3DObject>)
+//   renderOpaque(objects: Array)
+//   renderTranslucent(objects: Array)
 // fields:
 //  wrongOpacity: Set<CindyGL3DObject>
 
@@ -903,24 +903,27 @@ function Cgl3dSimpleSceneRenderer(iw,ih,canvaswrapper) {
     }
 };
 
-/**@param {Map<number,CindyGL3DObject>} objects */
+/**@param {Array<CindyJS.anyval>} objects */
 Cgl3dSimpleSceneRenderer.prototype.renderOpaque = function(objects) {
     gl.enable(gl.DEPTH_TEST);
     gl.disable(gl.BLEND); // no need to blend opaque objects
-    objects.forEach((obj3d)=>{
-        if(!obj3d.visible)
-            return;// skip invisible objects
+    objects.forEach((obj)=>{
+        let obj3d = obj['value'];
+        if(!obj3d) return; // skip non-objects
+        if(!obj3d.value.visible) return;// skip invisible objects
         obj3d.renderer.render3d(this.iw, this.ih,obj3d.boundingBox,obj3d.plotModifiers,null, null,this.imageCanvas);
         if(obj3d.opaque !== undefined ? !obj3d.opaque : !obj3d.renderer.opaque){
             this.wrongOpacity.add(obj3d);
         }
     });
 };
-/**@param {Map<number,CindyGL3DObject>} objects */
+/**@param {Array<CindyJS.anyval>} objects */
 Cgl3dSimpleSceneRenderer.prototype.renderTranslucent = function(objects) {
     // reenable blending
     gl.enable(gl.BLEND);
-    objects.forEach((obj3d)=>{
+    objects.forEach((obj)=>{
+        let obj3d = obj['value'];
+        if(!obj3d) return; // skip non-objects
         if(!obj3d.visible)
             return;// skip invisible objects
         obj3d.renderer.render3d(this.iw, this.ih,obj3d.boundingBox,obj3d.plotModifiers,null, null,this.imageCanvas);
@@ -1096,9 +1099,11 @@ Cgl3dLayeredSceneRenderer.prototype.swapTmpLayer = function(tmpSlot,newTmpLayer)
     return oldTmpLayer;
 }
 
-/**@param {Map<number,CindyGL3DObject>} objects */
+/**@param {Array<CindyJS.anyval>} objects */
 Cgl3dLayeredSceneRenderer.prototype.renderOpaque = function(objects) {
-    objects.forEach((obj3d)=>{
+    objects.forEach((obj)=>{
+        let obj3d = obj['value'];
+        if(!obj3d) return; // skip non-objects
         if(!obj3d.visible)
             return;// skip invisible objects
         obj3d.renderer.render3d(this.iw, this.ih,obj3d.boundingBox,obj3d.plotModifiers, null, this.renderBuffer, this.canvaswrapper != null);
@@ -1110,13 +1115,15 @@ Cgl3dLayeredSceneRenderer.prototype.renderOpaque = function(objects) {
     // move rendered data to opaque,layer and layers[0]
     this.layers[0] = this.swapRenderLayer(this.layers[0]);
 };
-/**@param {Map<number,CindyGL3DObject>} objects */
+/**@param {Array<CindyJS.anyval>} objects */
 Cgl3dLayeredSceneRenderer.prototype.renderTranslucent = function(objects) {
     const layerCount = this.layers.length;
     // TODO? objects between opaque object and top pixel in lowest rendered transparent layer might get lost
     if (layerCount == 1) {
         // directly render objects to canvas
-        objects.forEach((obj3d)=>{
+        objects.forEach((obj)=>{
+            let obj3d = obj['value'];
+            if(!obj3d) return; // skip non-objects
             if(!obj3d.visible)
                 return;// skip invisible objects
             if(obj3d.opaque !== undefined ? obj3d.opaque : obj3d.renderer.opaque) {
@@ -1131,7 +1138,9 @@ Cgl3dLayeredSceneRenderer.prototype.renderTranslucent = function(objects) {
             this.layers[0] = this.swapRenderLayer(this.layers[0]);
         });
     } else {
-        objects.forEach((obj3d)=>{
+        objects.forEach((obj)=>{
+            let obj3d = obj['value'];
+            if(!obj3d) return; // skip non-objects
             if(!obj3d.visible)
                 return;// skip invisible objects
             gl.bindFramebuffer(gl.FRAMEBUFFER, this.renderBuffer);
