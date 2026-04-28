@@ -1,3 +1,47 @@
+function m4Mul(A,B){
+  // TODO? hard-code result
+  // TODO? internally store matrices as flat array in GPU order
+  let C=[
+    [0,0,0,0],
+    [0,0,0,0],
+    [0,0,0,0],
+    [0,0,0,0]
+  ];
+  for(let i=0;i<4;i++){
+    for(let j=0;j<4;j++){
+      for(let k=0;k<4;k++){
+        C[i][j]+=A[i][k]*B[k][j];
+      }
+    }
+  }
+  return C;
+}
+function m4Inverse(M){
+  let adjM = [[
+    (M[1][1]*M[2][2]*M[3][3]-M[1][1]*M[2][3]*M[3][2]-M[1][2]*M[2][1]*M[3][3]+M[1][2]*M[2][3]*M[3][1]+M[1][3]*M[2][1]*M[3][2]-M[1][3]*M[2][2]*M[3][1]),
+    -(M[0][1]*M[2][2]*M[3][3]-M[0][1]*M[2][3]*M[3][2]-M[0][2]*M[2][1]*M[3][3]+M[0][2]*M[2][3]*M[3][1]+M[0][3]*M[2][1]*M[3][2]-M[0][3]*M[2][2]*M[3][1]),
+    (M[0][1]*M[1][2]*M[3][3]-M[0][1]*M[1][3]*M[3][2]-M[0][2]*M[1][1]*M[3][3]+M[0][2]*M[1][3]*M[3][1]+M[0][3]*M[1][1]*M[3][2]-M[0][3]*M[1][2]*M[3][1]),
+    -(M[0][1]*M[1][2]*M[2][3]-M[0][1]*M[1][3]*M[2][2]-M[0][2]*M[1][1]*M[2][3]+M[0][2]*M[1][3]*M[2][1]+M[0][3]*M[1][1]*M[2][2]-M[0][3]*M[1][2]*M[2][1]),
+  ],[
+    -(M[1][0]*M[2][2]*M[3][3]-M[1][0]*M[2][3]*M[3][2]-M[1][2]*M[2][0]*M[3][3]+M[1][2]*M[2][3]*M[3][0]+M[1][3]*M[2][0]*M[3][2]-M[1][3]*M[2][2]*M[3][0]),
+    (M[0][0]*M[2][2]*M[3][3]-M[0][0]*M[2][3]*M[3][2]-M[0][2]*M[2][0]*M[3][3]+M[0][2]*M[2][3]*M[3][0]+M[0][3]*M[2][0]*M[3][2]-M[0][3]*M[2][2]*M[3][0]),
+    -(M[0][0]*M[1][2]*M[3][3]-M[0][0]*M[1][3]*M[3][2]-M[0][2]*M[1][0]*M[3][3]+M[0][2]*M[1][3]*M[3][0]+M[0][3]*M[1][0]*M[3][2]-M[0][3]*M[1][2]*M[3][0]),
+    (M[0][0]*M[1][2]*M[2][3]-M[0][0]*M[1][3]*M[2][2]-M[0][2]*M[1][0]*M[2][3]+M[0][2]*M[1][3]*M[2][0]+M[0][3]*M[1][0]*M[2][2]-M[0][3]*M[1][2]*M[2][0]),
+  ], [
+    (M[1][0]*M[2][1]*M[3][3]-M[1][0]*M[2][3]*M[3][1]-M[1][1]*M[2][0]*M[3][3]+M[1][1]*M[2][3]*M[3][0]+M[1][3]*M[2][0]*M[3][1]-M[1][3]*M[2][1]*M[3][0]),
+    -(M[0][0]*M[2][1]*M[3][3]-M[0][0]*M[2][3]*M[3][1]-M[0][1]*M[2][0]*M[3][3]+M[0][1]*M[2][3]*M[3][0]+M[0][3]*M[2][0]*M[3][1]-M[0][3]*M[2][1]*M[3][0]),
+    (M[0][0]*M[1][1]*M[3][3]-M[0][0]*M[1][3]*M[3][1]-M[0][1]*M[1][0]*M[3][3]+M[0][1]*M[1][3]*M[3][0]+M[0][3]*M[1][0]*M[3][1]-M[0][3]*M[1][1]*M[3][0]),
+    -(M[0][0]*M[1][1]*M[2][3]-M[0][0]*M[1][3]*M[2][1]-M[0][1]*M[1][0]*M[2][3]+M[0][1]*M[1][3]*M[2][0]+M[0][3]*M[1][0]*M[2][1]-M[0][3]*M[1][1]*M[2][0]),
+  ], [
+    -(M[1][0]*M[2][1]*M[3][2]-M[1][0]*M[2][2]*M[3][1]-M[1][1]*M[2][0]*M[3][2]+M[1][1]*M[2][2]*M[3][0]+M[1][2]*M[2][0]*M[3][1]-M[1][2]*M[2][1]*M[3][0]),
+    (M[0][0]*M[2][1]*M[3][2]-M[0][0]*M[2][2]*M[3][1]-M[0][1]*M[2][0]*M[3][2]+M[0][1]*M[2][2]*M[3][0]+M[0][2]*M[2][0]*M[3][1]-M[0][2]*M[2][1]*M[3][0]),
+    -(M[0][0]*M[1][1]*M[3][2]-M[0][0]*M[1][2]*M[3][1]-M[0][1]*M[1][0]*M[3][2]+M[0][1]*M[1][2]*M[3][0]+M[0][2]*M[1][0]*M[3][1]-M[0][2]*M[1][1]*M[3][0]),
+    (M[0][0]*M[1][1]*M[2][2]-M[0][0]*M[1][2]*M[2][1]-M[0][1]*M[1][0]*M[2][2]+M[0][1]*M[1][2]*M[2][0]+M[0][2]*M[1][0]*M[2][1]-M[0][2]*M[1][1]*M[2][0]),
+  ]];
+  let invDet = 1/(M[0][0]*adjM[0][0]+M[0][1]*adjM[1][0]+M[0][2]*adjM[2][0]+M[0][3]*adjM[3][0]);
+  for(let i=0;i<4;i++)for(let j=0;j<4;j++)adjM[i][j]*=invDet;
+  return adjM;
+}
 // try evaluating expr, return nada if evaluation fails
 // silences all errors& warnings that occur during evaluation
 function tryEvaluate(expr,api,def) {
@@ -806,7 +850,7 @@ let CindyGL = function(api) {
         prepareRender3d(xx, yy, iw*fx, ih*fy, iw*fx, ih*fy, null, modifs);
         return nada;
     });
-    api.defineFunction("cgl3dStartRender3d", 1, (args, modifs) => {
+    api.defineFunction("cgl3dStartRender", 1, (args, modifs) => {
         initGLIfRequired();
         var name = api.evaluateAndVal(args[0]);
         if (name.ctype !== 'string') {
@@ -826,13 +870,44 @@ let CindyGL = function(api) {
         let layerCount = getRealModifier(modifs,"layers",needsTranslucent ? 2 : 0);
         Renderer.resetCachedState();
         gl.clear(gl.DEPTH_BUFFER_BIT|gl.COLOR_BUFFER_BIT);
-        if (CindyGL.sceneRenderer !== null) cglLogWarning("once one rendering pass can be active at a given type, call `cglFinishRender3d` before calling `cglStartRender3d` a second time");
+        let z0 = Math.max(x1-x0,y1-y0)/2;
+        let transform = m4Inverse([
+            [x0+x1,0,0,x0],
+            [0,y0+y1,0,y0],
+            [0,0,2*z0,-z0],
+            [0,0,0,1],
+        ]);
+        if (CindyGL.sceneRenderer !== null) cglLogWarning("once one rendering pass can be active at a given type, call `cgl3dFinishRender` before calling `cgl3dStartRender` a second time");
         CindyGL.sceneRenderer = (layerCount != 0) ?
-             new Cgl3dLayeredSceneRenderer(iw,ih,canvaswrapper,layerCount) :
-            new Cgl3dSimpleSceneRenderer(iw,ih,canvaswrapper);
+             new Cgl3dLayeredSceneRenderer(iw,ih,canvaswrapper,transform,layerCount) :
+            new Cgl3dSimpleSceneRenderer(iw,ih,canvaswrapper,transform);
         CindyGL.sceneRenderer.bounds = [x0,y0,x1,y1];
         return nada;
     }
+    api.defineFunction("cgl3dSetRenderTransform", 2, (args, modifs) => {
+        if (CindyGL.sceneRenderer === null){
+            cglLogError("no active rendering pass, call `cglStartRender3d` before calling `cgl3dSetRenderTransform`");
+            return nada;
+        }
+        let transform = coerce.toList(api.evaluateAndVal(args[0])).map(coerce.toList);
+        let zoom = coerce.toReal(api.evaluateAndVal(args[1]));
+        let skewFactor = modifs["skewFactor"] === undefined ? 1 : coerce.toReal(api.evaluateAndVal(modifs["skewFactor"]));
+        let zScale = modifs["zScale"] ===undefined ? 1 : coerce.toReal(api.evaluateAndVal(modifs["zScale"]));
+        let bounds = CindyGL.sceneRenderer.bounds;
+        let x0=bounds[0];
+        let y0=bounds[1];
+        let x1=bounds[2];
+        let y1=bounds[3];
+        let z0 = Math.max(x1-x0,y1-y0)/2;
+        let projection = [
+            [zoom*(x0+x1),0,0,zoom*x0],
+            [0,zoom*(y0+y1),0,zoom*y0],
+            [0,0,zoom*zScale*(2*z0),-zoom*zScale*z0],
+            [0,0,skewFactor*zoom*zScale*(2*z0),1-skewFactor*zoom*zScale*z0],
+        ];
+        CindyGL.sceneRenderer.transform = m4Inverse(m4Mul(projection,transform));
+        return nada;
+    });
     function getRenderObjects(arg) {
         if (arg['ctype'] === "JSON") {
             // TODO: how expensive is this
@@ -847,7 +922,7 @@ let CindyGL = function(api) {
     }
     api.defineFunction("cgl3dRenderOpaque", 1, (args, modifs) => {
         if (CindyGL.sceneRenderer === null){
-            cglLogError("no active rendering pass, call `cglStartRender3d` before calling `cglRenderOpaque`");
+            cglLogError("no active rendering pass, call `cglStartRender3d` before calling `cgl3dRenderOpaque`");
             return nada;
         }
         CindyGL.sceneRenderer.renderOpaque(getRenderObjects(args[0]));
@@ -855,15 +930,15 @@ let CindyGL = function(api) {
     });
     api.defineFunction("cgl3dRenderTranslucent", 1, (args, modifs) => {
         if (CindyGL.sceneRenderer === null){
-            cglLogError("no active rendering pass, call `cglStartRender3d` before calling `cglRenderOpaque`");
+            cglLogError("no active rendering pass, call `cglStartRender3d` before calling `cgl3dRenderOpaque`");
             return nada;
         }
         CindyGL.sceneRenderer.renderTranslucent(getRenderObjects(args[0]));
         return nada;
     });
-    api.defineFunction("cgl3dFinishRender3d", 0, (args, modifs) => {
+    api.defineFunction("cgl3dFinishRender", 0, (args, modifs) => {
         if (CindyGL.sceneRenderer === null){
-            cglLogError("no active rendering pass, call `cglStartRender3d` before calling `cglFinishRender3d`");
+            cglLogError("no active rendering pass, call `cglStartRender3d` before calling `cgl3dFinishRender`");
             return nada;
         }
         let bounds = CindyGL.sceneRenderer.bounds;

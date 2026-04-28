@@ -881,11 +881,12 @@ Renderer.prototype.resetAttribLocations = function() {
  * @param {CanvasWrapper|null} canvaswrapper
  * @constructor
  */
-function Cgl3dSimpleSceneRenderer(iw,ih,canvaswrapper) {
+function Cgl3dSimpleSceneRenderer(iw,ih,canvaswrapper,transform) {
     Renderer.transparencyType = TransparencyType.Simple;
     this.iw = iw;
     this.ih = ih;
     this.canvaswrapper = canvaswrapper;
+    this.transform = transform;
     this.imageCanvas = canvaswrapper != null;
     /** @type {Set<CindyGL3DObject>} */
     this.wrongOpacity = new Set();
@@ -1034,7 +1035,7 @@ CglSceneLayer.freeDepthTexture = function(texture) {
  * @param {number} layerCount
  * @constructor
  */
-function Cgl3dLayeredSceneRenderer(iw,ih,canvaswrapper,layerCount) {
+function Cgl3dLayeredSceneRenderer(iw,ih,canvaswrapper,transform,layerCount) {
     if(!(layerCount >= 1)){ // negated condition to correctly handle NaN values
         cglLogWarning("invalid layerCount should be >= 1 got:",layerCount);
         layerCount = 1;
@@ -1044,6 +1045,7 @@ function Cgl3dLayeredSceneRenderer(iw,ih,canvaswrapper,layerCount) {
     Renderer.transparencyType = layerCount == 1 ? TransparencyType.SingleLayer : TransparencyType.MultiLayer;
     this.iw = iw;
     this.ih = ih;
+    this.transform = transform;
     this.canvaswrapper = canvaswrapper;
     /** @type {Set<CindyGL3DObject>} */
     this.wrongOpacity = new Set();
