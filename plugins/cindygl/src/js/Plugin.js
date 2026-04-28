@@ -261,7 +261,7 @@ let CindyGL = function(api) {
                     newArgs = expr['args'].map((oldArg)=>replaceVariables(oldArg,argValues));
                 } else {
                     // TODO? how to handle (conditional) assignment to lambda parameter
-                    cglLogError(`assignemnt to lambda parameter "${expr['args'][0]['name']}" is not supported`);
+                    cglLogError(`assignment to lambda parameter "${expr['args'][0]['name']}" is not supported`);
                 }
             } else if(expr['oper'] === ":=") {
                 const lhs = expr['args'][0];
