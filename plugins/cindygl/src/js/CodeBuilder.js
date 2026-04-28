@@ -84,7 +84,7 @@ const BUILTIN_TEXTURE4 = "cgltexture";
 const BUILTIN_TEXTURE3 = "cgltexturergb";
 const BUILTIN_VIEW_RECT = "cglviewrect";
 const BUILTIN_CGLDEPTH = "cglDepth";
-/** @type {Map<string,{type:string,code:string,expr:string,valueType:type,writable:boolean}>} */
+/** @type {Map<string,{type:string,code:string,expr:string,valueType:*,writable:boolean}>} */
 CodeBuilder.builtIns=new Map([
     ["cglPixel",{type:"pixelAttribute",code:"",expr:"cgl_pixel",valueType:type.vec2,writable:false}],
     [BUILTIN_DISCARD,{type:"operator",code:"discard;\n",expr:"",valueType:type.voidt,writable:false}],

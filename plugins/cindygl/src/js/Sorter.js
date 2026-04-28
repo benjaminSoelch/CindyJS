@@ -87,5 +87,5 @@ function generatesort(t, modifs, codebuilder) {
 
 
 function usesort(t) {
-    return (args, modifs, codebuilder) => generatesort(t, modifs, codebuilder) || `sort${webgltype(t)}(${args.join(',')})`;
+    return (args, modifs, codebuilder) => {generatesort(t, modifs, codebuilder);return `sort${webgltype(t)}(${args.join(',')})`};
 }

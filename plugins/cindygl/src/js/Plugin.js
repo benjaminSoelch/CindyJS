@@ -19,7 +19,7 @@ function tryEvaluate(expr,api,def) {
 
 /**
  * @param {Renderer} renderer rendering program
- * @param { { type: BoundingBoxType } } boundingBox bounding box of rendered object in 3D space
+ * @param { { type: * } } boundingBox bounding box of rendered object in 3D space
  * @param {Map<string,*>} plotModifiers
  * @param { Set<string> } tags tags assigned to this Object
  * @constructor
@@ -92,16 +92,16 @@ let CindyGL = function(api) {
     }
     /**
      * @param {CindyJS.anyval} prog
-     * @param {boundingBox} boundingBox
+     * @param boundingBox
      * @param {Map<string,*>} plotModifiers values of plot-modifier arguments
-     * @param {Map<string,{values:Array<*>,eltType:type}>} vModifiers vertex modifiers
+     * @param {Map<string,{values: Array<*>,eltType: *}>} vModifiers vertex modifiers
      * @param {boolean} mode3D
      * @returns {Renderer}
      */
     function compile(prog,boundingBox,plotModifiers,vModifiers,mode3D) {
-        /**@type {Map<string,{type: type,isuniform: boolean,used: boolean}>} */
+        /**@type {Map<string,{type: *,isuniform: boolean,used: boolean}>} */
         const modifierTypes = new Map();
-        /**@type {Map<string,{type: type,isuniform: boolean,used: boolean}>} */
+        /**@type {Map<string,{type: *,isuniform: boolean,used: boolean}>} */
         const mergedTypes = new Map();
         plotModifiers.forEach((value,key) => {
             let valType = guessTypeOfValue(value);
@@ -275,7 +275,7 @@ let CindyGL = function(api) {
                 newArgs = [lhs,replaceVariables(rhs,argValues2)];
             } else if(expr['ctype'] === 'function' && getPlainName(expr['oper']) === "regional") {
                 newArgs = expr['args'].map(v=>{
-                    let renamed = Object.assign({}, v);
+                    let renamed = /** @type CindyJS.anyval*/(Object.assign({}, v));
                     // regional variables in api.evaluate leak into enclosing scope
                     // -> set name to invalid identifier to ensure variable stays within eval-block
                     renamed['name']=`0_${v['name']}`;
@@ -490,7 +490,7 @@ let CindyGL = function(api) {
      * get vertex modifers from object
      * @param {Object} callModifiers
      * @param {number} vCount
-     * @returns {Map<string,{values: Array<*>,eltType: type}>}
+     * @returns {Map<string,{values: Array<*>,eltType: *}>}
      */
     function get3DPlotVertexModifiers(callModifiers,vCount,plotModifiers){
         let modifiers = new Map();
@@ -833,10 +833,10 @@ let CindyGL = function(api) {
     function prepareRender3d(x0,y0,x1,y1,iw,ih,canvaswrapper,modifs){
         initGLIfRequired();
         let needsTranslucent = true; // TODO: make customizable through modifier
-        let layerCount = getRealModifier(modifs,"layers",needsTranslucent);
+        let layerCount = getRealModifier(modifs,"layers",needsTranslucent ? 2 : 0);
         Renderer.resetCachedState();
         gl.clear(gl.DEPTH_BUFFER_BIT|gl.COLOR_BUFFER_BIT);
-        if (CindyGL.sceneRenderer !== undefined) cglLogWarning("once one rendering pass can be active at a given type, call `cglFinishRender3d` before calling `cglStartRender3d` a second time");
+        if (CindyGL.sceneRenderer !== null) cglLogWarning("once one rendering pass can be active at a given type, call `cglFinishRender3d` before calling `cglStartRender3d` a second time");
         CindyGL.sceneRenderer = (layerCount != 0) ?
              new Cgl3dLayeredSceneRenderer(iw,ih,canvaswrapper,layerCount) :
             new Cgl3dSimpleSceneRenderer(iw,ih,canvaswrapper);
@@ -844,7 +844,7 @@ let CindyGL = function(api) {
         return nada;
     }
     api.defineFunction("cgl3dRenderOpaque", 1, (args, modifs) => {
-        if (CindyGL.sceneRenderer !== undefined){
+        if (CindyGL.sceneRenderer === null){
             cglLogError("no active rendering pass, call `cglStartRender3d` before calling `cglRenderOpaque`");
             return nada;
         }
@@ -853,7 +853,7 @@ let CindyGL = function(api) {
         return nada;
     });
     api.defineFunction("cgl3dRenderTranslucent", 1, (args, modifs) => {
-        if (CindyGL.sceneRenderer !== undefined){
+        if (CindyGL.sceneRenderer === null){
             cglLogError("no active rendering pass, call `cglStartRender3d` before calling `cglRenderOpaque`");
             return nada;
         }
@@ -862,7 +862,7 @@ let CindyGL = function(api) {
         return nada;
     });
     api.defineFunction("cgl3dFinishRender3d", 0, (args, modifs) => {
-        if (CindyGL.sceneRenderer !== undefined){
+        if (CindyGL.sceneRenderer === null){
             cglLogError("no active rendering pass, call `cglStartRender3d` before calling `cglFinishRender3d`");
             return nada;
         }
@@ -882,7 +882,7 @@ let CindyGL = function(api) {
         csctx.setTransform(1, 0, 0, 1, 0, 0);
         csctx.drawImage(glcanvas, 0, 0, iw, ih, x0, y0, x1, y1);
         csctx.restore();
-        CindyGL.sceneRenderer = undefined;
+        CindyGL.sceneRenderer = null;
     };
 
     api.defineFunction("cgl3dObjectGet", 2, (args, modifs) => {
@@ -1266,5 +1266,6 @@ let CindyGL = function(api) {
 // Exports for CindyXR
 CindyGL.gl = null;
 CindyGL.generateCanvasWrapperIfRequired = generateCanvasWrapperIfRequired;
+CindyGL.sceneRenderer = null;
 CindyGL.initGLIfRequired = initGLIfRequired;
 CindyJS.registerPlugin(1, "CindyGL", CindyGL);

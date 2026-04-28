@@ -89,7 +89,7 @@ function initGLIfRequired() {
     if (useWebXR) {
         contextAttributes['xrCompatible'] = true;
     }
-    gl = glcanvas.getContext("webgl2", contextAttributes);
+    gl = /** @type {WebGL2RenderingContext|null} */ (glcanvas.getContext("webgl2", contextAttributes));
     if (!gl)
         throw new GlError(`Could not obtain a WebGL2 context.\nReason: ${errorInfo}`);
     cglLogDebug("Loaded WebGL 2.0.");

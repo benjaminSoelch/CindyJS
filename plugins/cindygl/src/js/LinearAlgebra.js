@@ -51,7 +51,7 @@ function createstruct(t, codebuilder) {
     if (isnativeglsl(t)) return;
     let name = webgltype(t);
     codebuilder.add('structs', name, () => `struct ${name} { ${
-    genchilds(t).map(ch => createstruct(ch.type, codebuilder) || `${webgltype(ch.type)} ${ch.name};`).join('')
+    genchilds(t).map(ch => {createstruct(ch.type, codebuilder);return `${webgltype(ch.type)} ${ch.name};`}).join('')
   }};`);
 
 }
@@ -163,54 +163,54 @@ function usemult(t) {
     if (isnativeglsl(t)) return (args, modifs, codebuilder) => useinfix('*')([args[1], args[0]]); //swap multiplication order as matrices are interpreted as list of columns in glsl
     let fp = finalparameter(t);
     if (issubtypeof(fp, type.float))
-        return (args, modifs, codebuilder) => generatematmult(t, modifs, codebuilder) || `mult${t.length}_${t.parameters.length}(${args.join(',')})`;
+        return (args, modifs, codebuilder) => {generatematmult(t, modifs, codebuilder);return `mult${t.length}_${t.parameters.length}(${args.join(',')})`};
     else if (fp === type.complex)
-        return (args, modifs, codebuilder) => generatecmatmult(t, modifs, codebuilder) || `multc${t.length}_${t.parameters.length}(${args.join(',')})`;
+        return (args, modifs, codebuilder) => {generatecmatmult(t, modifs, codebuilder);return `multc${t.length}_${t.parameters.length}(${args.join(',')})`};
 }
 
 function usedot(n) {
-    return (args, modifs, codebuilder) => generatedot(n, codebuilder) || `dot${(2 <= n && n<=4) ? '' : n}(${args.join(',')})`;
+    return (args, modifs, codebuilder) => {generatedot(n, codebuilder);return `dot${(2 <= n && n<=4) ? '' : n}(${args.join(',')})`};
 }
 
 function usecdot(n) {
-    return (args, modifs, codebuilder) => generatecdot(n, modifs, codebuilder) || `cdot${n}(${args.join(',')})`;
+    return (args, modifs, codebuilder) => {generatecdot(n, modifs, codebuilder);return `cdot${n}(${args.join(',')})`};
 }
 
 function useadd(t) {
     if (isnativeglsl(t)) return useinfix('+');
-    else return (args, modifs, codebuilder) => generateadd(t, modifs, codebuilder) || `add${webgltype(t)}(${args.join(',')})`;
+    else return (args, modifs, codebuilder) => {generateadd(t, modifs, codebuilder);return `add${webgltype(t)}(${args.join(',')})`};
 }
 
 function usesub(t) {
     if (isnativeglsl(t)) return useinfix('-');
-    else return (args, modifs, codebuilder) => generatesub(t, modifs, codebuilder) || `sub${webgltype(t)}(${args.join(',')})`;
+    else return (args, modifs, codebuilder) => {generatesub(t, modifs, codebuilder);return `sub${webgltype(t)}(${args.join(',')})`};
 }
 
 function usesum(t) {
     if (isrvectorspace(t) && depth(t) == 1) return (args, modifs, codebuilder) => usedot(t.length)(
         [args[0], usevec(t.length)(Array(t.length).fill('1.'), modifs, codebuilder)], modifs, codebuilder);
-    else return (args, modifs, codebuilder) => generatesum(t, modifs, codebuilder) || `sum${webgltype(t)}(${args.join(',')})`;
+    else return (args, modifs, codebuilder) => {generatesum(t, modifs, codebuilder);return `sum${webgltype(t)}(${args.join(',')})`};
 }
 
 function usevec(n) {
     if (2 <= n && n <= 4) return args => `vec${n}(${args.join(',')})`;
     if (n == 1) return args => `float(${args.join(',')})`;
     let cum = 0;
-    return (args, modifs, codebuilder) => createstruct(type.vec(n), codebuilder) || `vec${n}(${
+    return (args, modifs, codebuilder) => {createstruct(type.vec(n), codebuilder);return `vec${n}(${
         sizes(n).map( s =>
           `vec${s}(${range(s).map(l => ++cum && args[cum-1]).join(',')})`
         ).join(',')
-      })`;
+      })`};
 }
 function useintvec(n) {
     if (2 <= n && n <= 4) return args => `ivec${n}(${args.join(',')})`;
     if (n == 1) return args => `int(${args.join(',')})`;
     let cum = 0;
-    return (args, modifs, codebuilder) => createstruct(type.ivec(n), codebuilder) || `ivec${n}(${
+    return (args, modifs, codebuilder) => {createstruct(type.ivec(n), codebuilder);return `ivec${n}(${
         sizes(n).map( s =>
           `ivec${s}(${range(s).map(l => ++cum && args[cum-1]).join(',')})`
         ).join(',')
-      })`;
+      })`};
 }
 
 function uselist(t) {
@@ -220,10 +220,10 @@ function uselist(t) {
     }
     if (d == 1 && t.parameters === type.float) return usevec(t.length);
     if (d == 1 && t.parameters === type.int) return useintvec(t.length);
-    return (args, modifs, codebuilder) => createstruct(t, codebuilder) || `${webgltype(t)}(${args.join(',')})`;
+    return (args, modifs, codebuilder) => {createstruct(t, codebuilder);return `${webgltype(t)}(${args.join(',')})`};
 }
 function usetuple(t) {
-    return (args, modifs, codebuilder) => createstruct(t, codebuilder) || `${webgltype(t)}(${args.join(',')})`;
+    return (args, modifs, codebuilder) => {createstruct(t, codebuilder);return `${webgltype(t)}(${args.join(',')})`};
 }
 
 function accesslist(t, k) {
@@ -263,12 +263,12 @@ function accessvecbyshifted(n, k) {
 
 function usescalarmult(t) { //assume t is a R or C-vectorspace, multiply with real number
     if (isnativeglsl(t)) return useinfix('*');
-    return (args, modifs, codebuilder) => generatescalarmult(t, modifs, codebuilder) || `scalarmult${webgltype(t)}(${args.join(',')})`;
+    return (args, modifs, codebuilder) => {generatescalarmult(t, modifs, codebuilder);return `scalarmult${webgltype(t)}(${args.join(',')})`};
 }
 
 function usecscalarmult(t) { //assume t is a R or C-vectorspace, multiply with complex number
     if (t === type.complex) return useincludefunction('multc');
-    return (args, modifs, codebuilder) => generatecscalarmult(t, modifs, codebuilder) || `cscalarmult${webgltype(t)}(${args.join(',')})`;
+    return (args, modifs, codebuilder) => {generatecscalarmult(t, modifs, codebuilder);return `cscalarmult${webgltype(t)}(${args.join(',')})`};
 }
 
 
@@ -289,7 +289,7 @@ function generatereverse(t, modifs, codebuilder) {
 
 
 function usereverse(t) {
-    return (args, modifs, codebuilder) => generatereverse(t, modifs, codebuilder) || `reverse${webgltype(t)}(${args.join(',')})`;
+    return (args, modifs, codebuilder) => {generatereverse(t, modifs, codebuilder);return `reverse${webgltype(t)}(${args.join(',')})`};
 }
 
 
@@ -308,7 +308,7 @@ function generatemax(t, modifs, codebuilder) {
 }
 
 function usemax(t) {
-    return (args, modifs, codebuilder) => generatemax(t, modifs, codebuilder) || `max${webgltype(t)}(${args.join(',')})`;
+    return (args, modifs, codebuilder) => {generatemax(t, modifs, codebuilder);return `max${webgltype(t)}(${args.join(',')})`};
 }
 
 
@@ -327,7 +327,7 @@ function generatemin(t, modifs, codebuilder) {
 }
 
 function usemin(t) {
-    return (args, modifs, codebuilder) => generatemin(t, modifs, codebuilder) || `min${webgltype(t)}(${args.join(',')})`;
+    return (args, modifs, codebuilder) => {generatemin(t, modifs, codebuilder);return `min${webgltype(t)}(${args.join(',')})`};
 }
 
 
@@ -350,5 +350,5 @@ function generatetranspose(t, modifs, codebuilder) {
 
 
 function usetranspose(t) {
-    return (args, modifs, codebuilder) => generatetranspose(t, modifs, codebuilder) || `transpose${webgltype(t)}(${args.join(',')})`;
+    return (args, modifs, codebuilder) => {generatetranspose(t, modifs, codebuilder);return `transpose${webgltype(t)}(${args.join(',')})`};
 }

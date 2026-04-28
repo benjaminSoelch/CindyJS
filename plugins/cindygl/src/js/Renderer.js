@@ -27,7 +27,7 @@ Renderer.boundingCylinder = function(center,direction,radius,overhang){
 }
 /**
  * @param {Array<number>} vertices list of coordinates in form [x1,y1,z1,x2,y2,z2,x3,...] groups of three vertices form a triangle
- * @param {Map<string,{values: Array<*>,eltType: type}>} vModifiers vertex modifiers
+ * @param {Map<string,{values: Array<*>,eltType: *}>} vModifiers vertex modifiers
  */
 Renderer.boundingTriangles = function(vertices,vModifiers){
     if(vertices.length%9 !== 0) {
@@ -70,8 +70,8 @@ Renderer.resetCachedState = function(){
 
 /**
  * @param {CindyJS.anyval} expression for the Code that will be used for rendering
- * @param {{type: BoundingBoxType}} boundingBox
- * @param {Map<string,{type:type, isuniform: boolean, used: boolean}>} modifierTypes
+ * @param {{type: *}} boundingBox
+ * @param {Map<string,{type:*, isuniform: boolean, used: boolean}>} modifierTypes
  * @param {boolean} mode3D
  * @constructor
  */
@@ -127,19 +127,18 @@ Renderer.prototype.compiletime
 /** @type {boolean} */
 Renderer.prototype.opaque
 
-/** @type {Map<string,{type:type, isuniform: boolean, used: boolean}>} */
+/** @type {Map<string,{type:*, isuniform: boolean, used: boolean}>} */
 Renderer.prototype.modifierTypes
 
 // keep seperate map for active modifers to skip unneccessary checks in render loop
-/** @type {Map<string,{type:type, used: boolean}>} */
+/** @type {Map<string,{type:*, isuniform: boolean, used: boolean}>} */
 Renderer.prototype.activeModifierTypes
 
-/** the TransparencyType used for the previous rendering call
- *  @type {TransparencyType} */
+/** the TransparencyType used for the previous rendering call*/
 Renderer.prototype.transparencyType;
 
 /**
- * @param {Map<string,{type:type, isuniform: boolean, used: boolean}>} newModifierTypes
+ * @param {Map<string,{type:*, isuniform: boolean, used: boolean}>} newModifierTypes
  * */
 Renderer.prototype.updateModifierTypes = function(newModifierTypes) {
     this.modifierTypes=newModifierTypes;
