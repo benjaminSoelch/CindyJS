@@ -479,11 +479,6 @@ let CindyGL = function(api) {
         if(callModifiers.hasOwnProperty("plotModifiers")){
             modifiers=readModifierList(api.evaluate(callModifiers["plotModifiers"]),"plotModifiers",modifiers,addUmodifier);
         }
-        Object.entries(callModifiers).forEach(([name, value])=>{
-            if(name.length < 2 || !name.startsWith("U"))
-                return;
-            addUmodifier(modifiers,name.substring(1),api.evaluateAndVal(value));
-        });
         return modifiers;
     }
     /**
@@ -517,11 +512,6 @@ let CindyGL = function(api) {
         if(callModifiers.hasOwnProperty("vModifiers")){
             modifiers=readModifierList(api.evaluate(callModifiers["vModifiers"]),"vModifiers",modifiers,addVmodifier);
         }
-        Object.entries(callModifiers).forEach(([name, value])=>{
-            if(name.length < 2 || !name.startsWith("V"))
-                return;
-            addVmodifier(modifiers,name.substring(1),api.evaluateAndVal(value));
-        });
         return modifiers;
     }
     /**
