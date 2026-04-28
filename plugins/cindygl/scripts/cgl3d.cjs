@@ -2043,45 +2043,6 @@ cglCylinder3d(point1,point2,radius):=(
     plotModifiers->modifiers,tags->["cylinder"]++tags,opaqueIf->opacityExpr);
   ids=if(needBackFace,append(ids,topLayer),topLayer);
 );
-cglInterface("line3d",cglLine3d,(point1,point2),(color,color1,color2,colors,texture,
-  textureRGB,textureRGBA,interpolateTexture,repeatTexture,colorExpr:(texturePos,spacePos,normal),
-  colorExprRGB:(texturePos,spacePos,normal),colorExprRGBA:(texturePos,spacePos,normal),colorBack,colorsBack,
-  textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
-  colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
-  colorExprRGBABack:(texturePos,spacePos,normal),alpha,size,light,cap1,cap2,caps,
-  projection,direction1,plotModifiers,tags,renderBack,cutoffRegion,onUpdate));
-cglLine3d(point1,point2):=(
-  cglLogError("cgl3d/line3d is deprecared, use cylinder3d instead");
-  size = cglValOrDefault(size,cglDefaults_"cylinderSize");
-  cglLine3d(point1,point2,size);
-);
-cglInterface("line3d",cglLine3d,(point1,point2,radius),(color,color1,color2,colors,texture,
-  textureRGB,textureRGBA,interpolateTexture,repeatTexture,colorExpr:(texturePos,spacePos,normal),
-  colorExprRGB:(texturePos,spacePos,normal),colorExprRGBA:(texturePos,spacePos,normal),colorBack,colorsBack,
-  textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
-  colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
-  colorExprRGBABack:(texturePos,spacePos,normal),alpha,light,cap1,cap2,caps,
-  projection,direction1,plotModifiers,tags,renderBack,cutoffRegion,onUpdate));
-cglLine3d(point1,point2,radius):=(
-  cglLogError("cgl3d/line3d is deprecared, use cylinder3d instead");
-  caps = cglValOrDefault(caps,cglDefaults_"curveCaps");
-  cutoffRegion = cglValOrDefault(cutoffRegion,cglDefaults_"lineCutoff");
-  cutoffExpr = cutoffRegion_"expr";
-  V = point2-point1;
-  bounds = cglEval(cutoffExpr,point1,V);
-  ids = cglCylinder3d(point1+bounds_1*V,point1+bounds_2*V,radius);
-  cglEvalOnRender(cglLazy(
-    regional(V,bounds);
-    V = normalize(point2-point1);
-    bounds = cglEvalOrDiscard(cglEval(cutoffExpr,point1,V));
-    cglSetVisible(ids,!isundefined(bounds));
-    if(!isundefined(bounds),
-      cglUpdateBounds(ids,point1+bounds_1*V,point1+bounds_2*V,radius);
-    );
-    ,ids->ids,radius->radius,point1->point1,point2->point2,cutoffExpr->cutoffExpr
-  ));
-  ids;
-);
 
 cglJoint(prev,current,next,jointType):=(
   if(jointType==CglConnectRound,
