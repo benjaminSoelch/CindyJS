@@ -683,7 +683,7 @@ let CindyGL = function(api) {
      * plots colorplot on whole main canvas in CindyJS coordinates
      * uses the z-coordinate for the nearest pixel as depth information
      */
-    api.defineFunction("colorplot3d", 1, (args, modifs) => {
+    api.defineFunction("cgl3dNewObject", 1, (args, modifs) => {
         initGLIfRequired();
         var prog = args[0];
         let plotModifiers=get3DPlotModifiers(modifs);
@@ -696,8 +696,7 @@ let CindyGL = function(api) {
         if(modifs.hasOwnProperty('onUpdate')) {
             obj3d.onUpdate = tryResolveLazy(modifs['onUpdate']);
         }
-        setObject(obj3d.id,obj3d);
-        return toCjsNumber(obj3d.id);
+        return {"ctype":"cgl3dObject","value":obj3d};
     });
     function verticesFromCJS(vertices){
         vertices = coerce.toList(vertices);
@@ -759,7 +758,7 @@ let CindyGL = function(api) {
      *   - [v1,v2,v3,v4,...]            list of vertices
      *   - [[v1,v2,v3],[u1,u2,u3],...]  list of triangles
      */
-    api.defineFunction("colorplot3d", 2, (args, modifs) => {
+    api.defineFunction("cgl3dNewMesh", 2, (args, modifs) => {
         initGLIfRequired();
         let prog = args[0];
         let plotModifiers = get3DPlotModifiers(modifs);
@@ -775,7 +774,7 @@ let CindyGL = function(api) {
         }
         let vModifiers = get3DPlotVertexModifiers(modifs,vCount,plotModifiers);
         let boundingBox = Renderer.boundingTriangles(vertices,vModifiers);
-        let compiledProg=compile(prog,boundingBox,plotModifiers,vModifiers,true);
+        let compiledProg = compile(prog,boundingBox,plotModifiers,vModifiers,true);
         let obj3d=new CindyGL3DObject(compiledProg,boundingBox,plotModifiers,get3DPlotTags(modifs));
         if(modifs.hasOwnProperty('opaqueIf')) {
             obj3d.opaqueIfExpr = tryEvaluate(modifs['opaqueIf'],api,modifs['opaqueIf']);
@@ -784,15 +783,14 @@ let CindyGL = function(api) {
         if(modifs.hasOwnProperty('onUpdate')) {
             obj3d.onUpdate = tryResolveLazy(modifs['onUpdate']);
         }
-        setObject(obj3d.id,obj3d);
-        return toCjsNumber(obj3d.id);
+        return {"ctype":"cgl3dObject","value":obj3d};
     });
     /**
      * plots colorplot in region bounded by sphere
      * uses the z-coordinate for the nearest pixel as depth information
      * args:  <expr> <center> <radius>
      */
-    api.defineFunction("colorplot3d", 3, (args, modifs) => {
+    api.defineFunction("cgl3dNewSphere", 3, (args, modifs) => {
         initGLIfRequired();
         var prog = args[0];
         let plotModifiers=get3DPlotModifiers(modifs);
@@ -808,27 +806,28 @@ let CindyGL = function(api) {
         if(modifs.hasOwnProperty('onUpdate')) {
             obj3d.onUpdate = tryResolveLazy(modifs['onUpdate']);
         }
-        setObject(obj3d.id,obj3d);
-        return toCjsNumber(obj3d.id);
+        return {"ctype":"cgl3dObject","value":obj3d};
     });
     /**
      * plots colorplot in region bounded by cylinder
      * uses the z-coordinate for the nearest pixel as depth information
-     * args:  <expr> <pointA> <pointB> <radius>
+     * args:  <expr> <center> <delta> <radius>
+     *   center -> center point of cylinder
+     *   delta  -> vector pointing from center to one endpoint (endpoints are center+delta and center-delta)
+     *   radius -> radius of cylinder
      */
-    // TODO? change cylinder parameters to center+direction?
-    api.defineFunction("colorplot3d", 4, (args, modifs) => {
+    api.defineFunction("cgl3dNewCylinder", 4, (args, modifs) => {
         initGLIfRequired();
-        var prog = args[0];
+        let prog = args[0];
         let plotModifiers=get3DPlotModifiers(modifs);
-        var pointA = coerce.toDirection(api.evaluateAndVal(args[1]));
-        var pointB = coerce.toDirection(api.evaluateAndVal(args[2]));
-        var radius = api.evaluateAndVal(args[3])["value"]["real"];
-        var overhang = 0;
+        let center = coerce.toDirection(api.evaluateAndVal(args[1]));
+        let delta = coerce.toDirection(api.evaluateAndVal(args[2]));
+        let radius = api.evaluateAndVal(args[3])["value"]["real"];
+        let overhang = 0;
         if (modifs.hasOwnProperty("overhang")) {
             overhang = api.evaluateAndVal(modifs["overhang"])["value"]["real"];
         }
-        let boundingBox = Renderer.boundingCylinder(scalev3(0.5,addv3(pointA,pointB)),scalev3(0.5,subv3(pointB,pointA)),radius,overhang);
+        let boundingBox = Renderer.boundingCylinder(center,delta,radius,overhang);
         let compiledProg=compile(prog,boundingBox,plotModifiers,new Map(),true);
         let obj3d=new CindyGL3DObject(compiledProg,boundingBox,plotModifiers,get3DPlotTags(modifs));
         if(modifs.hasOwnProperty('opaqueIf')) {
@@ -838,15 +837,15 @@ let CindyGL = function(api) {
         if(modifs.hasOwnProperty('onUpdate')) {
             obj3d.onUpdate = tryResolveLazy(modifs['onUpdate']);
         }
-        setObject(obj3d.id,obj3d);
-        return toCjsNumber(obj3d.id);
+        return {"ctype":"cgl3dObject","value":obj3d};
     });
     /**
      * plots colorplot in region bounded by cuboid
      * uses the z-coordinate for the nearest pixel as depth information
      * args:  <expr> <center> <v1> <v2> <v3>
+     *   cuboid is given by the 8 corners: center +- v1 +- v2 +- v3
      */
-    api.defineFunction("colorplot3d", 5, (args, modifs) => {
+    api.defineFunction("cgl3dNewCuboid", 5, (args, modifs) => {
         initGLIfRequired();
         var prog = args[0];
         let plotModifiers=get3DPlotModifiers(modifs);
@@ -864,8 +863,7 @@ let CindyGL = function(api) {
         if(modifs.hasOwnProperty('onUpdate')) {
             obj3d.onUpdate = tryResolveLazy(modifs['onUpdate']);
         }
-        setObject(obj3d.id,obj3d);
-        return toCjsNumber(obj3d.id);
+        return {"ctype":"cgl3dObject","value":obj3d};
     });
     let recomputeProjMatrix = function(){
         let [x0,y0,x1,y1,z0,z1] = getZoomedViewPlane();
@@ -1173,6 +1171,19 @@ let CindyGL = function(api) {
         csctx.drawImage(glcanvas, 0, 0, iw, ih, x0, y0, x1, y1);
         csctx.restore();
     };
+    // make lower-level render-api accessible from Cindy-Scipt
+    api.defineFunction("cglStartRender3d", 0, (args, modifs) => {
+        return nada;
+    });
+    api.defineFunction("cglRenderTranslucent3d", 0, (args, modifs) => {
+        return nada;
+    });
+    api.defineFunction("cglRenderOpaque3d", 0, (args, modifs) => {
+        return nada;
+    });
+    api.defineFunction("cglFinishRender3d", 0, (args, modifs) => {
+        return nada;
+    });
     function getSpacePoint(x,y) {
         // FIXME use correct coord-system for x,y position
         let zoom = CindyGL.coordinateSystem.zoom;
