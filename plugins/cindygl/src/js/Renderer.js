@@ -1,3 +1,6 @@
+function dot3(u,v){
+    return u[0]*v[0]+u[1]*v[1]+u[2]*v[2];
+}
 const BoundingBoxType = {
     none: 0, // full screen
     // XXX? add support for bounding boxes to 2D-mode?
@@ -57,14 +60,10 @@ Renderer.transparencyType = TransparencyType.Simple;
 // remember previous values to detect changes
 Renderer.prevBoundingBoxType = undefined;
 Renderer.prevShader = undefined;
-Renderer.prevTrafo = undefined;
-Renderer.prevProjection = undefined;
 Renderer.prevSize = [0,0];
 Renderer.resetCachedState = function(){
     Renderer.prevBoundingBoxType = undefined;
     Renderer.prevShader = undefined;
-    Renderer.prevTrafo = undefined;
-    Renderer.prevProjection = undefined;
     Renderer.prevSize = [0,0];
     gl.disable(gl.CULL_FACE);
 };
@@ -225,9 +224,8 @@ Renderer.prototype.rebuild = function(forceRecompile) {
 Renderer.prototype.updateVertices = function() {
     // TODO? share vertex attributes between different shader objects
     if(this.mode3D) {
-        let [x0,y0,x1,y1,z0,z1] = getZoomedViewPlane();
         if(this.boundingBox['type'] == BoundingBoxType.none) {
-            this.vertices = new Float32Array([x0,y0,z1, x1,y0,z1, x0,y1,z1, x1,y1,z1]);
+            this.vertices = new Float32Array([-1, -1, 0, 1, -1, 0, -1, 1, 0, 1, 1, 0]);
         } else if(this.boundingBox['type']==BoundingBoxType.sphere) {
             this.vertices = new Float32Array([-1, -1, 0, 1, -1, 0, -1, 1, 0, 1, 1, 0]);
         } else if(this.boundingBox['type']==BoundingBoxType.triangles) {
@@ -242,7 +240,7 @@ Renderer.prototype.updateVertices = function() {
             ]);
         } else {
             cglLogError("unsupported bounding box type: ",this.boundingBox['type']);
-            this.vertices = new Float32Array([x0,y0,z1, x1,y0,z1, x0,y1,z1, x1,y1,z1]);
+            this.vertices = new Float32Array([-1, -1, 0, 1, -1, 0, -1, 1, 0, 1, 1, 0]);
         }
     } else {
         this.vertices = new Float32Array([-1, -1, 0, 1, -1, 0, -1, 1, 0, 1, 1, 0]);
@@ -434,36 +432,6 @@ Renderer.prototype.setTransformMatrix = function(a, b, c) {
 /**
  * sets uniform space transformation matrices
  */
-Renderer.prototype.setCoordinateUniforms3D = function() {
-    let projMatrix = CindyGL.renderOrthogonal?CindyGL.orthProjectionMatrix:CindyGL.projectionMatrix;
-    if (this.shaderProgram.uniform.hasOwnProperty('orthogonal'))
-        this.shaderProgram.uniform["orthogonal"]([CindyGL.renderOrthogonal]);
-    if (this.shaderProgram.uniform.hasOwnProperty('spaceTransformMatrix'))
-        this.shaderProgram.uniform["spaceTransformMatrix"](transposeM4(CindyGL.trafoMatrix).flat());
-    if (this.shaderProgram.uniform.hasOwnProperty('inverseSpaceTransformMatrix'))
-        this.shaderProgram.uniform["inverseSpaceTransformMatrix"](transposeM4(CindyGL.invTrafoMatrix).flat());
-    if (this.shaderProgram.uniform.hasOwnProperty('projectionMatrix'))
-        this.shaderProgram.uniform["projectionMatrix"](transposeM4(projMatrix).flat());
-    if (this.shaderProgram.uniform.hasOwnProperty('projAndTrafoMatrix'))
-        this.shaderProgram.uniform["projAndTrafoMatrix"]
-            (transposeM4(mmult4(projMatrix,CindyGL.trafoMatrix)).flat());
-    if (this.shaderProgram.uniform.hasOwnProperty('cgl_viewPos')){
-        if(typeof(CindyGL.coordinateSystem.transformedViewPos)==="undefined"){
-            CindyGL.coordinateSystem.transformedViewPos=
-                mvmult4(CindyGL.invTrafoMatrix,CindyGL.coordinateSystem.viewPosition);
-        }
-        let viewPos4=CindyGL.coordinateSystem.transformedViewPos;
-        this.shaderProgram.uniform["cgl_viewPos"]([viewPos4[0]/viewPos4[3],viewPos4[1]/viewPos4[3],viewPos4[2]/viewPos4[3]]);
-    }
-    if (this.shaderProgram.uniform.hasOwnProperty('cgl_viewNormal')){
-        let viewNormal4=CindyGL.coordinateSystem.transformedViewNormal;
-        this.shaderProgram.uniform["cgl_viewNormal"]([viewNormal4[0]/viewNormal4[3],viewNormal4[1]/viewNormal4[3],viewNormal4[2]/viewNormal4[3]]);
-    }
-    if (this.shaderProgram.uniform.hasOwnProperty('cgl_viewRect')){
-        let [x0,y0,x1,y1,z0,z1] = getZoomedViewPlane();
-        this.shaderProgram.uniform["cgl_viewRect"]([x0,y0,x1,y1]);
-    }
-}
 Renderer.prototype.setBoundingBoxUniforms = function() {
     if (this.shaderProgram.uniform.hasOwnProperty('uCenter')){
         if(this.boundingBox['center'] !== undefined) {
@@ -712,7 +680,6 @@ Renderer.prototype.functionGenerationsOk = function() {
 /**@param {CglSceneLayer | undefined} targetLayer */
 Renderer.prototype.prepareUniforms = function(targetLayer) {
     this.setUniforms();
-    this.updateCoordinateUniforms();
     let texCount=0;
     if(targetLayer != null) {
         // set uniforms for rendering to targetLayer
@@ -733,9 +700,6 @@ Renderer.prototype.prepareUniforms = function(targetLayer) {
         }
     }
     this.loadTextures(texCount);
-}
-Renderer.prototype.updateCoordinateUniforms = function() {
-    this.setCoordinateUniforms3D();
 }
 
 /**
@@ -813,10 +777,6 @@ Renderer.prototype.render3d = function(sizeX, sizeY, boundingBox, plotModifiers,
         this.rebuild(true);
     } else if(needsRebuild) {
         this.rebuild(false);
-    } else if(CindyGL.projectionMatrix !== Renderer.prevProjection) {
-        this.updateVertices();
-        Renderer.prevProjection=CindyGL.projectionMatrix;
-        Renderer.prevTrafo=undefined;
     } else if(shaderChanged || this.boundingBox['type'] === BoundingBoxType.triangles) {
         // TODO? don't update vertices for every shader change
         this.updateVertices();
@@ -838,9 +798,6 @@ Renderer.prototype.render3d = function(sizeX, sizeY, boundingBox, plotModifiers,
         Renderer.prevShader = this.shaderProgram;
         this.prepareUniforms(targetLayer);
     // TODO is there a better way to detect change of coordinate system
-    } else if(Renderer.prevTrafo!==CindyGL.trafoMatrix) {
-        Renderer.prevTrafo = CindyGL.trafoMatrix;
-        this.updateCoordinateUniforms();
     }
     this.setBoundingBoxUniforms();
     this.setModifierUniforms(plotModifiers);

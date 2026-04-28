@@ -1,57 +1,3 @@
-function mmult4(A,B){
-  // TODO better algorithm, ? use cindyscript matrix multiplication built-in
-  // ? use matrix operations built-into Cindy3D
-  let C=[
-    [0,0,0,0],
-    [0,0,0,0],
-    [0,0,0,0],
-    [0,0,0,0]
-  ];
-  for(let i=0;i<4;i++){
-    for(let j=0;j<4;j++){
-      for(let k=0;k<4;k++){
-        C[i][j]+=A[i][k]*B[k][j];
-      }
-    }
-  }
-  return C;
-}
-function mvmult4(A,v){
-  let w=[0,0,0,0];
-  for(let i=0;i<4;i++){
-    for(let j=0;j<4;j++){
-       w[i]+=A[i][j]*v[j];
-    }
-  }
-  return w;
-}
-function transposeM4(A){
-  let C=[
-    [0,0,0,0],
-    [0,0,0,0],
-    [0,0,0,0],
-    [0,0,0,0]
-  ];
-  for(let i=0;i<4;i++){
-    for(let j=0;j<4;j++){
-       C[i][j]=A[j][i];
-    }
-  }
-  return C;
-}
-function addv3(u,v){
-    return [u[0]+v[0],u[1]+v[1],u[2]+v[2]];
-}
-function subv3(u,v){
-    return [u[0]-v[0],u[1]-v[1],u[2]-v[2]];
-}
-function scalev3(a,v){
-    return [a*v[0],a*v[1],a*v[2]];
-}
-function dot3(u,v){
-    return u[0]*v[0]+u[1]*v[1]+u[2]*v[2];
-}
-
 // try evaluating expr, return nada if evaluation fails
 // silences all errors& warnings that occur during evaluation
 function tryEvaluate(expr,api,def) {
@@ -105,21 +51,6 @@ function cglLogInfo(...args){
 function cglLogDebug(...args){
     if(cglLogLevel<3)return;
     console.debug(...args);
-}
-
-function getZoomedViewPlane(){
-    // x0 = (x0+x1)/2 + (x0-x1)/2
-    // x0' = (x0+x1)/2 + zoom*(x0-x1)/2 = 0.5*(x0*(1+zoom)+x1*(1-zoom))
-    let zoom = CindyGL.coordinateSystem.zoom;
-    let x0=CindyGL.coordinateSystem.x0;
-    let x1=CindyGL.coordinateSystem.x1;
-    let y0=CindyGL.coordinateSystem.y0;
-    let y1=CindyGL.coordinateSystem.y1;
-    let z0=CindyGL.coordinateSystem.z0;
-    let z1=CindyGL.coordinateSystem.z1;
-    return [0.5*(x0*(1+zoom)+x1*(1-zoom)),0.5*(y0*(1+zoom)+y1*(1-zoom)),
-            0.5*(x1*(1+zoom)+x0*(1-zoom)),0.5*(y1*(1+zoom)+y0*(1-zoom)),
-            zoom*(z0-z1)+z1,z1];
 }
 
 let CindyGL = function(api) {
@@ -917,7 +848,8 @@ let CindyGL = function(api) {
             cglLogError("no active rendering pass, call `cglStartRender3d` before calling `cglRenderOpaque`");
             return nada;
         }
-        CindyGL.sceneRenderer.renderOpaque(CindyGL.objectBuffer.opaque);
+        let objects = {}; // FIXME: resolve objects
+        CindyGL.sceneRenderer.renderOpaque(objects);
         return nada;
     });
     api.defineFunction("cgl3dRenderTranslucent", 1, (args, modifs) => {
@@ -925,7 +857,8 @@ let CindyGL = function(api) {
             cglLogError("no active rendering pass, call `cglStartRender3d` before calling `cglRenderOpaque`");
             return nada;
         }
-        CindyGL.sceneRenderer.renderTranslucent(CindyGL.objectBuffer.opaque);
+        let objects = {};
+        CindyGL.sceneRenderer.renderTranslucent(objects);
         return nada;
     });
     api.defineFunction("cgl3dFinishRender3d", 0, (args, modifs) => {
@@ -1332,20 +1265,6 @@ let CindyGL = function(api) {
 
 // Exports for CindyXR
 CindyGL.gl = null;
-/** @type {{opaque:Map<number,CindyGL3DObject>, translucent:Map<number,CindyGL3DObject>,callbacks:{preRender:Array<CindyJS.anyval>}}} */
-CindyGL.objectBuffer = {
-    opaque:new Map(),
-    translucent:new Map(),
-    callbacks:{
-        preRender:[]
-    }
-};
-// initialize with dummy values to make type-resolving easier
-CindyGL.coordinateSystem = {
-    x0:0 , x1: 0, y0: 0, y1: 0,  z0: 0, z1:0, zoom: 1,
-    viewPosition: [0,0,0,0], transformedViewPos: [0,0,0,0]
-};
-CindyGL.renderOrthogonal = false;
 CindyGL.generateCanvasWrapperIfRequired = generateCanvasWrapperIfRequired;
 CindyGL.initGLIfRequired = initGLIfRequired;
 CindyJS.registerPlugin(1, "CindyGL", CindyGL);

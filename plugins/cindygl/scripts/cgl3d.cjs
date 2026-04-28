@@ -3250,4 +3250,19 @@ let recomputeProjMatrix = function(){
         });
         return nada;
     });
+function getZoomedViewPlane(){
+    // x0 = (x0+x1)/2 + (x0-x1)/2
+    // x0' = (x0+x1)/2 + zoom*(x0-x1)/2 = 0.5*(x0*(1+zoom)+x1*(1-zoom))
+    let zoom = CindyGL.coordinateSystem.zoom;
+    let x0=CindyGL.coordinateSystem.x0;
+    let x1=CindyGL.coordinateSystem.x1;
+    let y0=CindyGL.coordinateSystem.y0;
+    let y1=CindyGL.coordinateSystem.y1;
+    let z0=CindyGL.coordinateSystem.z0;
+    let z1=CindyGL.coordinateSystem.z1;
+    return [0.5*(x0*(1+zoom)+x1*(1-zoom)),0.5*(y0*(1+zoom)+y1*(1-zoom)),
+            0.5*(x1*(1+zoom)+x0*(1-zoom)),0.5*(y1*(1+zoom)+y0*(1-zoom)),
+            zoom*(z0-z1)+z1,z1];
+}
+
 */
