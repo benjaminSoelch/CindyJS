@@ -58,12 +58,12 @@ Renderer.vModifierPrefixV = "aModifier_";
 Renderer.transparencyType = TransparencyType.Simple;
 
 // remember previous values to detect changes
-Renderer.prevBoundingBoxType = undefined;
-Renderer.prevShader = undefined;
+Renderer.prevBoundingBoxType = null;
+Renderer.prevShader = null;
 Renderer.prevSize = [0,0];
 Renderer.resetCachedState = function(){
-    Renderer.prevBoundingBoxType = undefined;
-    Renderer.prevShader = undefined;
+    Renderer.prevBoundingBoxType = null;
+    Renderer.prevShader = null;
     Renderer.prevSize = [0,0];
     gl.disable(gl.CULL_FACE);
 };
@@ -316,7 +316,7 @@ Renderer.computeAttributeData = function (eltType,values){
 }
 // TODO? separate function for triangle attributes
 Renderer.prototype.updateAttributes = function() {
-    Renderer.prevBoundingBoxType=this.boundingBox['type'];
+    Renderer.prevBoundingBoxType = this.boundingBox['type'];
     if (this.boundingBox['type'] === BoundingBoxType.cylinder || this.boundingBox['type'] === BoundingBoxType.cuboid) {
         gl.enable(gl.CULL_FACE);
         gl.cullFace(gl.FRONT); // cull front faces to allow view-pos inside cuboid
@@ -427,6 +427,14 @@ Renderer.prototype.setTransformMatrix = function(a, b, c) {
         ];
         this.shaderProgram.uniform["transformMatrix"](transpose3(m));
     }
+}
+/**
+ * sets uniform space transformation matrices
+ */
+Renderer.prototype.setCoordinateUniforms3D = function() {
+    if (this.shaderProgram.uniform.hasOwnProperty('trafo_matrix'))
+        this.shaderProgram.uniform["trafo_matrix"]
+            (CindyGL.sceneRenderer.transform);
 }
 /**
  * sets uniform space transformation matrices
@@ -679,6 +687,7 @@ Renderer.prototype.functionGenerationsOk = function() {
 /**@param {CglSceneLayer | undefined} targetLayer */
 Renderer.prototype.prepareUniforms = function(targetLayer) {
     this.setUniforms();
+    this.setCoordinateUniforms3D();
     let texCount=0;
     if(targetLayer != null) {
         // set uniforms for rendering to targetLayer
@@ -1133,7 +1142,7 @@ Cgl3dLayeredSceneRenderer.prototype.renderTranslucent = function(objects) {
             }
             // cannot read and write to same texture in one shader call
             // 1. render to renderLayer with layers[0] as input
-            Renderer.prevShader = undefined; // clear cached shader data
+            Renderer.prevShader = null; // clear cached shader data
             obj3d.renderer.render3d(this.iw, this.ih,obj3d.boundingBox,obj3d.plotModifiers,this.layers[0], this.renderBuffer, this.canvaswrapper != null);
             // 2. swap rendered layer with layer[0]
             gl.disable(gl.CULL_FACE);// don't cull faces while swapping layers
@@ -1152,7 +1161,7 @@ Cgl3dLayeredSceneRenderer.prototype.renderTranslucent = function(objects) {
             gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT1, gl.TEXTURE_2D, this.renderLayer.depthTexture, 0);
             gl.clearBufferfv(gl.COLOR, 0, [0, 0, 0, 0]);
             gl.clearBufferfv(gl.COLOR, 1, [1, 0, 0, 0]); // clear depth-texture to 1
-            Renderer.prevShader = undefined; // clear cached shader data
+            Renderer.prevShader = null; // clear cached shader data
             obj3d.renderer.render3d(this.iw, this.ih,obj3d.boundingBox,obj3d.plotModifiers,null, this.renderBuffer, this.canvaswrapper != null);
             gl.bindFramebuffer(gl.FRAMEBUFFER, this.mergeBuffer);
             gl.disable(gl.DEPTH_TEST); // no depth-testing during texture sorting
