@@ -609,18 +609,6 @@ let CindyGL = function(api) {
         return tags;
     }
     /**
-     * @param {number} objId
-     * @param {CindyGL3DObject} obj3d
-     */
-    function setObject(objId,obj3d){
-        let isOpaque = obj3d.opaque !== undefined ? obj3d.opaque : obj3d.renderer.opaque;
-        if(isOpaque) {
-            CindyGL.objectBuffer.opaque.set(objId,obj3d);
-        } else {
-            CindyGL.objectBuffer.translucent.set(objId,obj3d);
-        }
-    }
-    /**
      * @param {*} modifs
      * @param {string} name
      * @param {number} defValue
@@ -865,199 +853,17 @@ let CindyGL = function(api) {
         }
         return {"ctype":"cgl3dObject","value":obj3d};
     });
-    let recomputeProjMatrix = function(){
-        let [x0,y0,x1,y1,z0,z1] = getZoomedViewPlane();
-        // TODO this will break if z0 is near 0
-        CindyGL.projectionMatrix=[
-            [2/(x1-x0), 0, 0, - 2*x0/(x1-x0) -1],
-            [0, 2/(y1-y0), 0, - 2*y0/(y1-y0) -1],
-            [0, 0, 1/(z1-z0), - z0/(z1-z0) -1],
-            [0, 0, -1/z0, 1]
-        ];
-        // TODO check matrix
-        CindyGL.orthProjectionMatrix=[
-            [2/(x1-x0), 0, 0, - 2*x0/(x1-x0) -1],
-            [0, 2/(y1-y0), 0, - 2*y0/(y1-y0) -1],
-            [0, 0, 1/(z1-z0), - z0/(z1-z0) -1],
-            [0, 0, 0, 1]
-        ];
-        CindyGL.coordinateSystem.viewPosition = [(x0+x1)/2,(y0+y1)/2,z0,1];
-        CindyGL.coordinateSystem.transformedViewNormal = mvmult4(CindyGL.invTrafoMatrix,[0,0,(z1-z0),1]);
-        CindyGL.coordinateSystem.transformedViewPos =
-            mvmult4(CindyGL.invTrafoMatrix,CindyGL.coordinateSystem.viewPosition);
-    };
-    let resetRotation = function(){
-        CindyGL.trafoMatrix = [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]];
-        CindyGL.invTrafoMatrix = [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]];
-        CindyGL.coordinateSystem.transformedViewPos = CindyGL.coordinateSystem.viewPosition;
-        let [x0,y0,x1,y1,z0,z1] = getZoomedViewPlane();
-        CindyGL.coordinateSystem.transformedViewNormal = [0,0,(z1-z0),1];
-    };
-    let updateCoordSytem = function(modifs) {
-        let ul=computeUpperLeftCorner(api);
-        let lr=computeLowerRightCorner(api);
-        let x0 = getRealModifier(modifs,"x0",ul.x);
-        let x1 = getRealModifier(modifs,"x1",lr.x);
-        let y0 = getRealModifier(modifs,"y0",lr.y);
-        let y1 = getRealModifier(modifs,"y1",ul.y);
-        [x0, y0] = getPoint2DModifier(modifs,"p0",[x0, y0]);
-        [x1, y1] = getPoint2DModifier(modifs,"p1",[x1, y1]);
-        let z1 = getRealModifier(modifs,"z1",0);
-        let z0 = getRealModifier(modifs,"z0",z1-2*Math.abs(x1-x0));
-        let zoom = getRealModifier(modifs,"zoom",1);
-        CindyGL.coordinateSystem = {
-            x0: x0 , x1: x1, y0: y0, y1: y1,
-            z0: z0, z1: z1, zoom: zoom,
-            // will be correctly initialized by recomputeProjMatrix()
-            viewPosition: [0,0,0,0], transformedViewPos: [0,0,0,0]
-        };
-        recomputeProjMatrix();
-    }
-    resetRotation();
-    updateCoordSytem({});
-    api.defineFunction("cglCoordSystem", 0, (args, modifs) => {
-        updateCoordSytem(modifs);
-        return nada;
-    });
-    api.defineFunction("cglViewPos", 0, (args, modifs) => {
-        let viewPos = CindyGL.coordinateSystem.transformedViewPos.slice(0,3);
-        return { // convert to CindyJS list
-            ctype: 'list',
-            value: viewPos.map(toCjsNumber)
-        };
-    });
-    api.defineFunction("cglViewNormal", 0, (args, modifs) => {
-        let viewPos = CindyGL.coordinateSystem.transformedViewNormal.slice(0,3);
-        return { // convert to CindyJS list
-            ctype: 'list',
-            value: viewPos.map(toCjsNumber)
-        };
-    });
-    api.defineFunction("cglViewRect", 0, (args, modifs) => {
-        let [x0,y0,x1,y1,z0,z1] = getZoomedViewPlane();
-        return { // convert to CindyJS list
-            ctype: 'list',
-            value: [x0,y0,x1,y1].map(toCjsNumber)
-        };
-    });
-    api.defineFunction("cglAxes", 0, (args, modifs) => {
-        let unitPoints = [
-            mvmult4(CindyGL.trafoMatrix,[1,0,0,1]),
-            mvmult4(CindyGL.trafoMatrix,[0,1,0,1]),
-            mvmult4(CindyGL.trafoMatrix,[0,0,1,1]),
-            mvmult4(CindyGL.trafoMatrix,[0,0,0,1]),
-        ].map(v=>[v[0]/v[3],v[1]/v[3],v[2]/v[3]]);
-        let coordVectors = [
-            subv3(unitPoints[0],unitPoints[3]),
-            subv3(unitPoints[1],unitPoints[3]),
-            subv3(unitPoints[2],unitPoints[3]),
-        ];
-        return { // convert to CindyJS list
-            ctype: 'list',
-            value: coordVectors.map(v=>({
-                ctype: 'list',
-                value: v.map(toCjsNumber)
-            }))
-        };
-    });
-    api.defineFunction("rotate3d", 2, (args, modifs) => {
-        let alpha = api.evaluateAndVal(args[0])["value"]["real"];
-        let beta = api.evaluateAndVal(args[1])["value"]["real"];
-        let trafoMatrix;
-        if(typeof(CindyGL.trafoMatrix)!== "undefined"){
-            trafoMatrix=CindyGL.trafoMatrix;
-        }else{
-            trafoMatrix=[[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]];
-        }
-        // TODO? rotate relative to center of view-rect
-        let rotZ=[
-          [1,0,0,0],
-          [0,Math.cos(beta),-Math.sin(beta),0],
-          [0,Math.sin(beta),Math.cos(beta),0],
-          [0,0,0,1]
-        ];
-        let rotY=[
-          [Math.cos(alpha),0,-Math.sin(alpha),0],
-          [0,1,0,0],
-          [Math.sin(alpha),0,Math.cos(alpha),0],
-          [0,0,0,1]
-        ];
-        let rotationMatrix=mmult4(rotY,rotZ);
-        CindyGL.trafoMatrix=mmult4(rotationMatrix,trafoMatrix);
-        CindyGL.invTrafoMatrix=mmult4(CindyGL.invTrafoMatrix,transposeM4(rotationMatrix));
-        if(typeof(CindyGL.coordinateSystem)!== "undefined"){
-            CindyGL.coordinateSystem.transformedViewPos =
-                mvmult4(CindyGL.invTrafoMatrix,CindyGL.coordinateSystem.viewPosition);
-            let [x0,y0,x1,y1,z0,z1] = getZoomedViewPlane();
-            CindyGL.coordinateSystem.transformedViewNormal =
-                mvmult4(CindyGL.invTrafoMatrix,[0,0,(z1-z0),1]);
-            return nada;
-        }
-        return nada;
-    });
-    api.defineFunction("zoom3d", 1, (args, modifs) => {
-        let zoom = api.evaluateAndVal(args[0])["value"]["real"];
-        CindyGL.coordinateSystem.zoom = zoom;
-        recomputeProjMatrix();
-    });
-    // TODO? function to move view-position/canvas
-    // TODO? combined reset for objects and coord-system
-    api.defineFunction("cglResetRotation", 0, (args, modifs) => {
-        resetRotation();
-        return nada;
-    });
-    function reset3d() {
-        CindyGL.objectBuffer = {
-            opaque:new Map(),
-            translucent:new Map(),
-            callbacks:{
-                preRender:[]
-            }
-        };
-    }
-    api.defineFunction("reset3d", 0, (args, modifs) => {
-        reset3d();
-        return nada;
-    });
-    api.defineFunction("cglReset3d", 0, (args, modifs) => {
-        cglLogWarning('`cglReset3d` is deprecared use `reset3d` instead');
-        reset3d();
-        return nada;
-    });
-    api.defineFunction("cglOrthogonalMode", 1, (args, modifs) => {
-        console.warn("cglOrthogonalMode: is not yet part of the stable API and might be removed in future versions");
-        let arg = coerce.toBool(api.evaluateAndVal(args[0]),false);
-        CindyGL.renderOrthogonal = arg;
-        return toCjs(arg);
-    });
-    api.defineFunction("cglEvalOnRender", 1, (args, modifs) => {
-        createCglEval(0);
-        // TODO? return a callback id, that can be removed later
-        CindyGL.objectBuffer.callbacks.preRender.push(args[0]);
-        return nada;
-    });
+
     // TODO? automatic update of coordinate system to match render region of screen
-    // ?  no auto-update if coordinates have to been explicitly set
-    // ? allow store/restore of coordinate system
-    // ? support rotated coordinate-plane
-    // move image information to render function:
-    // ? cglRender3d(ll,lr,name) -> render to image at screen pos ll,lr (always update coordinates)
-    api.defineFunction("render3d", 0, (args, modifs) => {
+
+    api.defineFunction("cglStartRender3d", 0, (args, modifs) => {
         // internal measures. might be multiple of api.instance['canvas']['clientWidth'] on HiDPI-Displays
         let iw = api.instance['canvas']['width'];
         let ih = api.instance['canvas']['height'];
-        render3d(0,0,iw,ih,iw,ih,null,modifs);
+        prepareRender3d(0,0,iw,ih,iw,ih,null,modifs);
         return nada;
     });
-    api.defineFunction("cglRender3d", 0, (args, modifs) => {
-        cglLogWarning('`cglRender3d` is deprecared use `render3d` instead');
-        // internal measures. might be multiple of api.instance['canvas']['clientWidth'] on HiDPI-Displays
-        let iw = api.instance['canvas']['width'];
-        let ih = api.instance['canvas']['height'];
-        render3d(0,0,iw,ih,iw,ih,null,modifs);
-        return nada;
-    });
-    api.defineFunction("cglRender3d", 2, (args, modifs) => {
+    api.defineFunction("cglStartRender3d", 2, (args, modifs) => {
         var a = api.extractPoint(api.evaluateAndVal(args[0]));
         var b = api.extractPoint(api.evaluateAndVal(args[1]));
 
@@ -1077,10 +883,10 @@ let CindyGL = function(api) {
 
         var xx = iw * (ul.x - cul.x) / (clr.x - cul.x);
         var yy = ih * (ul.y - cul.y) / (clr.y - cul.y);
-        render3d(xx, yy, iw*fx, ih*fy, iw*fx, ih*fy, null, modifs);
+        prepareRender3d(xx, yy, iw*fx, ih*fy, iw*fx, ih*fy, null, modifs);
         return nada;
     });
-    api.defineFunction("cglRender3d", 1, (args, modifs) => {
+    api.defineFunction("cgl3dStartRender3d", 1, (args, modifs) => {
         initGLIfRequired();
         var name = api.evaluateAndVal(args[0]);
         if (name.ctype !== 'string') {
@@ -1091,77 +897,48 @@ let CindyGL = function(api) {
         let canvaswrapper = generateCanvasWrapperIfRequired(imageobject, api, false);
         var cw = imageobject.width;
         var ch = imageobject.height;
-        render3d(0, 0, cw, ch, cw, ch, canvaswrapper, modifs);
+        prepareRender3d(0, 0, cw, ch, cw, ch, canvaswrapper, modifs);
         return nada;
     });
-    function render3d(x0,y0,x1,y1,iw,ih,canvaswrapper,modifs){
+    function prepareRender3d(x0,y0,x1,y1,iw,ih,canvaswrapper,modifs){
         initGLIfRequired();
-        let layerCount = getRealModifier(modifs,"layers",CindyGL.objectBuffer.translucent.size<2 ? 0 : 2);
         Renderer.resetCachedState();
+        let needsTranslucent = true; // TODO: make customizable through modifier
         gl.clear(gl.DEPTH_BUFFER_BIT|gl.COLOR_BUFFER_BIT);
-        CindyGL.objectBuffer.callbacks.preRender.forEach((func)=>{
-            cglEvalImpl(func,[],{});
-        });
-        const sceneRenderer = (layerCount == 0) ?
-            new Cgl3dSimpleSceneRenderer(iw,ih,canvaswrapper) :
-            new Cgl3dLayeredSceneRenderer(iw,ih,canvaswrapper,layerCount);
-        // ? split mesh into seperate layers depending on view direction
-        CindyGL.objectBuffer.translucent.forEach((obj3d)=>{
-            // sort triangles by depth
-            if(obj3d.boundingBox['type']!=BoundingBoxType.triangles) return;
-            /**@type{Array<number>} */
-            const vertices = obj3d.boundingBox['vertices'];
-            const triangleCount = vertices.length/9;
-            const viewNormal = CindyGL.coordinateSystem.transformedViewNormal;
-            // create an array of indices
-            const indices = Array.from({ length: triangleCount }, (_, index) => index);
-            // sort indices by distance of triangle midpoints from view-plane
-            indices.sort((i1,i2)=>{
-                const m1x = (vertices[9*i1]+vertices[9*i1+3]+vertices[9*i1+6])/3;
-                const m1y = (vertices[9*i1+1]+vertices[9*i1+4]+vertices[9*i1+7])/3;
-                const m1z = (vertices[9*i1+2]+vertices[9*i1+5]+vertices[9*i1+8])/3;
-                const m2x = (vertices[9*i2]+vertices[9*i2+3]+vertices[9*i2+6])/3;
-                const m2y = (vertices[9*i2+1]+vertices[9*i2+4]+vertices[9*i2+7])/3;
-                const m2z = (vertices[9*i2+2]+vertices[9*i2+5]+vertices[9*i2+8])/3;
-                const d1 = dot3([m1x,m1y,m1z],viewNormal);
-                const d2 = dot3([m2x,m2y,m2z],viewNormal);
-                return (d1 < d2) - (d2 < d1);
-            });
-            obj3d.boundingBox['vertices'] = vertices.map((_,index)=>{
-                const triIndex =  Math.floor(index/9);
-                const coordIndex = index%9;
-                return vertices[9*indices[triIndex]+coordIndex];
-            });
-            obj3d.boundingBox['vModifiers'].forEach((vMod)=>{
-                vMod.values = vMod.values.map((_,index)=>{
-                    const triIndex = Math.floor(index/3);
-                    const vIndex = index%3;
-                    return vMod.values[3*indices[triIndex]+vIndex];
-                });
-                vMod.aData = undefined; // remove cached attribute data
-            });
-        });
-        sceneRenderer.renderOpaque(CindyGL.objectBuffer.opaque);
-        sceneRenderer.renderTranslucent(CindyGL.objectBuffer.translucent);
-        // TODO? extract to function on sceneRenderer
-        let wrongOpacity = sceneRenderer.wrongOpacity;
-        if(wrongOpacity.size>0){
-            cglLogDebug(`changing opacity of ${wrongOpacity.size} objects`);
-            // update objects that had the wrong opacity
-            wrongOpacity.forEach((obj3d)=>{
-                let isOpaque = obj3d.opaque !== undefined ? obj3d.opaque : obj3d.renderer.opaque;
-                if(isOpaque){
-                    CindyGL.objectBuffer.translucent.delete(obj3d.id);
-                }else{
-                    CindyGL.objectBuffer.opaque.delete(obj3d.id);
-                }
-                setObject(obj3d.id,obj3d);
-            });
+        if (CindyGL.sceneRenderer !== undefined) cglLogWarning("once one rendering pass can be active at a given type, call `cglFinishRender3d` before calling `cglStartRender3d` a second time");
+        CindyGL.sceneRenderer = (layerCount != 0 && needsTranslucent) ?
+             new Cgl3dLayeredSceneRenderer(iw,ih,canvaswrapper,layerCount) :
+            new Cgl3dSimpleSceneRenderer(iw,ih,canvaswrapper);
+        return nada;
+    }
+    api.defineFunction("cgl3dRenderOpaque", 1, (args, modifs) => {
+        if (CindyGL.sceneRenderer !== undefined){
+            cglLogError("no active rendering pass, call `cglStartRender3d` before calling `cglRenderOpaque`");
+            return nada;
         }
-        if(canvaswrapper!=null) {
+        CindyGL.sceneRenderer.renderOpaque(CindyGL.objectBuffer.opaque);
+        return nada;
+    });
+    api.defineFunction("cgl3dRenderTranslucent", 1, (args, modifs) => {
+        if (CindyGL.sceneRenderer !== undefined){
+            cglLogError("no active rendering pass, call `cglStartRender3d` before calling `cglRenderOpaque`");
+            return nada;
+        }
+        CindyGL.sceneRenderer.renderTranslucent(CindyGL.objectBuffer.opaque);
+        return nada;
+    });
+    api.defineFunction("cgl3dFinishRender3d", 0, (args, modifs) => {
+        if (CindyGL.sceneRenderer !== undefined){
+            cglLogError("no active rendering pass, call `cglStartRender3d` before calling `cglFinishRender3d`");
+            return nada;
+        }
+        finishRender3d(modifs);
+    });
+    function finishRender3d(modifs){
+        if(CindyGL.sceneRenderer.canvaswrapper!=null) {
           gl.flush(); //renders stuff to canvaswrapper
           gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-          canvaswrapper.swap(); // swap textures after rendering
+          CindyGL.sceneRenderer.canvaswrapper.swap(); // swap textures after rendering
           return;
         }
         //  finish rendering
@@ -1170,195 +947,17 @@ let CindyGL = function(api) {
         csctx.setTransform(1, 0, 0, 1, 0, 0);
         csctx.drawImage(glcanvas, 0, 0, iw, ih, x0, y0, x1, y1);
         csctx.restore();
+        CindyGL.sceneRenderer = undefined;
     };
-    // make lower-level render-api accessible from Cindy-Scipt
-    api.defineFunction("cglStartRender3d", 0, (args, modifs) => {
+
+    api.defineFunction("cgl3dObjectGet", 2, (args, modifs) => {
+        // TODO: get field of object
         return nada;
     });
-    api.defineFunction("cglRenderTranslucent3d", 0, (args, modifs) => {
+    api.defineFunction("cgl3dObjectSet", 3, (args, modifs) => {
+        // TODO: set field of object
         return nada;
     });
-    api.defineFunction("cglRenderOpaque3d", 0, (args, modifs) => {
-        return nada;
-    });
-    api.defineFunction("cglFinishRender3d", 0, (args, modifs) => {
-        return nada;
-    });
-    function getSpacePoint(x,y) {
-        // FIXME use correct coord-system for x,y position
-        let zoom = CindyGL.coordinateSystem.zoom;
-        let screenPoint=[zoom*x,zoom*y,zoom*CindyGL.coordinateSystem.z1,1];
-        return mvmult4(CindyGL.invTrafoMatrix,screenPoint).slice(0,3);
-    }
-    /**
-     * Returns the position on the view-plane for the pixel (args[0],args[1])
-     */
-    api.defineFunction("cglSpacePoint", 2, (args, modifs) => {
-        let x = api.evaluateAndVal(args[0])["value"]["real"];
-        let y = api.evaluateAndVal(args[1])["value"]["real"];
-        return toCjs(getSpacePoint(x,y));
-    });
-    /**
-     * Returns the current viewDirection for the pixel (args[0],args[1])
-     */
-    api.defineFunction("cglDirection", 2, (args, modifs) => {
-        let x = api.evaluateAndVal(args[0])["value"]["real"];
-        let y = api.evaluateAndVal(args[1])["value"]["real"];
-        let spacePoint = getSpacePoint(x,y);
-        // TODO support orthogonal projection
-        let viewPos = CindyGL.coordinateSystem.transformedViewPos;
-        let direction = subv3(spacePoint,viewPos);
-        return toCjs(direction);
-    });
-    /**
-     * List all currently visible objects
-     * modifiers can be used to filter objects depending on their tags
-     * - if a modifier is set to `true` all returned objects will have the corresponging tag
-     * - if a modifier is set to `false` no returned object will have the corresponding tag
-     */
-    api.defineFunction("cglListObjects", 0, (args, modifs) => {
-        let modValues = {};
-        Object.keys(modifs).forEach(key=>{
-            let val = coerce.toBool(api.evaluateAndVal(modifs[key]),null);
-            if(val===null)return;
-            modValues[key] = val;
-        });
-        let res = [];
-        let searchObject = (obj3d)=>{
-            if(Object.keys(modValues).some(key=>(modValues[key] != obj3d.tags.has(key))))
-                return;
-            res.push(obj3d.id);
-        };
-        CindyGL.objectBuffer.opaque.forEach(searchObject);
-        // TODO? parameter to select if translucent objects should be checked
-        CindyGL.objectBuffer.translucent.forEach(searchObject);
-        return toCjs(res);
-    });
-    
-    /**
-     * Finds the 3D object on the view-ray through the screen position (args[0],args[1]) that is closest to the camera.
-     * If the `tags` modifier is set only objects that have at least one of the specified tags are considered
-     */
-    api.defineFunction("cglFindObject", 2, (args, modifs) => {
-        let x = api.evaluateAndVal(args[0])["value"]["real"];
-        let y = api.evaluateAndVal(args[1])["value"]["real"];
-        let spacePoint = getSpacePoint(x,y);
-        // TODO support orthogonal projection
-        let tags = get3DPlotTags(modifs);
-        let viewPos = CindyGL.coordinateSystem.transformedViewPos;
-        let direction = subv3(spacePoint,viewPos);
-        let minDst = Infinity;
-        let pickedId = -1;
-        let searchObject = (obj3d)=>{
-            // TODO use Set.intersection once suppported
-            let sharesTag = tags.size==0;
-            for(const tag of tags){
-                if(obj3d.tags.has(tag)){
-                    sharesTag=true;
-                    break;
-                }
-            };
-            if(!sharesTag)
-                return;
-            // TODO? execute colorplot code to get correct z-coordinate
-            if(obj3d.boundingBox['type'] == BoundingBoxType.sphere) {
-                let center = obj3d.boundingBox['center'];
-                // TODO? also detect positions sligthly outside sphere
-                let radius = obj3d.boundingBox['radius'];
-                // |v+l*d -c|=r
-                let vc = subv3(viewPos,center);
-                let a = dot3(direction,direction);
-                let b = dot3(vc,direction);
-                let c = dot3(vc,vc) - radius*radius;
-                let D = b*b-a*c;
-                if(D<0){ return; } // ray does not hit sphere
-                let dst = (-b - Math.sqrt(D))/a;
-                if (dst>=0 && dst<=minDst) {
-                    minDst = dst;
-                    pickedId = obj3d.id;
-                }
-            } else if(obj3d.boundingBox['type'] == BoundingBoxType.cylinder) {
-                let radius = obj3d.boundingBox['radius'];
-                let center = obj3d.boundingBox['center'];
-                let orientation = obj3d.boundingBox['direction'];
-                let direction0 = scalev3(1/Math.sqrt(dot3(direction,direction)),direction);
-                let p1 = subv3(viewPos,center);
-                let w = Math.sqrt(dot3(p1,p1));
-                let W = addv3(viewPos,scalev3(w,direction0));
-                let BA = orientation; // scaled by 2
-                let U = scalev3(1/dot3(BA,BA),BA);
-                let VA = subv3(W,center);
-                let S = subv3(VA,scalev3(dot3(VA,BA),U));
-                let T = subv3(direction0,scalev3(dot3(direction0,BA),U));
-                let a = dot3(T,T);
-                let b = dot3(S,T);
-                let c = dot3(S,S) -radius*radius;
-                let D= b*b-a*c;
-                if(D<0){ return; } // ray does not hit cylinder
-                let l1 = -(b + Math.sqrt(D))/a;
-                let dst = w+l1;
-                let v1 = subv3(addv3(W,scalev3(l1,direction0)),center);
-                let delta = dot3(v1,U);
-                if ( delta < -1 || delta > 1 ) {
-                    let l2 = -(b - Math.sqrt(D))/a;
-                    dst = w+l2;
-                    let v2 = subv3(addv3(W,scalev3(l2,direction0)),center);
-                    delta = dot3(v2,U);
-                    if ( delta < -1 || delta > 1 ) {
-                        return;
-                    }
-                }
-                if (dst>=0 && dst<=minDst) {
-                    minDst = dst;
-                    pickedId = obj3d.id;
-                }
-            }
-            // TODO? checks different bouning box types
-            // TODO? make pixel depth dependent on actual shader code
-        };
-        CindyGL.objectBuffer.opaque.forEach(searchObject);
-        // TODO? parameter to select if translucent objects should be checked
-        CindyGL.objectBuffer.translucent.forEach(searchObject);
-        // TODO? convert picked 3D-object to CindyJS object
-        // TODO? add a way to group objects
-        //   make name,position, readable, ? writable
-        return toCjsNumber(pickedId);
-    });
-    function objectsById(idVal) {
-        idVal = api.evaluateAndVal(idVal);
-        let ids;
-        if(idVal['ctype'] === 'number') {
-            let objId = coerce.toInt(idVal,-1);
-            if(objId<0)
-                return [];
-            ids = [objId];
-        } else if(idVal['ctype'] === 'list') {
-            ids = idVal['value'].map(id=>coerce.toInt(id,-1)).filter(id=>id>=0);
-        }
-        return ids.map(objId=>{
-            let obj3d = CindyGL.objectBuffer.opaque.get(objId);
-            let wasOpaque = true;
-            if(obj3d === undefined){
-                obj3d = CindyGL.objectBuffer.translucent.get(objId);
-                wasOpaque = false;
-                if(obj3d === undefined){
-                    cglLogWarning(`could not find object with id ${objId}`);
-                    return null;
-                }
-            }
-            return [obj3d,objId,wasOpaque];
-        }).filter(val=>val!==null);
-    }
-    function boundyAsCS(obj3d){
-        let csBounds = {};
-        Object.entries(obj3d.boundingBox).forEach(([key,value])=>{
-            csBounds[key] = toCjs(value);
-        });
-        return {
-            "ctype": "JSON",
-            "value": csBounds
-        };
-    }
     function changedBounds(obj3d) {
         if(obj3d.updating) {
             cglLogWarning("recursive update loop, ignoring update");
@@ -1370,176 +969,6 @@ let CindyGL = function(api) {
             obj3d.updating = false;
         }
     }
-    // change bounding box
-    api.defineFunction("cglUpdateBounds",1, (args, modifs) => {
-        return objectsById(args[0]).map(([obj3d,objId,_])=>{
-            obj3d.boundingBox = Renderer.noBounds();
-            changedBounds(obj3d);
-            return toCjsNumber(objId);
-        });
-    });
-    api.defineFunction("cglUpdateBounds",2, (args, modifs) => {
-        return objectsById(args[0]).map(([obj3d,objId,_])=>{
-            let vertices = verticesFromCJS(api.evaluateAndVal(args[1]));
-            if(vertices === undefined) {
-                cglLogWarning("invalid vertex data",args[1]);
-                return nada;
-            }
-            let vCount = vertices.length/3;
-            if(vCount < 3) {
-                cglLogWarning("not enough vertices for triangle");
-                return nada; // not enough vertices
-            }
-            let vModifiers = get3DPlotVertexModifiers(modifs,vCount,obj3d.plotModifiers);
-            obj3d.boundingBox = Renderer.boundingTriangles(vertices,vModifiers);
-            changedBounds(obj3d);
-            return toCjsNumber(objId);
-        });
-    });
-    api.defineFunction("cglUpdateBounds",3, (args, modifs) => {
-        return objectsById(args[0]).map(([obj3d,objId,_])=>{
-            var center = coerce.toDirection(api.evaluateAndVal(args[1]));
-            var radius = api.evaluateAndVal(args[2])["value"]["real"];
-            obj3d.boundingBox = Renderer.boundingSphere(center,radius);
-            changedBounds(obj3d);
-            return toCjsNumber(objId);
-        });
-    });
-    api.defineFunction("cglUpdateBounds",4, (args, modifs) => {
-        return objectsById(args[0]).map(([obj3d,objId,_])=>{
-            var pointA = coerce.toDirection(api.evaluateAndVal(args[1]));
-            var pointB = coerce.toDirection(api.evaluateAndVal(args[2]));
-            var radius = api.evaluateAndVal(args[3])["value"]["real"];
-            var overhang = 0;
-            if (modifs.hasOwnProperty("overhang")) {
-                overhang = modifs["overhang"]["value"]["real"];
-            } else if (obj3d.boundingBox['boxLengthScale'] !== undefined) {
-                // compute overhang from old length
-                let oldLength = Math.sqrt(dot3(obj3d.boundingBox['direction'],obj3d.boundingBox['direction']));
-                overhang = (obj3d.boundingBox['boxLengthScale']*oldLength)-oldLength;
-            }
-            obj3d.boundingBox = Renderer.boundingCylinder(scalev3(0.5,addv3(pointA,pointB)),scalev3(0.5,subv3(pointB,pointA)),radius,overhang);
-            changedBounds(obj3d);
-            return toCjsNumber(objId);
-        });
-    });
-    api.defineFunction("cglUpdateBounds",5, (args, modifs) => {
-        return objectsById(args[0]).map(([obj3d,objId,_])=>{
-            var center = coerce.toDirection(api.evaluateAndVal(args[1]));
-            var v1 = coerce.toDirection(api.evaluateAndVal(args[2]));
-            var v2 = coerce.toDirection(api.evaluateAndVal(args[3]));
-            var v3 = coerce.toDirection(api.evaluateAndVal(args[4]));
-            obj3d.boundingBox = Renderer.boundingCuboid(center,v1,v2,v3);
-            changedBounds(obj3d);
-            return toCjsNumber(objId);
-        });
-    });
-    api.defineFunction("cglUpdate", 1, (args, modifs) => {
-        return objectsById(args[0]).map(([obj3d,objId,wasOpaque])=>{
-            let plotModifiers=get3DPlotModifiers(modifs);
-            let vModifiers;
-            if(obj3d.boundingBox['type'] == BoundingBoxType.triangles) {
-                let vCount = obj3d.boundingBox['vertices'].length/3;
-                vModifiers = get3DPlotVertexModifiers(modifs,vCount,plotModifiers);
-            } else {
-                vModifiers = new Map();
-            }
-            if(plotModifiers.size == 0 && vModifiers.size == 0) {
-                return toCjsNumber(objId); // no changes -> no need to update
-            }
-            // modifiers changed -> recompile if neccessary
-            let vModsChanged = vModifiers.size > 0;
-            // copy unchanged modifiers
-            obj3d.plotModifiers.forEach((value,key)=>{
-                if(!plotModifiers.has(key)){
-                    plotModifiers.set(key,value);
-                }
-            });
-            if(obj3d.boundingBox['type'] == BoundingBoxType.triangles) {
-                obj3d.boundingBox['vModifiers'].forEach((value,key)=>{
-                    if(!vModifiers.has(key)) {
-                        vModifiers.set(key,value);
-                    } else if(value.aName !== undefined) {
-                        // copy attribute names (if existent)
-                        vModifiers.get(key).aName = value.aName;
-                    }
-                });
-            }
-            if(vModsChanged){ // update bounding box
-                obj3d.boundingBox = Renderer.boundingTriangles(obj3d.boundingBox['vertices'],vModifiers);
-                changedBounds(obj3d);
-            }
-            // update modifers types in renderer
-            obj3d.renderer = compile(obj3d.renderer.expression,obj3d.boundingBox,plotModifiers,vModifiers,true);
-            let isOpaque = obj3d.opaque !== undefined ? obj3d.opaque : obj3d.renderer.opaque;
-            if(isOpaque !== wasOpaque){
-                // opacity changed
-                if(wasOpaque) {
-                    CindyGL.objectBuffer.opaque.delete(objId);
-                    CindyGL.objectBuffer.translucent.set(objId,obj3d);
-                } else {
-                    CindyGL.objectBuffer.translucent.delete(objId);
-                    CindyGL.objectBuffer.opaque.set(objId,obj3d);
-                }
-            }
-            obj3d.plotModifiers = plotModifiers;
-            if(modifs.hasOwnProperty('opaqueIf')) {
-                obj3d.opaqueIfExpr = tryEvaluate(modifs['opaqueIf'],api,modifs['opaqueIf']);
-            }
-            if(modifs.hasOwnProperty('onUpdate')) {
-                obj3d.onUpdate = tryResolveLazy(modifs['onUpdate']);
-            }
-            computeOpacity(obj3d,api);
-            return toCjsNumber(objId);
-        });
-    });
-    api.defineFunction("cglSetVisible", 2, (args, modifs) => {
-        let isVisible = api.evaluateAndVal(args[1]);
-        if(isVisible["ctype"]!="boolean"){
-            cglLogWarning("the second parameter of cglSetVisible should be a boolean");
-            return nada;
-        }
-        isVisible = isVisible["value"];
-        objectsById(args[0]).forEach(([obj3d,_,__])=>{
-            obj3d.visible = isVisible;
-        });
-        return nada;
-    });
-    api.defineFunction("cglDelete", 1, (args, modifs) => {
-        objectsById(args[0]).forEach(([_,objId,wasOpaque])=>{
-            if(wasOpaque) {
-                CindyGL.objectBuffer.opaque.delete(objId);
-            } else {
-                CindyGL.objectBuffer.translucent.delete(objId);
-            }
-        });
-        return nada;
-    });
-    // TODO? cglObjectInfo()
-    api.defineFunction("cglGetBounds", 1, (args, modifs) => {
-        let objects = objectsById(args[0]);
-        if(objects.length === 0)
-            return nada;
-        // TODO? better support for multiple ids
-        let [obj3d,_,__] = objects[0];
-        return boundyAsCS(obj3d);
-    });
-    api.defineFunction("cglSpherePos", 1, (args, modifs) => {
-        cglLogError('`cglSpherePos` is deprecared use `cglGetBounds()_"center"` instead');
-        let objects = objectsById(args[0]);
-        if(objects.length === 0)
-            return nada;
-        // TODO? better support for multiple ids
-        let [obj3d,objId,_] = objects[0];
-        if(obj3d.boundingBox['type'] !== BoundingBoxType.sphere) {
-            cglLogWarning(`the object with id ${objId} is no sphere`);
-            return nada;
-        }
-        return { // convert to CindyJS list
-            ctype: 'list',
-            value: obj3d.boundingBox['center'].map(toCjsNumber)
-        };
-    });
     // custom error class for errors produced by calling cglDiscard
     class CglDiscardError extends Error {
         constructor(message) {
@@ -1575,79 +1004,6 @@ let CindyGL = function(api) {
             }
             throw error;
         }
-    });
-    var cglEvalSizes=new Set();
-    /**
-     * @param {CindyJS.anyval} csexpr
-     * @param {Array<CindyJS.anyval>} args
-     * @param {object} modifs
-     */
-    function cglEvalImpl(csexpr,args,modifs) {
-        const val = api.evaluate(csexpr);
-        if(val['ctype'] !== 'cglLazy') {
-            cglLogWarning("this first argument of cglEval has to be a cglLazy expression");
-            return nada;
-        }
-        if(val.params.length != args.length) {
-            cglLogWarning(`wrong number of arguments for lazy expression expected ${val.params.length} got ${args.length}`);
-            return nada;
-        }
-        let argValues = new Map();
-        val.modifs.forEach(([key,value])=>{
-            argValues.set(key,value);
-        });
-        for(let index=0;index<val.params.length;index++) {
-            argValues.set(val.params[index]['name'],args[index]);
-        }
-        cglEvalCallCount++;// increase eval-call count to get distinct names for regional variables
-        const expr = replaceVariables(val.expr,argValues);
-        return api.evaluate(expr);
-    }
-    /** @param {number} k  */
-    function createCglEval(k){
-        if(cglEvalSizes.has(k)) return; // function already exists
-        cglEvalSizes.add(k);
-        api.defineFunction("cglEval", k+1, (args, modifs) => {
-            return cglEvalImpl(args[0],args.slice(1),modifs);
-        });
-    }
-    // wrapper for unevaluated expression that can be passed to colorplot program
-    api.defineFunction("cglLazy", 2, (args, modifs) => {
-        let params = cglLazyParams(args[0]);
-        let paramsOk = true;
-        params.forEach(val=>{
-            if(val['ctype'] !== 'variable'){
-                cglLogError("unexpected parameter in cglLazy expected variable got:",val);
-                paramsOk = false;
-            }
-        });
-        if(!paramsOk)
-            return nada;
-        // ensure matching evaluator exists
-        createCglEval(params.length);
-        return {
-            ctype: "cglLazy",
-            params: params,
-            expr: cloneExpression(args[1]),
-            modifs: Object.entries(modifs).map(([key,value])=>[key,api.evaluate(value)])
-        };
-    });
-    // convenience function for lazy expression without parameters
-    api.defineFunction("cglLazy", 1, (args, modifs) => {
-        createCglEval(0);
-        return {
-            ctype: "cglLazy",
-            params: [],
-            expr: cloneExpression(args[0]),
-            modifs: Object.entries(modifs).map(([key,value])=>[key,api.evaluate(value)])
-        };
-    });
-    api.defineFunction("cglIsLazy", 1, (args, modifs) => {
-        let val = api.evaluate(args[0]);
-        return {
-            ctype: "boolean",
-            value: val['ctype'] === 'cglLazy'
-        };
     });
     function asName(csVal) {
         if(csVal['ctype'] === 'variable') {

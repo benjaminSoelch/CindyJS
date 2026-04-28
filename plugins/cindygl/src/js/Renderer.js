@@ -929,6 +929,7 @@ function Cgl3dSimpleSceneRenderer(iw,ih,canvaswrapper) {
     Renderer.transparencyType = TransparencyType.Simple;
     this.iw = iw;
     this.ih = ih;
+    this.canvaswrapper = canvaswrapper;
     this.imageCanvas = canvaswrapper != null;
     /** @type {Set<CindyGL3DObject>} */
     this.wrongOpacity = new Set();

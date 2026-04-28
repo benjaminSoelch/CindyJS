@@ -2854,3 +2854,401 @@ cglCPlot3d(f/*f(z)*/):=(
   );
   cglSurface3d(cglLazy((x,y,z),abs(cglEval(f,x+i*y))-z,f->f),degree->cglValOrDefault(degree,-1));
 );
+
+/* TODO: port coordinate system controlls and object management
+let recomputeProjMatrix = function(){
+        let [x0,y0,x1,y1,z0,z1] = getZoomedViewPlane();
+        // TODO this will break if z0 is near 0
+        CindyGL.projectionMatrix=[
+            [2/(x1-x0), 0, 0, - 2*x0/(x1-x0) -1],
+            [0, 2/(y1-y0), 0, - 2*y0/(y1-y0) -1],
+            [0, 0, 1/(z1-z0), - z0/(z1-z0) -1],
+            [0, 0, -1/z0, 1]
+        ];
+        // TODO check matrix
+        CindyGL.orthProjectionMatrix=[
+            [2/(x1-x0), 0, 0, - 2*x0/(x1-x0) -1],
+            [0, 2/(y1-y0), 0, - 2*y0/(y1-y0) -1],
+            [0, 0, 1/(z1-z0), - z0/(z1-z0) -1],
+            [0, 0, 0, 1]
+        ];
+        CindyGL.coordinateSystem.viewPosition = [(x0+x1)/2,(y0+y1)/2,z0,1];
+        CindyGL.coordinateSystem.transformedViewNormal = mvmult4(CindyGL.invTrafoMatrix,[0,0,(z1-z0),1]);
+        CindyGL.coordinateSystem.transformedViewPos =
+            mvmult4(CindyGL.invTrafoMatrix,CindyGL.coordinateSystem.viewPosition);
+    };
+    let resetRotation = function(){
+        CindyGL.trafoMatrix = [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]];
+        CindyGL.invTrafoMatrix = [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]];
+        CindyGL.coordinateSystem.transformedViewPos = CindyGL.coordinateSystem.viewPosition;
+        let [x0,y0,x1,y1,z0,z1] = getZoomedViewPlane();
+        CindyGL.coordinateSystem.transformedViewNormal = [0,0,(z1-z0),1];
+    };
+    let updateCoordSytem = function(modifs) {
+        let ul=computeUpperLeftCorner(api);
+        let lr=computeLowerRightCorner(api);
+        let x0 = getRealModifier(modifs,"x0",ul.x);
+        let x1 = getRealModifier(modifs,"x1",lr.x);
+        let y0 = getRealModifier(modifs,"y0",lr.y);
+        let y1 = getRealModifier(modifs,"y1",ul.y);
+        [x0, y0] = getPoint2DModifier(modifs,"p0",[x0, y0]);
+        [x1, y1] = getPoint2DModifier(modifs,"p1",[x1, y1]);
+        let z1 = getRealModifier(modifs,"z1",0);
+        let z0 = getRealModifier(modifs,"z0",z1-2*Math.abs(x1-x0));
+        let zoom = getRealModifier(modifs,"zoom",1);
+        CindyGL.coordinateSystem = {
+            x0: x0 , x1: x1, y0: y0, y1: y1,
+            z0: z0, z1: z1, zoom: zoom,
+            // will be correctly initialized by recomputeProjMatrix()
+            viewPosition: [0,0,0,0], transformedViewPos: [0,0,0,0]
+        };
+        recomputeProjMatrix();
+    }
+    resetRotation();
+    updateCoordSytem({});
+    api.defineFunction("cglCoordSystem", 0, (args, modifs) => {
+        updateCoordSytem(modifs);
+        return nada;
+    });
+    api.defineFunction("cglViewPos", 0, (args, modifs) => {
+        let viewPos = CindyGL.coordinateSystem.transformedViewPos.slice(0,3);
+        return { // convert to CindyJS list
+            ctype: 'list',
+            value: viewPos.map(toCjsNumber)
+        };
+    });
+    api.defineFunction("cglViewNormal", 0, (args, modifs) => {
+        let viewPos = CindyGL.coordinateSystem.transformedViewNormal.slice(0,3);
+        return { // convert to CindyJS list
+            ctype: 'list',
+            value: viewPos.map(toCjsNumber)
+        };
+    });
+    api.defineFunction("cglViewRect", 0, (args, modifs) => {
+        let [x0,y0,x1,y1,z0,z1] = getZoomedViewPlane();
+        return { // convert to CindyJS list
+            ctype: 'list',
+            value: [x0,y0,x1,y1].map(toCjsNumber)
+        };
+    });
+    api.defineFunction("cglAxes", 0, (args, modifs) => {
+        let unitPoints = [
+            mvmult4(CindyGL.trafoMatrix,[1,0,0,1]),
+            mvmult4(CindyGL.trafoMatrix,[0,1,0,1]),
+            mvmult4(CindyGL.trafoMatrix,[0,0,1,1]),
+            mvmult4(CindyGL.trafoMatrix,[0,0,0,1]),
+        ].map(v=>[v[0]/v[3],v[1]/v[3],v[2]/v[3]]);
+        let coordVectors = [
+            subv3(unitPoints[0],unitPoints[3]),
+            subv3(unitPoints[1],unitPoints[3]),
+            subv3(unitPoints[2],unitPoints[3]),
+        ];
+        return { // convert to CindyJS list
+            ctype: 'list',
+            value: coordVectors.map(v=>({
+                ctype: 'list',
+                value: v.map(toCjsNumber)
+            }))
+        };
+    });
+    api.defineFunction("rotate3d", 2, (args, modifs) => {
+        let alpha = api.evaluateAndVal(args[0])["value"]["real"];
+        let beta = api.evaluateAndVal(args[1])["value"]["real"];
+        let trafoMatrix;
+        if(typeof(CindyGL.trafoMatrix)!== "undefined"){
+            trafoMatrix=CindyGL.trafoMatrix;
+        }else{
+            trafoMatrix=[[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]];
+        }
+        // TODO? rotate relative to center of view-rect
+        let rotZ=[
+          [1,0,0,0],
+          [0,Math.cos(beta),-Math.sin(beta),0],
+          [0,Math.sin(beta),Math.cos(beta),0],
+          [0,0,0,1]
+        ];
+        let rotY=[
+          [Math.cos(alpha),0,-Math.sin(alpha),0],
+          [0,1,0,0],
+          [Math.sin(alpha),0,Math.cos(alpha),0],
+          [0,0,0,1]
+        ];
+        let rotationMatrix=mmult4(rotY,rotZ);
+        CindyGL.trafoMatrix=mmult4(rotationMatrix,trafoMatrix);
+        CindyGL.invTrafoMatrix=mmult4(CindyGL.invTrafoMatrix,transposeM4(rotationMatrix));
+        if(typeof(CindyGL.coordinateSystem)!== "undefined"){
+            CindyGL.coordinateSystem.transformedViewPos =
+                mvmult4(CindyGL.invTrafoMatrix,CindyGL.coordinateSystem.viewPosition);
+            let [x0,y0,x1,y1,z0,z1] = getZoomedViewPlane();
+            CindyGL.coordinateSystem.transformedViewNormal =
+                mvmult4(CindyGL.invTrafoMatrix,[0,0,(z1-z0),1]);
+            return nada;
+        }
+        return nada;
+    });
+    api.defineFunction("zoom3d", 1, (args, modifs) => {
+        let zoom = api.evaluateAndVal(args[0])["value"]["real"];
+        CindyGL.coordinateSystem.zoom = zoom;
+        recomputeProjMatrix();
+    });
+    // TODO? function to move view-position/canvas
+    // TODO? combined reset for objects and coord-system
+    api.defineFunction("cglResetRotation", 0, (args, modifs) => {
+        resetRotation();
+        return nada;
+    });
+
+    api.defineFunction("reset3d", 0, (args, modifs) => {
+        CindyGL.objectBuffer = {
+            opaque:new Map(),
+            translucent:new Map(),
+            callbacks:{
+                preRender:[]
+            }
+        };
+        return nada;
+    });
+    prepareRender() {
+        CindyGL.objectBuffer.callbacks.preRender.forEach((func)=>{
+            cglEvalImpl(func,[],{});
+        });
+        // ? split mesh into seperate layers depending on view direction
+        CindyGL.objectBuffer.translucent.forEach((obj3d)=>{
+            // sort triangles by depth
+            if(obj3d.boundingBox['type']!=BoundingBoxType.triangles) return;
+            /**@type{Array<number>} * /
+            const vertices = obj3d.boundingBox['vertices'];
+            const triangleCount = vertices.length/9;
+            const viewNormal = CindyGL.coordinateSystem.transformedViewNormal;
+            // create an array of indices
+            const indices = Array.from({ length: triangleCount }, (_, index) => index);
+            // sort indices by distance of triangle midpoints from view-plane
+            indices.sort((i1,i2)=>{
+                const m1x = (vertices[9*i1]+vertices[9*i1+3]+vertices[9*i1+6])/3;
+                const m1y = (vertices[9*i1+1]+vertices[9*i1+4]+vertices[9*i1+7])/3;
+                const m1z = (vertices[9*i1+2]+vertices[9*i1+5]+vertices[9*i1+8])/3;
+                const m2x = (vertices[9*i2]+vertices[9*i2+3]+vertices[9*i2+6])/3;
+                const m2y = (vertices[9*i2+1]+vertices[9*i2+4]+vertices[9*i2+7])/3;
+                const m2z = (vertices[9*i2+2]+vertices[9*i2+5]+vertices[9*i2+8])/3;
+                const d1 = dot3([m1x,m1y,m1z],viewNormal);
+                const d2 = dot3([m2x,m2y,m2z],viewNormal);
+                return (d1 < d2) - (d2 < d1);
+            });
+            obj3d.boundingBox['vertices'] = vertices.map((_,index)=>{
+                const triIndex =  Math.floor(index/9);
+                const coordIndex = index%9;
+                return vertices[9*indices[triIndex]+coordIndex];
+            });
+            obj3d.boundingBox['vModifiers'].forEach((vMod)=>{
+                vMod.values = vMod.values.map((_,index)=>{
+                    const triIndex = Math.floor(index/3);
+                    const vIndex = index%3;
+                    return vMod.values[3*indices[triIndex]+vIndex];
+                });
+                vMod.aData = undefined; // remove cached attribute data
+            });
+        });
+    }
+    postRender() {
+      let wrongOpacity = sceneRenderer.wrongOpacity;
+        if(wrongOpacity.size>0){
+            cglLogDebug(`changing opacity of ${wrongOpacity.size} objects`);
+            // update objects that had the wrong opacity
+            wrongOpacity.forEach((obj3d)=>{
+                let isOpaque = obj3d.opaque !== undefined ? obj3d.opaque : obj3d.renderer.opaque;
+                if(isOpaque){
+                    CindyGL.objectBuffer.translucent.delete(obj3d.id);
+                }else{
+                    CindyGL.objectBuffer.opaque.delete(obj3d.id);
+                }
+                setObject(obj3d.id,obj3d);
+            });
+        }
+    }
+    function getSpacePoint(x,y) {
+        // FIXME use correct coord-system for x,y position
+        let zoom = CindyGL.coordinateSystem.zoom;
+        let screenPoint=[zoom*x,zoom*y,zoom*CindyGL.coordinateSystem.z1,1];
+        return mvmult4(CindyGL.invTrafoMatrix,screenPoint).slice(0,3);
+    }
+    /**
+     * Returns the position on the view-plane for the pixel (args[0],args[1])
+     * /
+    api.defineFunction("cglSpacePoint", 2, (args, modifs) => {
+        let x = api.evaluateAndVal(args[0])["value"]["real"];
+        let y = api.evaluateAndVal(args[1])["value"]["real"];
+        return toCjs(getSpacePoint(x,y));
+    });
+    /**
+     * Returns the current viewDirection for the pixel (args[0],args[1])
+     * /
+    api.defineFunction("cglDirection", 2, (args, modifs) => {
+        let x = api.evaluateAndVal(args[0])["value"]["real"];
+        let y = api.evaluateAndVal(args[1])["value"]["real"];
+        let spacePoint = getSpacePoint(x,y);
+        // TODO support orthogonal projection
+        let viewPos = CindyGL.coordinateSystem.transformedViewPos;
+        let direction = subv3(spacePoint,viewPos);
+        return toCjs(direction);
+    });
+    /**
+     * List all currently visible objects
+     * modifiers can be used to filter objects depending on their tags
+     * - if a modifier is set to `true` all returned objects will have the corresponging tag
+     * - if a modifier is set to `false` no returned object will have the corresponding tag
+     * /
+    api.defineFunction("cglListObjects", 0, (args, modifs) => {
+        let modValues = {};
+        Object.keys(modifs).forEach(key=>{
+            let val = coerce.toBool(api.evaluateAndVal(modifs[key]),null);
+            if(val===null)return;
+            modValues[key] = val;
+        });
+        let res = [];
+        let searchObject = (obj3d)=>{
+            if(Object.keys(modValues).some(key=>(modValues[key] != obj3d.tags.has(key))))
+                return;
+            res.push(obj3d.id);
+        };
+        CindyGL.objectBuffer.opaque.forEach(searchObject);
+        // TODO? parameter to select if translucent objects should be checked
+        CindyGL.objectBuffer.translucent.forEach(searchObject);
+        return toCjs(res);
+    });
+    /**
+     * Finds the 3D object on the view-ray through the screen position (args[0],args[1]) that is closest to the camera.
+     * If the `tags` modifier is set only objects that have at least one of the specified tags are considered
+     * /
+    api.defineFunction("cglFindObject", 2, (args, modifs) => {
+        let x = api.evaluateAndVal(args[0])["value"]["real"];
+        let y = api.evaluateAndVal(args[1])["value"]["real"];
+        let spacePoint = getSpacePoint(x,y);
+        // TODO support orthogonal projection
+        let tags = get3DPlotTags(modifs);
+        let viewPos = CindyGL.coordinateSystem.transformedViewPos;
+        let direction = subv3(spacePoint,viewPos);
+        let minDst = Infinity;
+        let pickedId = -1;
+        let searchObject = (obj3d)=>{
+            // TODO use Set.intersection once suppported
+            let sharesTag = tags.size==0;
+            for(const tag of tags){
+                if(obj3d.tags.has(tag)){
+                    sharesTag=true;
+                    break;
+                }
+            };
+            if(!sharesTag)
+                return;
+            // TODO? execute colorplot code to get correct z-coordinate
+            if(obj3d.boundingBox['type'] == BoundingBoxType.sphere) {
+                let center = obj3d.boundingBox['center'];
+                // TODO? also detect positions sligthly outside sphere
+                let radius = obj3d.boundingBox['radius'];
+                // |v+l*d -c|=r
+                let vc = subv3(viewPos,center);
+                let a = dot3(direction,direction);
+                let b = dot3(vc,direction);
+                let c = dot3(vc,vc) - radius*radius;
+                let D = b*b-a*c;
+                if(D<0){ return; } // ray does not hit sphere
+                let dst = (-b - Math.sqrt(D))/a;
+                if (dst>=0 && dst<=minDst) {
+                    minDst = dst;
+                    pickedId = obj3d.id;
+                }
+            } else if(obj3d.boundingBox['type'] == BoundingBoxType.cylinder) {
+                let radius = obj3d.boundingBox['radius'];
+                let center = obj3d.boundingBox['center'];
+                let orientation = obj3d.boundingBox['direction'];
+                let direction0 = scalev3(1/Math.sqrt(dot3(direction,direction)),direction);
+                let p1 = subv3(viewPos,center);
+                let w = Math.sqrt(dot3(p1,p1));
+                let W = addv3(viewPos,scalev3(w,direction0));
+                let BA = orientation; // scaled by 2
+                let U = scalev3(1/dot3(BA,BA),BA);
+                let VA = subv3(W,center);
+                let S = subv3(VA,scalev3(dot3(VA,BA),U));
+                let T = subv3(direction0,scalev3(dot3(direction0,BA),U));
+                let a = dot3(T,T);
+                let b = dot3(S,T);
+                let c = dot3(S,S) -radius*radius;
+                let D= b*b-a*c;
+                if(D<0){ return; } // ray does not hit cylinder
+                let l1 = -(b + Math.sqrt(D))/a;
+                let dst = w+l1;
+                let v1 = subv3(addv3(W,scalev3(l1,direction0)),center);
+                let delta = dot3(v1,U);
+                if ( delta < -1 || delta > 1 ) {
+                    let l2 = -(b - Math.sqrt(D))/a;
+                    dst = w+l2;
+                    let v2 = subv3(addv3(W,scalev3(l2,direction0)),center);
+                    delta = dot3(v2,U);
+                    if ( delta < -1 || delta > 1 ) {
+                        return;
+                    }
+                }
+                if (dst>=0 && dst<=minDst) {
+                    minDst = dst;
+                    pickedId = obj3d.id;
+                }
+            }
+            // TODO? checks different bouning box types
+            // TODO? make pixel depth dependent on actual shader code
+        };
+        CindyGL.objectBuffer.opaque.forEach(searchObject);
+        // TODO? parameter to select if translucent objects should be checked
+        CindyGL.objectBuffer.translucent.forEach(searchObject);
+        // TODO? convert picked 3D-object to CindyJS object
+        // TODO? add a way to group objects
+        //   make name,position, readable, ? writable
+        return toCjsNumber(pickedId);
+    });
+    function objectsById(idVal) {
+        idVal = api.evaluateAndVal(idVal);
+        let ids;
+        if(idVal['ctype'] === 'number') {
+            let objId = coerce.toInt(idVal,-1);
+            if(objId<0)
+                return [];
+            ids = [objId];
+        } else if(idVal['ctype'] === 'list') {
+            ids = idVal['value'].map(id=>coerce.toInt(id,-1)).filter(id=>id>=0);
+        }
+        return ids.map(objId=>{
+            let obj3d = CindyGL.objectBuffer.opaque.get(objId);
+            let wasOpaque = true;
+            if(obj3d === undefined){
+                obj3d = CindyGL.objectBuffer.translucent.get(objId);
+                wasOpaque = false;
+                if(obj3d === undefined){
+                    cglLogWarning(`could not find object with id ${objId}`);
+                    return null;
+                }
+            }
+            return [obj3d,objId,wasOpaque];
+        }).filter(val=>val!==null);
+    }
+    api.defineFunction("cglSetVisible", 2, (args, modifs) => {
+        let isVisible = api.evaluateAndVal(args[1]);
+        if(isVisible["ctype"]!="boolean"){
+            cglLogWarning("the second parameter of cglSetVisible should be a boolean");
+            return nada;
+        }
+        isVisible = isVisible["value"];
+        objectsById(args[0]).forEach(([obj3d,_,__])=>{
+            obj3d.visible = isVisible;
+        });
+        return nada;
+    });
+    api.defineFunction("cglDelete", 1, (args, modifs) => {
+        objectsById(args[0]).forEach(([_,objId,wasOpaque])=>{
+            if(wasOpaque) {
+                CindyGL.objectBuffer.opaque.delete(objId);
+            } else {
+                CindyGL.objectBuffer.translucent.delete(objId);
+            }
+        });
+        return nada;
+    });
+*/
