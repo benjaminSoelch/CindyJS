@@ -227,7 +227,10 @@ function evalfunction(params, body, args, modifs) {
             erg.modifs[key] = namespace.getvar(key);
         }
     };
-    if (erg.ctype === "lambda") {
+    // FIXME: only capture if lambda is local to scope
+    // temporarily disabled capturing due to problems with invalid capture-state
+    let shouldCapture = false && erg.ctype === "lambda";
+    if (shouldCapture) {
         namespace.forEachLocal(captureVar);
     }
     namespace.cleanVstack();
@@ -238,7 +241,7 @@ function evalfunction(params, body, args, modifs) {
     });
 
     for (i = 0; i < params.length; i++) {
-        if (erg.ctype === "lambda") captureVar(params[i].name);
+        if (shouldCapture) captureVar(params[i].name);
         namespace.removevar(params[i].name);
     }
     return erg;
