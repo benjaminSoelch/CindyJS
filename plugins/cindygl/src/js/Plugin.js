@@ -818,14 +818,14 @@ let CindyGL = function(api) {
 
     // TODO? automatic update of coordinate system to match render region of screen
 
-    api.defineFunction("cglStartRender3d", 0, (args, modifs) => {
+    api.defineFunction("cgl3dStartRender", 0, (args, modifs) => {
         // internal measures. might be multiple of api.instance['canvas']['clientWidth'] on HiDPI-Displays
         let iw = api.instance['canvas']['width'];
         let ih = api.instance['canvas']['height'];
         prepareRender3d(0,0,iw,ih,iw,ih,null,modifs);
         return nada;
     });
-    api.defineFunction("cglStartRender3d", 2, (args, modifs) => {
+    api.defineFunction("cgl3dStartRender", 2, (args, modifs) => {
         var a = api.extractPoint(api.evaluateAndVal(args[0]));
         var b = api.extractPoint(api.evaluateAndVal(args[1]));
 
@@ -891,7 +891,7 @@ let CindyGL = function(api) {
     }
     api.defineFunction("cgl3dSetRenderTransform", 2, (args, modifs) => {
         if (CindyGL.sceneRenderer === null){
-            cglLogError("no active rendering pass, call `cglStartRender3d` before calling `cgl3dSetRenderTransform`");
+            cglLogError("no active rendering pass, call `cgl3dStartRender` before calling `cgl3dSetRenderTransform`");
             return nada;
         }
         let bounds = CindyGL.sceneRenderer.bounds;
@@ -919,6 +919,7 @@ let CindyGL = function(api) {
         return nada;
     });
     function getRenderObjects(arg) {
+        arg = api.evaluateAndVal(arg);
         if (arg['ctype'] === "JSON") {
             // TODO: how expensive is this
             return Object.values(arg['value'])
@@ -932,7 +933,7 @@ let CindyGL = function(api) {
     }
     api.defineFunction("cgl3dRenderOpaque", 1, (args, modifs) => {
         if (CindyGL.sceneRenderer === null){
-            cglLogError("no active rendering pass, call `cglStartRender3d` before calling `cgl3dRenderOpaque`");
+            cglLogError("no active rendering pass, call `cgl3dStartRender` before calling `cgl3dRenderOpaque`");
             return nada;
         }
         CindyGL.sceneRenderer.renderOpaque(getRenderObjects(args[0]));
@@ -940,7 +941,7 @@ let CindyGL = function(api) {
     });
     api.defineFunction("cgl3dRenderTranslucent", 1, (args, modifs) => {
         if (CindyGL.sceneRenderer === null){
-            cglLogError("no active rendering pass, call `cglStartRender3d` before calling `cgl3dRenderOpaque`");
+            cglLogError("no active rendering pass, call `cgl3dStartRender` before calling `cgl3dRenderOpaque`");
             return nada;
         }
         CindyGL.sceneRenderer.renderTranslucent(getRenderObjects(args[0]));
@@ -948,7 +949,7 @@ let CindyGL = function(api) {
     });
     api.defineFunction("cgl3dFinishRender", 0, (args, modifs) => {
         if (CindyGL.sceneRenderer === null){
-            cglLogError("no active rendering pass, call `cglStartRender3d` before calling `cgl3dFinishRender`");
+            cglLogError("no active rendering pass, call `cgl3dStartRender` before calling `cgl3dFinishRender`");
             return nada;
         }
         let bounds = CindyGL.sceneRenderer.bounds;
