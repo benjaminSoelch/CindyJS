@@ -5,7 +5,6 @@ in vec2 aTexCoord;
 out   vec3 cgl_spacePos;
 out   vec3 cgl_viewDirection;
 out   vec2 plain_pixel;
-out   vec3 pixelViewPos;
 
 uniform   mat4 trafo_matrix;
 

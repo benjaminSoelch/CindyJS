@@ -926,7 +926,7 @@ let CindyGL = function(api) {
         } else if (arg['ctype'] === "list") {
             return arg['value']
         } else if (arg['ctype'] === "cgl3dObject") {
-            return [arg['value']];
+            return [arg];
         } else {
             cglLogError("unsupported argument for render: ",arg);
         }
@@ -960,6 +960,7 @@ let CindyGL = function(api) {
           gl.flush(); //renders stuff to canvaswrapper
           gl.bindFramebuffer(gl.FRAMEBUFFER, null);
           CindyGL.sceneRenderer.canvaswrapper.swap(); // swap textures after rendering
+          CindyGL.sceneRenderer = null;
           return;
         }
         //  finish rendering

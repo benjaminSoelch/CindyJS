@@ -47,20 +47,36 @@
 <!--no indentation to ensure text is aligned correctly-->
 <div class="container" style="display: flex;flex-direction: column;width: 50%;height: 100vh; margin-left: auto;">
 <textarea id="exampleCode" style="width: 100%;height: 75%; margin-left: auto;">
-forall((1,-1),x,forall((1,-1),y,
+/*forall((1,-1),x,forall((1,-1),y,
     draw3d((x,y,1),(x,y,-1));
     draw3d((x,1,y),(x,-1,y));
     draw3d((1,x,y),(-1,x,y));
     forall((1,-1),z,
         draw3d((x,y,z));
     )
-));
+));*/
+
+a = cgl3dnewObject((1,0,0));
+
+b = cgl3dnewSphere((0,1,0),(0,0,0),1);
+c = cgl3dnewCylinder((0,0,1),(0,1,0),(0,-1,0),1);
+d = cgl3dnewMesh((1,1,0),((1,0,0),(0,1,0),(0,0,1)));
+
+e = cgl3dnewCuboid((0,1,1),(0,0,0),(1,0,0),(0,1,0),(0,0,1));
+
+
+frameUpdate():=(
+cgl3dStartRender(layers->0);
+cgl3dRenderOpaque([a,b,c,d,e]);
+cgl3dRenderTranslucent([]);
+cgl3dFinishRender();
+);
 </textarea>
 <textarea id="frameUpdate" style="width: 100%;height: 25%;margin-left: auto;">
-    colorplot((1,1,1)); // for some reason automatic screen clearing does not work
+   /* colorplot((1,1,1)); // for some reason automatic screen clearing does not work
     preFrame();
     render3d();
-    postFrame();
+    postFrame();*/
 </textarea>
 </div>
 <!--

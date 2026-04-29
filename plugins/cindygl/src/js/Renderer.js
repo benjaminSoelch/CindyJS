@@ -922,7 +922,7 @@ Cgl3dSimpleSceneRenderer.prototype.renderOpaque = function(objects) {
     objects.forEach((obj)=>{
         let obj3d = obj['value'];
         if(!obj3d) return; // skip non-objects
-        if(!obj3d.value.visible) return;// skip invisible objects
+        if(!obj3d.visible) return;// skip invisible objects
         obj3d.renderer.render3d(this.iw, this.ih,obj3d.boundingBox,obj3d.plotModifiers,null, null,this.imageCanvas);
         if(obj3d.opaque !== undefined ? !obj3d.opaque : !obj3d.renderer.opaque){
             this.wrongOpacity.add(obj3d);
