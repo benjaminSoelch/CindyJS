@@ -16,6 +16,10 @@ function m4Mul(A,B){
   }
   return C;
 }
+function m4FlatTranspose(M) {
+    return [M[0][0],M[1][0],M[2][0],M[3][0],M[0][1],M[1][1],M[2][1],M[3][1],
+        M[0][2],M[1][2],M[2][2],M[3][2],M[0][3],M[1][3],M[2][3],M[3][3]];
+}
 // a flattened version of the inverse transpose of M
 function m4InverseFlatTranspose(M){
   let adjM = [
@@ -869,11 +873,12 @@ let CindyGL = function(api) {
         Renderer.resetCachedState();
         gl.clear(gl.DEPTH_BUFFER_BIT|gl.COLOR_BUFFER_BIT);
         let defaultZ = Math.max(x1-x0,y1-y0)/2;
-        let skewFactor = modifs["skewFactor"] === undefined ? 1 : coerce.toReal(api.evaluateAndVal(modifs["skewFactor"]));
+        let skewFactor = modifs["skewFactor"] === undefined ? 0.5 : coerce.toReal(api.evaluateAndVal(modifs["skewFactor"]));
         let zScale = modifs["zScale"] ===undefined ? 1 : coerce.toReal(api.evaluateAndVal(modifs["zScale"]));
         let z0 = modifs["z0"] ===undefined ? -defaultZ : coerce.toReal(api.evaluateAndVal(modifs["z0"]));
         let z1 = modifs["z1"] ===undefined ? defaultZ : coerce.toReal(api.evaluateAndVal(modifs["z1"]));
         let zoom = modifs["zoom"] ===undefined ? 1 : coerce.toReal(api.evaluateAndVal(modifs["zoom"]));
+        // FIXME: for x,y,z use cindyCanvas- not pixel- coordinates
         let transform = [
             [zoom*(x1-x0)/2,0,0,zoom*(x0+x1)/2],
             [0,zoom*(y1-y0)/2,0,zoom*(y0+y1)/2],
@@ -885,7 +890,7 @@ let CindyGL = function(api) {
              new Cgl3dLayeredSceneRenderer(iw,ih,canvaswrapper,layerCount) :
             new Cgl3dSimpleSceneRenderer(iw,ih,canvaswrapper);
         CindyGL.sceneRenderer.bounds = [x0,y0,x1,y1];
-        CindyGL.sceneRenderer.transform = transform.flat();
+        CindyGL.sceneRenderer.transform =  m4FlatTranspose(transform);
         CindyGL.sceneRenderer.inverseTrafo = m4InverseFlatTranspose(transform);
         return nada;
     }
@@ -902,7 +907,7 @@ let CindyGL = function(api) {
         let defaultZ = Math.max(x1-x0,y1-y0)/2;
         let transform = coerce.toList(api.evaluateAndVal(args[0])).map(e=>coerce.toList(e));
         let zoom = coerce.toReal(api.evaluateAndVal(args[1]));
-        let skewFactor = modifs["skewFactor"] === undefined ? 1 : coerce.toReal(api.evaluateAndVal(modifs["skewFactor"]));
+        let skewFactor = modifs["skewFactor"] === undefined ? 0.5 : coerce.toReal(api.evaluateAndVal(modifs["skewFactor"]));
         let zScale = modifs["zScale"] ===undefined ? 1 : coerce.toReal(api.evaluateAndVal(modifs["zScale"]));
         let z0 = modifs["z0"] ===undefined ? -defaultZ : coerce.toReal(api.evaluateAndVal(modifs["z0"]));
         let z1 = modifs["z1"] ===undefined ? defaultZ : coerce.toReal(api.evaluateAndVal(modifs["z1"]));
@@ -913,7 +918,7 @@ let CindyGL = function(api) {
             [0,0,-zoom*skewFactor,zoom],
         ];
         let trafo = m4Mul(projection,transform);
-        CindyGL.sceneRenderer.transform = trafo.flat();
+        CindyGL.sceneRenderer.transform = m4FlatTranspose(trafo);
         CindyGL.sceneRenderer.inverseTrafo = m4InverseFlatTranspose(trafo);
         Renderer.prevShader = null;
         return nada;
