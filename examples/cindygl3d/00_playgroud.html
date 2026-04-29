@@ -30,8 +30,6 @@
               if(zoom<0.2,zoom=0.2);
               zoom3d(zoom);
             );
-            preFrame():=();
-            postFrame():=();
         </script>
         <script id="csdraw" type="text/x-cindyscript">
             if (dragging,
@@ -41,16 +39,14 @@
             sx = mouse().x;
             sy = mouse().y;
 
-            colorplot((1,1,1)); // for some reason automatic screen clearing does not work
-            preFrame();
-            render3d();
-            postFrame();
+            frameUpdate();
         </script>
 
-        <div class="container" style="display: flex;width: 100%;">
+        <div class="container" style="display: flex;width: 100%;height: 100vh;">
             <div id="CSCanvas" style="border: 0px"></div>
 <!--no indentation to ensure text is aligned correctly-->
-<textarea id="exampleCode" style="width: 50%;margin-left: auto;">
+<div class="container" style="display: flex;flex-direction: column;width: 50%;height: 100vh; margin-left: auto;">
+<textarea id="exampleCode" style="width: 100%;height: 75%; margin-left: auto;">
 forall((1,-1),x,forall((1,-1),y,
     draw3d((x,y,1),(x,y,-1));
     draw3d((x,1,y),(x,-1,y));
@@ -60,6 +56,13 @@ forall((1,-1),x,forall((1,-1),y,
     )
 ));
 </textarea>
+<textarea id="frameUpdate" style="width: 100%;height: 25%;margin-left: auto;">
+    colorplot((1,1,1)); // for some reason automatic screen clearing does not work
+    preFrame();
+    render3d();
+    postFrame();
+</textarea>
+</div>
 <!--
 N=12;
 samples=apply(0..(N-1),y,apply(0..(N-1),x,
@@ -74,11 +77,16 @@ mesh3d(samples,topology->TopologyCloseX+TopologyCloseY);
             const textarea = document.getElementById('exampleCode');
             textarea.addEventListener('keypress', function(event) {
                 if (event.key === 'Enter') {
-                    redrawScene();
+                    cdy.evokeCS("reset3d();"+textarea.value+";");
+                }
+            });
+            document.getElementById('frameUpdate').addEventListener('keypress', function(event) {
+                if (event.key === 'Enter') {
+                    cdy.evokeCS("frameUpdate();"+textarea.value+";");
                 }
             });
             function redrawScene(){
-                cdy.evokeCS("reset3d();"+textarea.value+";");
+                cdy.evokeCS("frameUpdate():=("+textarea.value+");");
             }
             setTimeout(function() { redrawScene(); }, 100); // 100ms delay to allow CS initscript to execute
             setTimeout(function() { redrawScene(); }, 1000); // 1s should be enough to ensure that everythign is loaded
@@ -99,7 +107,7 @@ mesh3d(samples,topology->TopologyCloseX+TopologyCloseY);
                     },
                 ],
                 import: {
-                    "init": ["../../plugins/cindygl/scripts/cgl3d.cjs","../../plugins/cindygl/scripts/dgs.cjs","../../plugins/cindygl/scripts/surfaceInterpolate.cjs","../../plugins/cindygl/scripts/marchingCubes.cjs"]
+              //      "init": ["../../plugins/cindygl/scripts/cgl3d.cjs","../../plugins/cindygl/scripts/dgs.cjs","../../plugins/cindygl/scripts/surfaceInterpolate.cjs","../../plugins/cindygl/scripts/marchingCubes.cjs"]
                 },
                 images: { earthCylinder: "./images/Lambert.jpg", earth: "./images/Equirectangular.jpg"},
             });

@@ -2,14 +2,9 @@
 in vec2 aTexCoord;
 in vec3 aPos;
 
-out   vec2 cgl_pixel;
 out   vec3 cgl_viewDirection;
-out   vec2 plain_pixel;
 out   vec3 cgl_spacePos;
-out   vec3 pixelViewPos;
+out   vec2 plain_pixel;
 
-uniform   bool orthogonal;
-uniform   vec3 cgl_viewNormal;
-uniform   vec3 cgl_viewPos;
-uniform   mat4 projAndTrafoMatrix;
-uniform   mat3 transformMatrix;
+uniform   mat4 trafo_matrix;
+uniform   mat4 inverse_trafo;
