@@ -868,18 +868,25 @@ let CindyGL = function(api) {
         let layerCount = getRealModifier(modifs,"layers",needsTranslucent ? 2 : 0);
         Renderer.resetCachedState();
         gl.clear(gl.DEPTH_BUFFER_BIT|gl.COLOR_BUFFER_BIT);
-        let z0 = Math.max(x1-x0,y1-y0)/2;
-        let transform = m4InverseFlatTranspose([
-            [x0+x1,0,0,x0],
-            [0,y0+y1,0,y0],
-            [0,0,2*z0,-z0],
-            [0,0,0,1],
-        ]);
+        let defaultZ = Math.max(x1-x0,y1-y0)/2;
+        let skewFactor = modifs["skewFactor"] === undefined ? 1 : coerce.toReal(api.evaluateAndVal(modifs["skewFactor"]));
+        let zScale = modifs["zScale"] ===undefined ? 1 : coerce.toReal(api.evaluateAndVal(modifs["zScale"]));
+        let z0 = modifs["z0"] ===undefined ? -defaultZ : coerce.toReal(api.evaluateAndVal(modifs["z0"]));
+        let z1 = modifs["z1"] ===undefined ? defaultZ : coerce.toReal(api.evaluateAndVal(modifs["z1"]));
+        let zoom = modifs["zoom"] ===undefined ? 1 : coerce.toReal(api.evaluateAndVal(modifs["zoom"]));
+        let transform = [
+            [zoom*(x1-x0)/2,0,0,zoom*(x0+x1)/2],
+            [0,zoom*(y1-y0)/2,0,zoom*(y0+y1)/2],
+            [0,0,zoom*zScale*((z1-z0)/2)*(1-skewFactor),zoom*zScale*(z0+z1)/2],
+            [0,0,-zoom*skewFactor,zoom],
+        ];
         if (CindyGL.sceneRenderer !== null) cglLogWarning("once one rendering pass can be active at a given type, call `cgl3dFinishRender` before calling `cgl3dStartRender` a second time");
         CindyGL.sceneRenderer = (layerCount != 0) ?
-             new Cgl3dLayeredSceneRenderer(iw,ih,canvaswrapper,transform,layerCount) :
-            new Cgl3dSimpleSceneRenderer(iw,ih,canvaswrapper,transform);
+             new Cgl3dLayeredSceneRenderer(iw,ih,canvaswrapper,layerCount) :
+            new Cgl3dSimpleSceneRenderer(iw,ih,canvaswrapper);
         CindyGL.sceneRenderer.bounds = [x0,y0,x1,y1];
+        CindyGL.sceneRenderer.transform = transform.flat();
+        CindyGL.sceneRenderer.inverseTrafo = m4InverseFlatTranspose(transform);
         return nada;
     }
     api.defineFunction("cgl3dSetRenderTransform", 2, (args, modifs) => {
@@ -887,23 +894,27 @@ let CindyGL = function(api) {
             cglLogError("no active rendering pass, call `cglStartRender3d` before calling `cgl3dSetRenderTransform`");
             return nada;
         }
-        let transform = coerce.toList(api.evaluateAndVal(args[0])).map(e=>coerce.toList(e));
-        let zoom = coerce.toReal(api.evaluateAndVal(args[1]));
-        let skewFactor = modifs["skewFactor"] === undefined ? 1 : coerce.toReal(api.evaluateAndVal(modifs["skewFactor"]));
-        let zScale = modifs["zScale"] ===undefined ? 1 : coerce.toReal(api.evaluateAndVal(modifs["zScale"]));
         let bounds = CindyGL.sceneRenderer.bounds;
         let x0=bounds[0];
         let y0=bounds[1];
         let x1=bounds[2];
         let y1=bounds[3];
-        let z0 = Math.max(x1-x0,y1-y0)/2;
+        let defaultZ = Math.max(x1-x0,y1-y0)/2;
+        let transform = coerce.toList(api.evaluateAndVal(args[0])).map(e=>coerce.toList(e));
+        let zoom = coerce.toReal(api.evaluateAndVal(args[1]));
+        let skewFactor = modifs["skewFactor"] === undefined ? 1 : coerce.toReal(api.evaluateAndVal(modifs["skewFactor"]));
+        let zScale = modifs["zScale"] ===undefined ? 1 : coerce.toReal(api.evaluateAndVal(modifs["zScale"]));
+        let z0 = modifs["z0"] ===undefined ? -defaultZ : coerce.toReal(api.evaluateAndVal(modifs["z0"]));
+        let z1 = modifs["z1"] ===undefined ? defaultZ : coerce.toReal(api.evaluateAndVal(modifs["z1"]));
         let projection = [
-            [zoom*(x0+x1),0,0,zoom*x0],
-            [0,zoom*(y0+y1),0,zoom*y0],
-            [0,0,zoom*zScale*(2*z0),-zoom*zScale*z0],
-            [0,0,skewFactor*zoom*zScale*(2*z0),1-skewFactor*zoom*zScale*z0],
+            [zoom*(x1-x0)/2,0,0,zoom*(x0+x1)/2],
+            [0,zoom*(y1-y0)/2,0,zoom*(y0+y1)/2],
+            [0,0,zoom*zScale*((z1-z0)/2)*(1-skewFactor),zoom*zScale*(z0+z1)/2],
+            [0,0,-zoom*skewFactor,zoom],
         ];
-        CindyGL.sceneRenderer.transform = m4InverseFlatTranspose(m4Mul(projection,transform));
+        let trafo = m4Mul(projection,transform);
+        CindyGL.sceneRenderer.transform = trafo.flat();
+        CindyGL.sceneRenderer.inverseTrafo = m4InverseFlatTranspose(trafo);
         Renderer.prevShader = null;
         return nada;
     });
