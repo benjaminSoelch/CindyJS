@@ -313,6 +313,23 @@ CodeBuilder.prototype.getType = function(expr) { //expression, current function
     return expr.computedType;
 };
 
+CodeBuilder.prototype.evalWithModifiers = function(expr) {
+    let exprWithModifs = {
+        "ctype": "userdata",
+        "obj":{
+            "ctype": "lambda",
+            "body": expr,
+            "params": [],
+            "modifs": {} // TODO use map of known plot-modifier values here
+        },
+        "key": {
+            "ctype":"list",
+            "value":[]
+        }
+    }
+    return this.api.evaluate(exprWithModifs);
+}
+
 /**
  * finds the occuring variables, saves them to this.variables with their occuring assigmets.
  * Furthermore attaches an bindings-dictionary to each expression that is tranversed.
@@ -323,6 +340,7 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
     let myfunctions = this.myfunctions;
     /**@type {CodeBuilder} */
     var self = this;
+    myfunctions['_globalLambda'] = {};
 
     rec(expr, bindings, 'global', false);
 
@@ -338,10 +356,37 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
         return ans;
     }
 
+    function tryGetLambdaData(lambdaExpr,forceLambda) {
+        if(lambdaExpr['ctype'] === 'variable'){
+            let exprName = lambdaExpr['name'];
+            exprName = bindings[exprName] || exprName;
+            if(self.modifierTypes.has(exprName)){
+                let modifierData = self.modifierTypes.get(exprName);
+                let exprType = modifierData.type;
+                if(!exprType.value || !exprType.value.ctype || exprType.value.ctype !== 'lambda'){
+                    return;
+                }
+                modifierData.used = true;
+                return exprType.value;
+            } else if (variables[exprName] && variables[exprName].T && variables[exprName].T.type === 'lambda') {
+                return variables[exprName].T.value;
+            }
+        }
+        if (!forceLambda){
+            return undefined;
+        }
+        let val = self.evalWithModifiers(lambdaExpr);
+        if(val['ctype'] !== 'lambda'){
+            return undefined;
+        }
+        return val;
+    }
+
     function resolveLambdaData(expr, bindings, scope, forceconstant) {
         let lambdaExpr = expr['obj'];
         let argsExpr = expr['key'];
         let args;
+        let forceLambda = true;
         if(argsExpr['ctype'] === 'list') {
             args = argsExpr['value'];
         } else if(argsExpr['ctype'] === 'function' && argsExpr['oper'].toLowerCase() === "genlist") {
@@ -350,31 +395,11 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
             args = [];
         } else {
             args = [argsExpr];
+            forceLambda = false;
         }
-        if(lambdaExpr['ctype'] !== 'variable'){
-            return;
-        }
-        let exprName = lambdaExpr['name'];
-        exprName = bindings[exprName] || exprName;
-        let exprData;
-        if(self.modifierTypes.has(exprName)){
-            let modifierData = self.modifierTypes.get(exprName);
-            let exprType = modifierData.type;
-            if(!exprType.value || !exprType.value.ctype || exprType.value.ctype !== 'lambda'){
-                return;
-            }
-            modifierData.used = true;
-            exprData = exprType.value;
-        } else if (variables[exprName] && variables[exprName].T && variables[exprName].T.type === 'lambda') {
-            exprData = variables[exprName].T.value;
-        } else {
-            let val = self.api.evaluate(lambdaExpr);
-            if(val['ctype'] !== 'lambda'){
-                return;
-            }
-            exprData = val;
-        }
-        if(args.length !== exprData['params'].length){
+        let exprData = tryGetLambdaData(lambdaExpr,forceLambda);
+        if (!exprData) return;
+        if (args.length !== exprData['params'].length){
             cglLogError(`wrong number of arguments for lambda function expected ${
                 exprData['params'].length
             } got ${args.length}`);
@@ -403,8 +428,13 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
             let vname = param['name'];
             let iname = generateUniqueHelperString();
             nbindings[vname] = iname;
-            if (!myfunctions[scope].variables) myfunctions[scope].variables = [];
-            myfunctions[scope].variables.push(iname);
+            if(scope != 'global') {
+                if (!myfunctions[scope].variables) myfunctions[scope].variables = [];
+                myfunctions[scope].variables.push(iname);
+            } else {
+                if (!myfunctions['_globalLambda'].variables) myfunctions['_globalLambda'].variables = [];
+                myfunctions['_globalLambda'].variables.push(iname);
+            }
             self.initvariable(iname, false);
             variables[iname].assigments.push(args[index]);
         });
@@ -426,9 +456,13 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
         rec(expr['obj'],nbindings,scope,forceconstant);
         // prepare variable for result of expression
         expr.resName = generateUniqueHelperString();
-        
-        if (!myfunctions[scope].variables) myfunctions[scope].variables = [];
-        myfunctions[scope].variables.push(expr.resName);
+        if(scope != 'global') {
+            if (!myfunctions[scope].variables) myfunctions[scope].variables = [];
+            myfunctions[scope].variables.push(expr.resName);
+        } else {
+            if (!myfunctions['_globalLambda'].variables) myfunctions['_globalLambda'].variables = [];
+            myfunctions['_globalLambda'].variables.push(expr.resName);
+        }
         self.initvariable(expr.resName, false);
         variables[expr.resName].assigments.push(expr);
     }
@@ -1627,8 +1661,19 @@ CodeBuilder.prototype.generateShader = function(plotProgram, isSimple){
             setDepth = `cgl_setDepth(cgl_depth);\n`;
         }
     }
+    let globalLambdaVars = "";
+    if(this.myfunctions['_globalLambda']) {
+        let m = this.myfunctions['_globalLambda'];
+        for (let i in m.variables) {
+            let iname = m.variables[i];
+            const varType = this.variables[iname].T;
+            if(varType === type.voidt  || varType === type.image || varType.type === 'lambda')
+                continue;// skip void, image and lambda variables
+            globalLambdaVars += `${webgltype(varType)} ${iname};\n`;
+        }
+    }
 
-    code += `void main(void) {\n ${randompatch} ${initDirection} ${initDepth} ${colorCode} ${setColor} ${setDepth}}\n`;
+    code += `void main(void) {\n ${randompatch} ${initDirection} ${initDepth} ${globalLambdaVars} ${colorCode} ${setColor} ${setDepth}}\n`;
 
     return code
 }

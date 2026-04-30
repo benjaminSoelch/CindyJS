@@ -56,7 +56,9 @@
 
 a = cgl3dnewObject(cglDepth=1;(1,0,0));
 
-b = cgl3dnewSphere((0,1,0),(0,0,-1),1);
+b = cgl3dnewSphere(cgl3d.shader.sphere:(#,false),(0,0,-1),1,plotModifiers->{
+  "cglPixelExpr":(s,t,n)=>(0,1,0),"cglLight":cgl3d.light.default,"cglProjection":cgl3d.projection.sphereEquirect
+});
 c = cgl3dnewCylinder((0,0,1),(0,1,0),(0,.25,0),0.75);
 d = cgl3dnewMesh((1,1,0),((1,0,0),(0,1,0),(0,0,1)));
 

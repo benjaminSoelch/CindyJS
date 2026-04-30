@@ -16,10 +16,16 @@ cglMod1plus(n,k):=(
 // returns undefined
 cglUndefinedVal():=(regional(nada);nada);
 
+cglSetDepth(rawDepth,direction) := (
+  cglRawDepth = rawDepth;
+  cglDepth = 0; // TODO compute actual depth value
+);
+
 /////////////////////
 // objects and coordinate system
 /////////////////////
 cgl3d = {};
+cgl3d.projection = {};
 cgl3d.compute = {};
 cgl3d.shader = {};
 cgl3d.light = {};
@@ -178,11 +184,11 @@ cgl3d.compute.sphereNormal = (direction,center,isBack) => (
   r=re(sqrt(D4));
   dst=-b2-r;// sqrt should always be real
   dst2 = -b2+r;
-  if(dst<0,
+  /*if(dst<0, // TODO: correctly detect pixels behind camera
     if(isBack,cglDiscard());
     dst=dst2;
     if(dst<0,cglDiscard());
-  );
+  );*/
   if(isBack,dst=dst2);
   pos3d = cglSpacePos+ dst*direction;
   cglSetDepth(dst,direction);
@@ -202,7 +208,7 @@ cgl3d.compute.sphereDepths = (rayStart,direction,center,radius) => (
 );
 // stereographic projection from sphere onto C using normal vector as input
 // assumes normal is normalized
-cglProjSphereToC(normal):=(
+cgl3d.projection.sphereStereographicC = (normal) => (
   // A = l (x,y,z) + (1-l) (0,0,1)
   // 0 = l z + (1-l) = 1 + l (z-1) -> l = 1 / (1-z)
   (normal_1)/(1-normal_3) + i* (normal_2)/(1-normal_3);
@@ -211,16 +217,13 @@ cglProjSphereToC(normal):=(
 // 1. convert position into two angles
 // 2. map angles onto square
 // assumes that normal is normalized
-cglProjSphereToSquare(normal):=(
+cgl3d.projection.sphereEquirect = (normal) => (
   regional(phi,theta);
   phi = arctan2(-normal_3,normal_1); // (-pi, pi]
   theta = arctan2(|(normal_1,normal_3)|,normal_2); // (-pi, pi]
   (1/(2*pi))*(phi+pi,2*theta+pi);
 );
 // feature TODO? add projection for non-axis aligned coordinate system
-
-cglSphereProjectionEquirect = lambda(normal,cglProjSphereToSquare(normal));
-cglSphereProjectionStereographicC = lambda(normal,cglProjSphereToC(normal));
 
 cgl3d.shader.sphere = (direction,isBack) => (
   regional(normal,texturePos,color);
@@ -1015,7 +1018,7 @@ cglMeshGuessNormals(samples,Nx,Ny,normalType,topology):=(
 /////////////////////
 
 // ray(direction, t) is the point in R^3 that lies at position t on the ray in direction direction
-cglRay(direction, t) := (t * direction + cglViewPos);
+cglRay(direction, t) := (t * direction + cglSpacePos);
 
 // casteljau algorithm to evaluate and subdivide polynomials in Bernstein form.
 // poly is a vector containing the coefficients, i.e. p(x) = sum(0..N, i, poly_(i+1) * b_(i,N)(x)) where b_(i,N)(x) = choose(N, i)*x^i*(1-x)^(N-1)
