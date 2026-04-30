@@ -373,6 +373,7 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
             }
         }
         if (!forceLambda){
+            console.log(lambdaExpr);
             return undefined;
         }
         let val = self.evalWithModifiers(lambdaExpr);

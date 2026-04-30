@@ -313,7 +313,7 @@ cglCylinderProjGetDirection1Default = lambda((normal,height,orientation),
 );
 // project cylinder onto unit square using normal and height as input
 // assumes that normal is normalized, and height is in the range -1..1
-cglProjCylinderToSquare(normal,height,orientation):=(
+cgl3d.projection.cylinder = (normal,height,orientation) => (
   regional(d1,d2);
   d1 = cglCylinderProjGetDirection1:(normal,height,orientation);
   d2 = -normalize(cross(orientation,d1));
@@ -445,43 +445,40 @@ cglCutVectorNone = lambda((U),U);
 cglGetCutVector1 = lambda((U),cglCutDir1);
 cglGetCutVector2 = lambda((U),cglCutDir2);
 
-CglCylinderCapVoid = {"name":"Void","shaderFront":cglCapVoidShader,"shaderBack":cglCapVoidShader,
+cgl3d.cylinderCap = {};
+
+cgl3d.cylinderCap.void = {"name":"Void","shaderFront":cglCapVoidShader,"shaderBack":cglCapVoidShader,
   "shaderNoBack":cglCapVoidShader,"capCut1":cglCapCutFlat1,"capCut2":cglCapCutFlat2};
-CglCylinderCapOpen = {"name":"Open","shaderFront":cglCapVoidShader,"shaderBack":cglCapOpenShaderBack,
+cgl3d.cylinderCap.open = {"name":"Open","shaderFront":cglCapVoidShader,"shaderBack":cglCapOpenShaderBack,
   "shaderNoBack":cglCapOpenShaderNoBack,"capCut1":cglCapCutFlat1,"capCut2":cglCapCutFlat2};
-CglCylinderCapFlat = {"name":"Flat","shaderFront":cglCapFlatShaderFront,"shaderBack":cglCapFlatShaderBack,
+cgl3d.cylinderCap.flat = {"name":"Flat","shaderFront":cglCapFlatShaderFront,"shaderBack":cglCapFlatShaderBack,
   "shaderNoBack":cglCapFlatShaderFront,"capCut1":cglCapCutFlat1,"capCut2":cglCapCutFlat2};
-CglCylinderCapRound = {"name":"Round","shaderFront":cglCapRoundShaderFront,"shaderBack":cglCapRoundShaderBack,
+cgl3d.cylinderCap.round = {"name":"Round","shaderFront":cglCapRoundShaderFront,"shaderBack":cglCapRoundShaderBack,
   "shaderNoBack":cglCapRoundShaderFront,"capCut1":cglCapCutRound1,"capCut2":cglCapCutRound2};
-CglCylinderCapCutVoid(normal) := {"name":"Cut-Void","cutDirection":normal,"cutOrthogonal":false,
+cgl3d.cylinderCap.cutVoid = (normal) => {"name":"Cut-Void","cutDirection":normal,"cutOrthogonal":false,
   "shaderFront":cglCapVoidShader,"shaderNoBack":cglCapVoidShader,"shaderBack":cglCapVoidShader,
   "capCut1":cglCapCutAngle1,"capCut2":cglCapCutAngle2};
-CglCylinderCapCutOpen(normal) := {"name":"Cut-Open","cutDirection":normal,"cutOrthogonal":false,
+cgl3d.cylinderCap.cutOpen = (normal) => {"name":"Cut-Open","cutDirection":normal,"cutOrthogonal":false,
   "shaderFront":cglCapVoidShader,"shaderNoBack":cglCapOpenShaderNoBack,"shaderBack":cglCapOpenShaderBack,
   "capCut1":cglCapCutAngle1,"capCut2":cglCapCutAngle2};
-CglCylinderCapCutFlat(normal) := {"name":"Cut-Flat","cutDirection":normal,"cutOrthogonal":false,
+cgl3d.cylinderCap.cutFlat = (normal) => {"name":"Cut-Flat","cutDirection":normal,"cutOrthogonal":false,
   "shaderFront":cglCapAngleFlatShaderFront,"shaderNoBack":cglCapAngleFlatShaderFront,"shaderBack":cglCapAngleFlatShaderBack,
   "capCut1":cglCapCutAngle1,"capCut2":cglCapCutAngle2};
-CglCylinderCapCutVoidRound(normal) := {"name":"Cut-Round","cutDirection":normal,"cutOrthogonal":true,
+cgl3d.cylinderCap.cutVoidRound = (normal) => {"name":"Cut-Round","cutDirection":normal,"cutOrthogonal":true,
   "shaderFront":cglCapAngleVoidRoundShaderFront,"shaderNoBack":cglCapAngleVoidRoundShaderFront,"shaderBack":cglCapAngleVoidRoundShaderBack,
   "capCut1":cglCapCutAngleRound1,"capCut2":cglCapCutAngleRound2};
 
-CylinderCapOpen=CglCylinderCapOpen;
-CylinderCapFlat=CglCylinderCapFlat;
-CylinderCapRound=CglCylinderCapRound;
+cgl3d.connect = {};
 
+cgl3d.connect.open = -1;
+cgl3d.connect.oound = 0;
+cgl3d.connect.flat = 1; // feature TODO? better name
 
-CglConnectOpen = -1;
-CglConnectRound = 0;
-CglConnectFlat = 1; // feature TODO? better name
-ConnectOpen = CglConnectOpen;
-ConnectRound = CglConnectRound;
-ConnectFlat = CglConnectFlat;
 
 // feature TODO? separate projection for end-caps
-cgl3dCylinderShaderCode(direction):=(
+cgl3d.shader.cylinder = (direction) => (
   regional(l,BA,U,v1,delta,normalAndHeight,v2,normal,texturePos,color,pos3d);
-  l = cglCylinderDepths(direction);
+  l = cgl3d.compute.cylinderDepths:(direction);
   BA = cglOrientation;
   U = BA/(BA*BA);
   v1 = (cglSpacePos+l_1*direction)-cglCenter;
@@ -546,9 +543,9 @@ cgl3dCylinderShaderCode(direction):=(
   color = cglPixelExpr:(texturePos,cglSpacePos + cglRawDepth*direction,normal);
   cglLight:(color,direction,normal);
 );
-cgl3dCylinderShaderCodeBack(direction):=(
+cgl3d.shader.cylinderBack = (direction) => (
   regional(l,BA,U,v2,delta,normalAndHeight,v3,normal,texturePos,color,pos3d);
-  l = cglCylinderDepths(direction);
+  l = cgl3d.compute.cylinderDepths:(direction);
   BA = cglOrientation;
   U = BA/(BA*BA);
   v2 = (cglSpacePos+l_2*direction)-cglCenter;
@@ -1446,13 +1443,13 @@ cglResetDefaults() := (
   cglDefaults_"cylinderColor" = CGLnAMEDcOLORS_"black";
   cglDefaults_"cylinderSize" = 0.4;
   cglDefaults_"cylinderAlpha" = cglUndefinedVal();
-  cglDefaults_"cylinderCaps" = CglCylinderCapOpen;
+  cglDefaults_"cylinderCaps" = cgl3d.cylinderCap.open;
 
   cglDefaults_"lineCutoff" = CglCutoffScreenSphere;
 
   cglDefaults_"curveSamples" = 32;
-  cglDefaults_"curveCaps" = CglCylinderCapRound;
-  cglDefaults_"curveJoints" = CglConnectRound;
+  cglDefaults_"curveCaps" = cgl3d.cylinderCap.round;
+  cglDefaults_"curveJoints" =cgl3d.connect.round;
 
   cglDefaults_"torusColor" = CGLnAMEDcOLORS_"blue";
   cglDefaults_"torusSize" = 0.25;
@@ -1999,8 +1996,7 @@ cglCylinder3d(point1,point2,radius):=(
   cap1 = cglValOrDefault(cap1,caps);
   cap2 = cglValOrDefault(cap2,caps);
   renderBack = cglValOrDefault(renderBack,false); // if true back-face should always be rendered
-  projection = cglValOrDefault(projection,
-    lambda((normal,height,orientation),cglProjCylinderToSquare(normal,height,orientation)));
+  projection = cglValOrDefault(projection,cgl3d.projection.cylinder);
   overhang = if(cap1_"name" == "Round" % cap2_"name" == "Round",radius,0);
   alpha = cglValOrDefault(alpha,cglDefaults_"cylinderAlpha");
   hasAlpha = !isundefined(alpha);
@@ -2052,21 +2048,21 @@ cglCylinder3d(point1,point2,radius):=(
   tags = cglValOrDefault(tags,[]);
   opacityExpr = if(usesAlpha,false,if(hasAlpha,lambda((),cglAlpha>=1),true));
   if(needBackFace,
-    ids = [colorplot3d(cgl3dCylinderShaderCodeBack(#),point1,point2,radius,overhang->overhang,
+    ids = [colorplot3d(cgl3d.shader.cylinderBack:(#),point1,point2,radius,overhang->overhang,
       plotModifiers->modifiers,tags->["cylinder","backside"]++tags,opaqueIf->opacityExpr)];
   );
-  topLayer = colorplot3d(cgl3dCylinderShaderCode(#),point1,point2,radius,overhang->overhang,
+  topLayer = colorplot3d(cgl3d.shader.cylinder:(#),point1,point2,radius,overhang->overhang,
     plotModifiers->modifiers,tags->["cylinder"]++tags,opaqueIf->opacityExpr);
   ids=if(needBackFace,append(ids,topLayer),topLayer);
 );
 
 cglJoint(prev,current,next,jointType):=(
-  if(jointType==CglConnectRound,
-    CglCylinderCapCutVoidRound((normalize(next-current)+normalize(current-prev))/2);
-  ,if(jointType==CglConnectFlat,
-    CglCylinderCapCutVoid((normalize(next-current)+normalize(current-prev))/2);
-  ,if(jointType==CglConnectOpen,
-    CglCylinderCapOpen
+  if(jointType==cgl3d.connect.round,
+    cgl3d.cylinderCap.cutVoidRound:((normalize(next-current)+normalize(current-prev))/2);
+  ,if(jointType==cgl3d.connect.flat,
+    cgl3d.cylinderCap.cutVoid:((normalize(next-current)+normalize(current-prev))/2);
+  ,if(jointType==cgl3d.connect.open,
+    cgl3d.cylinderCap.open
   )));
 );
 cglInterface("connect3d",cglConnect3d,(points),(color,colors,texture,textureRGB,textureRGBA,interpolateTexture,repeatTexture,
@@ -2086,8 +2082,8 @@ cglConnect3d(points):=(
   caps = cglValOrDefault(caps,cglDefaults_"curveCaps");
   cap1 = cglValOrDefault(cap1,caps);
   cap2 = cglValOrDefault(cap2,caps);
-  if(cap1 == CglCylinderCapOpen % cap1_"name" == "Cut-Open" %
-    cap2 == CglCylinderCapOpen % cap2_"name" == "Cut-Open",
+  if(cap1 == cgl3d.cylinderCap.open % cap1_"name" == "Cut-Open" %
+    cap2 == cgl3d.cylinderCap.open % cap2_"name" == "Cut-Open",
     renderBack = true; // caps are open -> need back face
   );
   joints = cglValOrDefault(joints,cglDefaults_"curveJoints");
@@ -2107,7 +2103,7 @@ cglConnect3d(points):=(
     if(!isundefined(colorExpr) % !isundefined(texture) % !isundefined(color:"type"),
       projection = lambda((normal,height,orientation),
         regional(pos0);
-        pos0=cglProjCylinderToSquare(normal,height,orientation);
+        pos0=cgl3d.projection.cylinder:(normal,height,orientation);
         (pos0_1,cglSegmentEnd*pos0_2+cglSegmentStart*(1-pos0_2))
       );
     );
