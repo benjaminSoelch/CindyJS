@@ -82,19 +82,14 @@ CodeBuilder.prototype.texturereaders;
 const BUILTIN_DISCARD = "cgldiscard";
 const BUILTIN_TEXTURE4 = "cgltexture";
 const BUILTIN_TEXTURE3 = "cgltexturergb";
-const BUILTIN_VIEW_RECT = "cglviewrect";
 const BUILTIN_CGLDEPTH = "cglDepth";
 /** @type {Map<string,{type:string,code:string,expr:string,valueType:*,writable:boolean}>} */
 CodeBuilder.builtIns=new Map([
-    ["cglPixel",{type:"pixelAttribute",code:"",expr:"cgl_pixel",valueType:type.vec2,writable:false}],
     [BUILTIN_DISCARD,{type:"operator",code:"discard;\n",expr:"",valueType:type.voidt,writable:false}],
     [BUILTIN_TEXTURE4,{type:"function",code:"",expr:"texture",valueType:type.vec4,args:[type.image,type.vec2],writable:false}],
     [BUILTIN_TEXTURE3,{type:"function",code:"",expr:"texture",valueType:type.vec3,args:[type.image,type.vec2],writable:false}],
     // 3D- only
-    // TODO make cglViewPos a function for consistency with interpreted CindyScript code
-    ["cglViewPos",{type:"uniform",code:"",expr:"pixelViewPos",valueType:type.vec3,writable:false}],
-    ["cglViewNormal",{type:"uniform",code:"",expr:"cgl_viewNormal",valueType:type.vec3,writable:false}],
-    [BUILTIN_VIEW_RECT,{type:"function",code:"",expr:"cgl_viewRect",args:[],valueType:type.vec4,writable:false}],
+    ["cglSpacePos",{type:"pixelAttribute",code:"",expr:"cgl_spacePos",valueType:type.vec3,writable:false}],
     ["cglViewDirection",{type:"pixelAttribute",code:"",expr:"cgl_viewDirection0",valueType:type.vec3,writable:false}],
     [BUILTIN_CGLDEPTH,{type:"pixelAttribute",code:"",expr:"cgl_depth",valueType:type.float,writable:true}],
     // TODO? make available constants dependent on bounding box type
@@ -103,7 +98,6 @@ CodeBuilder.builtIns=new Map([
     ["cglRadius",{type:"uniform",code:"",expr:"uRadius",valueType:type.float,writable:false}],
     ["cglOrientation",{type:"uniform",code:"",expr:"uOrientation",valueType:type.vec3,writable:false}],
     ["cglCubeAxes",{type:"uniform",code:"",expr:"uCubeAxes",valueType:type.mat3,writable:false}],
-    ["cglSpacePos",{type:"pixelAttribute",code:"",expr:"cgl_spacePos",valueType:type.vec3,writable:false}],
 ]);
 CodeBuilder.cindygl3dPrefix="cgl";
 
@@ -948,8 +942,7 @@ CodeBuilder.prototype.compile = function(expr, generateTerm) {
         } : {
             code: builtIn.code
         };
-    } else if(expr['isbuiltin'] && expr['ctype'] === 'function' && 
-            [BUILTIN_DISCARD, BUILTIN_VIEW_RECT].indexOf(getPlainName(expr['oper'])) != -1) {
+    } else if(expr['isbuiltin'] && expr['ctype'] === 'function' && getPlainName(expr['oper']) == BUILTIN_DISCARD) {
         // TODO? check number of arguments
         let fname = getPlainName(expr['oper']);
         let builtIn = CodeBuilder.builtIns.get(fname);
