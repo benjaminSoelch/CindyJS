@@ -340,7 +340,7 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
     let myfunctions = this.myfunctions;
     /**@type {CodeBuilder} */
     var self = this;
-    myfunctions['_globalLambda'] = {};
+    myfunctions['_main'] = {};
 
     rec(expr, bindings, 'global', false);
 
@@ -422,19 +422,15 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
             }
         });
         let inlined = {}; // remember which arguments where inlined
+        const localScope = scope != 'global' ? scope : '_main';
         exprData['params'].forEach((param_,index) => {
             // !!! do not modify the original param, modifications can leak into different uses of the same lambda-expression
             const param = Object.assign({}, param_);
             let vname = param['name'];
             let iname = generateUniqueHelperString();
             nbindings[vname] = iname;
-            if(scope != 'global') {
-                if (!myfunctions[scope].variables) myfunctions[scope].variables = [];
-                myfunctions[scope].variables.push(iname);
-            } else {
-                if (!myfunctions['_globalLambda'].variables) myfunctions['_globalLambda'].variables = [];
-                myfunctions['_globalLambda'].variables.push(iname);
-            }
+            if (!myfunctions[localScope].variables) myfunctions[localScope].variables = [];
+            myfunctions[localScope].variables.push(iname);
             self.initvariable(iname, false);
             variables[iname].assigments.push(args[index]);
         });
@@ -456,13 +452,8 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
         rec(expr['obj'],nbindings,scope,forceconstant);
         // prepare variable for result of expression
         expr.resName = generateUniqueHelperString();
-        if(scope != 'global') {
-            if (!myfunctions[scope].variables) myfunctions[scope].variables = [];
-            myfunctions[scope].variables.push(expr.resName);
-        } else {
-            if (!myfunctions['_globalLambda'].variables) myfunctions['_globalLambda'].variables = [];
-            myfunctions['_globalLambda'].variables.push(expr.resName);
-        }
+        if (!myfunctions[localScope].variables) myfunctions[localScope].variables = [];
+        myfunctions[localScope].variables.push(expr.resName);
         self.initvariable(expr.resName, false);
         variables[expr.resName].assigments.push(expr);
     }
@@ -516,7 +507,8 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
                 self.initvariable(vname, true);
                 variables[vname].assigments.push(expr['args'][1]);
             }
-        } else if (expr['oper'] && getPlainName(expr['oper']) === 'regional' && scope != 'global') {
+        } else if (expr['oper'] && getPlainName(expr['oper']) === 'regional') {
+            const localScope = scope != 'global' ? scope : '_main';
             for (let i in expr['args']) {
                 let vname = expr['args'][i]['name'];
                 if(vname.startsWith(CodeBuilder.cindygl3dPrefix)){
@@ -525,8 +517,8 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
                 let iname = generateUniqueHelperString();
                 bindings[vname] = iname;
 
-                if (!myfunctions[scope].variables) myfunctions[scope].variables = [];
-                myfunctions[scope].variables.push(iname);
+                if (!myfunctions[localScope].variables) myfunctions[localScope].variables = [];
+                myfunctions[localScope].variables.push(iname);
                 self.initvariable(iname, false);
             }
         } else if (expr['oper'] === "forall$2" || expr['oper'] === "apply$2" || expr['oper'] === "forall$3" || expr['oper'] === "apply$3") {
@@ -1662,8 +1654,8 @@ CodeBuilder.prototype.generateShader = function(plotProgram, isSimple){
         }
     }
     let globalLambdaVars = "";
-    if(this.myfunctions['_globalLambda']) {
-        let m = this.myfunctions['_globalLambda'];
+    if(this.myfunctions['_main']) {
+        let m = this.myfunctions['_main'];
         for (let i in m.variables) {
             let iname = m.variables[i];
             const varType = this.variables[iname].T;
