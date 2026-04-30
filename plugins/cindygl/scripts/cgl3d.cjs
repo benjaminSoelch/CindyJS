@@ -10,16 +10,6 @@ normalize(v):=(
     if(l>0,v/l,v)
   );
 );
-/** maps the raw depth value given in the interval [0,inf) to a concrete depth in [-1,1) and sets cglDepth accordingly */
-cglSetDepth(rawDepth,direction):=(
-  // opt TODO? discard negative distances form view
-  regional(v);
-  cglRawDepth = rawDepth;
-  v = 0.5*(cglViewNormal*cglViewNormal)/(cglViewNormal*direction);
-  cglDepth = (rawDepth-v)/rawDepth;
-  if(cglDepth<0,cglDiscard());
-  cglDepth;
-);
 cglMod1plus(n,k):=(
   mod(n-1,k)+1;
 );
@@ -27,20 +17,55 @@ cglMod1plus(n,k):=(
 cglUndefinedVal():=(regional(nada);nada);
 
 /////////////////////
+// objects and coordinate system
+/////////////////////
+cgl3d = {};
+cgl3d.compute = {};
+cgl3d.shader = {};
+cgl3d.light = {};
+cgl3d.draw = {};
+
+cgl3d.renderTransform = ((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1));
+cgl3d.zoomFactor = 1;
+cgl3d.rotate = (alpha,beta) => (
+  rotZ=[
+    [1,0,0,0],
+    [0,cos(beta),-sin(beta),0],
+    [0,sin(beta),cos(beta),0],
+    [0,0,0,1]
+  ];
+  rotY=[
+    [cos(alpha),0,sin(alpha),0],
+    [0,1,0,0],
+    [-sin(alpha),0,cos(alpha),0],
+    [0,0,0,1]
+  ];
+  self().renderTransform = self().renderTransform * rotY * rotZ;
+);
+rotate3d(alpha,beta) := cgl3d.rotate:(alpha,beta);
+
+cgl3d.objects = {"opaque": {}, "translucent":{}};
+cgl3d.resetObjects = () => (
+  self().objects.opaque = {};
+  self().objects.translucent = {};
+);
+reset3d() := cgl3d.resetObjects:();
+
+/////////////////////
 // light functions
 /////////////////////
-cglNoLight = lambda((color,viewDirection,normal),color);
-cglSimpleLight = lambda((color,viewDirection,normal),
+cgl3d.light.none = (color,viewDirection,normal) => color;
+cgl3d.light.simple = (color,viewDirection,normal) => (
   regional(brightness);
   // normal towards view -> .75*brightness  ; normal away from view -> .45 * brightness
   brightness = viewDirection*normal;
   brightness = 0.25+0.6*abs(brightness)-0.15*brightness;
   brightness*color;
 );
-cglLightNormal = lambda((color,viewDirection,normal),
+cgl3d.light.normal = (color,viewDirection,normal) => (
   (normal+(1,1,1))/2;
 );
-cglLightDepth = lambda((color,viewDirection,normal),
+cgl3d.light.depth = (color,viewDirection,normal) => (
   hue(cglDepth-0.3);
 );
 cglAddLight(material, lightcolor, lightdir, normal, gamma1,gamma2) := (
@@ -63,14 +88,14 @@ cglComputeLight(direction,normal,col,pos):=(
   colo= colo+cglAddLight(col,lightCol, -direction, normal, 3,32);
 );
 // default light computation
-cglDefaultLight = lambda((color,direction,normal),
+cgl3d.light.default = (color,direction,normal) => (
   regional(col3,lightCol);
   // apply light calculation only to first 3 components
   // this code should work for both colors of size 3 and 4
   col3=(color_1,color_2,color_3)*0.75;
   lightCol = 0.75*color; // ensure that lightCol is a float array
   lightCol = color; // local copy of color to ensure value is mutable
-  col3=cglComputeLight(direction,normal,col3,cglViewPos+direction*cglRawDepth);
+  col3=cglComputeLight(direction,normal,col3,cglSpacePos+direction*cglRawDepth);
   lightCol_1=col3_1;
   lightCol_2=col3_2;
   lightCol_3=col3_3;
@@ -104,7 +129,7 @@ cglLight2(direction, dst, color,normal) := (
   ];
   al=0.5; // how much should color depend on surface color
   // ----
-  x = cglViewPos + dst*direction; //the intersection point in R^3
+  x = cglSpacePos + dst*direction; //the intersection point in R^3
   color = (1 - al) * color;
 
   forall(1..length(lightdirs),
@@ -116,7 +141,7 @@ cglLight2(direction, dst, color,normal) := (
   );
   color
 );
-cglLight2=lambda((color,viewDirection,normal),
+cgl3d.light.default2 =(color,viewDirection,normal) => (
   cglLight2(viewDirection,cglRawDepth,color,normal)
 );
 
@@ -124,18 +149,7 @@ cglLight2=lambda((color,viewDirection,normal),
 // internal state
 /////////////////////
 
-// color constants
-cglBlack = (0,0,0);
-cglGray = (0.5,0.5,0.5);
-cglWhite = (1,1,1);
-cglRed = (1,0,0);
-cglGreen = (0,1,0);
-cglBlue = (0,0,1);
-cglYellow = (1,1,0);
-cglCyan = (0,1,1);
-cglMagenta = (1,0,1);
-
-CGLcOLORnAMES = {
+CGLnAMEDcOLORS = {
   "white":(1,1,1),
   "grey":(0.5,0.5,0.5),
   "gray":(0.5,0.5,0.5),
@@ -152,10 +166,10 @@ CGLcOLORnAMES = {
 // spheres
 /////////////////////
 
-cglSphereNormal(direction,center,isBack):=(
+cgl3d.compute.sphereNormal = (direction,center,isBack) => (
   regional(vc,b2,c,D4,r,dst,dst2,pos3d);
   // |v+l*d -c|=r
-  vc=cglViewPos-center;
+  vc=cglSpacePos-center;
   // -> l*l <d,d> + l * 2<v-c,d> + <v-c,v-c> - r*r
   b2=(vc*direction); // 1/2 * b
   c=vc*vc-cglRadius*cglRadius;
@@ -170,11 +184,11 @@ cglSphereNormal(direction,center,isBack):=(
     if(dst<0,cglDiscard());
   );
   if(isBack,dst=dst2);
-  pos3d = cglViewPos+ dst*direction;
+  pos3d = cglSpacePos+ dst*direction;
   cglSetDepth(dst,direction);
   normalize(pos3d - center);
 );
-cglSphereDepths(rayStart,direction,center,radius):=(
+cgl3d.compute.sphereDepths = (rayStart,direction,center,radius) => (
   regional(vc,b2,c,D4,r);
   // |v+l*d -c|=r
   vc=rayStart-center;
@@ -208,11 +222,11 @@ cglProjSphereToSquare(normal):=(
 cglSphereProjectionEquirect = lambda(normal,cglProjSphereToSquare(normal));
 cglSphereProjectionStereographicC = lambda(normal,cglProjSphereToC(normal));
 
-cgl3dSphereShaderCode(direction,isBack):=(
+cgl3d.shader.sphere = (direction,isBack) => (
   regional(normal,texturePos,color);
-  normal = cglSphereNormal(direction,cglCenter,isBack);
+  normal = cgl3d.compute.sphereNormal:(direction,cglCenter,isBack);
   texturePos = cglProjection:(normal);
-  color = cglPixelExpr:(texturePos,cglViewPos + cglRawDepth*direction,normal);
+  color = cglPixelExpr:(texturePos,cglSpacePos + cglRawDepth*direction,normal);
   cglLight:(color,direction,normal);
 );
 
@@ -1419,14 +1433,14 @@ cglCutoffAddPlane(oldCutoff,normal,depth):=(
 cglDefaultStack = [];
 cglResetDefaults() := (
   cglDefaults = {};
-  cglDefaults_"light" = cglDefaultLight;
+  cglDefaults_"light" = cgl3d.ligth.default;
 
-  cglDefaults_"sphereColor" = cglRed;
+  cglDefaults_"sphereColor" = CGLnAMEDcOLORS_"red";
   cglDefaults_"sphereSize" = 0.5;
   cglDefaults_"sphereAlpha" = cglUndefinedVal();
   cglDefaults_"sphereProjection" = cglSphereProjectionEquirect;
 
-  cglDefaults_"cylinderColor" = cglBlack;
+  cglDefaults_"cylinderColor" = CGLnAMEDcOLORS_"black";
   cglDefaults_"cylinderSize" = 0.4;
   cglDefaults_"cylinderAlpha" = cglUndefinedVal();
   cglDefaults_"cylinderCaps" = CglCylinderCapOpen;
@@ -1437,14 +1451,14 @@ cglResetDefaults() := (
   cglDefaults_"curveCaps" = CglCylinderCapRound;
   cglDefaults_"curveJoints" = CglConnectRound;
 
-  cglDefaults_"torusColor" = cglBlue;
+  cglDefaults_"torusColor" = CGLnAMEDcOLORS_"blue";
   cglDefaults_"torusSize" = 0.25;
   cglDefaults_"torusAlpha" = cglUndefinedVal();
 
-  cglDefaults_"triangleColor" = cglGreen;
+  cglDefaults_"triangleColor" = CGLnAMEDcOLORS_"green";
   cglDefaults_"triangleAlpha" = cglUndefinedVal();
 
-  cglDefaults_"surfaceColor" = cglCyan;
+  cglDefaults_"surfaceColor" = CGLnAMEDcOLORS_"cyan";
   cglDefaults_"surfaceAlpha" = 1;
   cglDefaults_"surfaceCutoff" = CglCutoffScreenSphere;
 );
@@ -1605,7 +1619,7 @@ cglColor(name):=(
         cglLogError("hex color should have 3,4,6 or 8 digits");
       ))));
     ,
-      cglValOrDefault(CGLcOLORnAMES_name,(0.5,0.5,0.5))
+      cglValOrDefault(CGLnAMEDcOLORS_name,(0.5,0.5,0.5))
     )
   , // TODO? verify that name is a valid color
     name
@@ -3015,7 +3029,7 @@ let recomputeProjMatrix = function(){
         CindyGL.objectBuffer.translucent.forEach((obj3d)=>{
             // sort triangles by depth
             if(obj3d.boundingBox['type']!=BoundingBoxType.triangles) return;
-            /**@type{Array<number>} * /
+            /**@type{Array<number>} */
             const vertices = obj3d.boundingBox['vertices'];
             const triangleCount = vertices.length/9;
             const viewNormal = CindyGL.coordinateSystem.transformedViewNormal;
@@ -3072,7 +3086,7 @@ let recomputeProjMatrix = function(){
     }
     /**
      * Returns the position on the view-plane for the pixel (args[0],args[1])
-     * /
+     */
     api.defineFunction("cglSpacePoint", 2, (args, modifs) => {
         let x = api.evaluateAndVal(args[0])["value"]["real"];
         let y = api.evaluateAndVal(args[1])["value"]["real"];
@@ -3080,7 +3094,7 @@ let recomputeProjMatrix = function(){
     });
     /**
      * Returns the current viewDirection for the pixel (args[0],args[1])
-     * /
+     */
     api.defineFunction("cglDirection", 2, (args, modifs) => {
         let x = api.evaluateAndVal(args[0])["value"]["real"];
         let y = api.evaluateAndVal(args[1])["value"]["real"];
@@ -3095,7 +3109,7 @@ let recomputeProjMatrix = function(){
      * modifiers can be used to filter objects depending on their tags
      * - if a modifier is set to `true` all returned objects will have the corresponging tag
      * - if a modifier is set to `false` no returned object will have the corresponding tag
-     * /
+     */
     api.defineFunction("cglListObjects", 0, (args, modifs) => {
         let modValues = {};
         Object.keys(modifs).forEach(key=>{
@@ -3117,7 +3131,7 @@ let recomputeProjMatrix = function(){
     /**
      * Finds the 3D object on the view-ray through the screen position (args[0],args[1]) that is closest to the camera.
      * If the `tags` modifier is set only objects that have at least one of the specified tags are considered
-     * /
+     */
     api.defineFunction("cglFindObject", 2, (args, modifs) => {
         let x = api.evaluateAndVal(args[0])["value"]["real"];
         let y = api.evaluateAndVal(args[1])["value"]["real"];
