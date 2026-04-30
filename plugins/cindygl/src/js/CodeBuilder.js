@@ -396,7 +396,7 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
             args = [];
         } else {
             args = [argsExpr];
-            forceLambda = false;
+            forceLambda = argsExpr['ctype'] !== 'string'; // only const-string allowed for JSON-key
         }
         let exprData = tryGetLambdaData(lambdaExpr,forceLambda);
         if (!exprData) return;
