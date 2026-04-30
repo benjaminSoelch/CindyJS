@@ -238,7 +238,7 @@ cgl3d.shader.sphere = (direction,isBack) => (
 /////////////////////
 
 // the two distances where the viewRay in the given direction intersects the cylinder defined by cglCenter, cglOrientation and cglRadius
-cglCylinderDepths(direction):=(
+cgl3d.compute.cylinderDepths = (direction) => (
   regional(w,W,BA,U,VA,S,T,a,b,c,D,r);
     // P lies on infinite cylinder around axis AB with radius r iff
     // |(P-A) - <P-A,B-A>/<B-A,B-A>*(B-A)| = r
@@ -250,8 +250,8 @@ cglCylinderDepths(direction):=(
     // <S-l*T,S-l*T>-r²=0 -> l² <T,T> + l 2<S,T> + <S,S> - r^2 =0
 
     // pick point on viewRay closer to cylinder to increase numeric stability
-    w = |cglViewPos-cglCenter|;
-    W = cglViewPos + w*direction;
+    w = |cglSpacePos-cglCenter|;
+    W = cglSpacePos + w*direction;
     BA = cglOrientation;
     U = BA/(BA*BA);
     VA = (W-cglCenter);
@@ -267,7 +267,7 @@ cglCylinderDepths(direction):=(
 );
 // intersections of ray in given direction with cylinder with circular end-caps
 // needed for bounding box computations
-cglCappedCylinderDepths(rayStart,direction,center,orientation,radius):=(
+cgl3d.compute.cappedCylinderDepths = (rayStart,direction,center,orientation,radius) => (
   regional(w,W,BA,U,VA,S,T,a,b,c,o,D,r,l,v,d,m0t,m1t,m0,m1,low,hi);
   w = |rayStart-center|;
   W = rayStart + w*direction;
@@ -327,7 +327,7 @@ cglCapVoidShader = lambda((direction,cylinderDepths,delta,U,cutVector),
 );
 cglCapOpenShaderNoBack = lambda((direction,cylinderDepths,delta,U,cutVector),
     regional(v2,delta2,normal);
-    v2 = (cglViewPos+cylinderDepths_2*direction)-cglCenter;
+    v2 = (cglSpacePos+cylinderDepths_2*direction)-cglCenter;
     delta2 = v2*cutVector;
     if(delta2*delta>1,cglDiscard());
     cglSetDepth(cylinderDepths_2,direction);
@@ -351,8 +351,8 @@ cglCapFlatShaderFront = lambda((direction,cylinderDepths,delta,U,cutVector),
     regional(m,a,normal);
     m = cglCenter+delta*cglOrientation;
     // <v + a*d,o> = <m,o>
-    a = (m*cglOrientation-cglViewPos*cglOrientation)/(direction*cglOrientation);
-    if(|cglViewPos + a*direction - m| > cglRadius,cglDiscard());
+    a = (m*cglOrientation-cglSpacePos*cglOrientation)/(direction*cglOrientation);
+    if(|cglSpacePos + a*direction - m| > cglRadius,cglDiscard());
     cglSetDepth(a,direction);
     normal = normalize(cglOrientation*delta);
     (normal_1,normal_2,normal_3,delta)
@@ -361,8 +361,8 @@ cglCapFlatShaderBack = lambda((direction,cylinderDepths,delta,U,cutVector),
     regional(m,a,normal);
     m = cglCenter+delta*cglOrientation;
     // <v + a*d,o> = <m,o>
-    a = (m*cglOrientation-cglViewPos*cglOrientation)/(direction*cglOrientation);
-    if(|cglViewPos + a*direction - m| > cglRadius,cglDiscard());
+    a = (m*cglOrientation-cglSpacePos*cglOrientation)/(direction*cglOrientation);
+    if(|cglSpacePos + a*direction - m| > cglRadius,cglDiscard());
     cglSetDepth(a,direction);
     normal = -normalize(cglOrientation*delta);
     (normal_1,normal_2,normal_3,delta)
@@ -371,8 +371,8 @@ cglCapAngleFlatShaderFront = lambda((direction,cylinderDepths,delta,U,cutVector)
     regional(m,a,p,o,normal);
     m = cglCenter+delta*cglOrientation;
     // <v + a*d,n> = <m,n>
-    a = (m*cutVector-cglViewPos*cutVector)/(direction*cutVector);
-    p = cglViewPos + a*direction;
+    a = (m*cutVector-cglSpacePos*cutVector)/(direction*cutVector);
+    p = cglSpacePos + a*direction;
     o = normalize(cglOrientation);
     if(|p-m - ((p-m)*o)*o| > cglRadius,cglDiscard());
     cglSetDepth(a,direction);
@@ -384,8 +384,8 @@ cglCapAngleFlatShaderBack = lambda((direction,cylinderDepths,delta,U,cutVector),
     regional(m,a,p,o,normal);
     m = cglCenter+delta*cglOrientation;
     // <v + a*d,n> = <m,n>
-    a = (m*cutVector-cglViewPos*cutVector)/(direction*cutVector);
-    p = cglViewPos + a*direction;
+    a = (m*cutVector-cglSpacePos*cutVector)/(direction*cutVector);
+    p = cglSpacePos + a*direction;
     o = normalize(cglOrientation);
     if(|p-m - ((p-m)*o)*o| > cglRadius,cglDiscard());
     cglSetDepth(a,direction);
@@ -396,14 +396,14 @@ cglCapAngleFlatShaderBack = lambda((direction,cylinderDepths,delta,U,cutVector),
 cglCapAngleVoidRoundShaderFront = lambda((direction,cylinderDepths,delta,U,cutVector),
   regional(res,v2);
   res = cglCapRoundShaderFront:(direction,cylinderDepths,delta,U,cutVector);
-  v2 = cglViewPos + cglRawDepth * direction - cglCenter;
+  v2 = cglSpacePos + cglRawDepth * direction - cglCenter;
   if((delta*(v2*cutVector)>1) % (delta*(v2*U)<1),cglDiscard());
   res
 );
 cglCapAngleVoidRoundShaderBack = lambda((direction,cylinderDepths,delta,U,cutVector),
   regional(res,v2);
   res = cglCapRoundShaderBack:(direction,cylinderDepths,delta,U,cutVector);
-  v2 = cglViewPos + cglRawDepth * direction - cglCenter;
+  v2 = cglSpacePos + cglRawDepth * direction - cglCenter;
   if((delta*(v2*cutVector)>1) % (delta*(v2*U)<1),cglDiscard());
   res
 );
@@ -484,7 +484,7 @@ cgl3dCylinderShaderCode(direction):=(
   l = cglCylinderDepths(direction);
   BA = cglOrientation;
   U = BA/(BA*BA);
-  v1 = (cglViewPos+l_1*direction)-cglCenter;
+  v1 = (cglSpacePos+l_1*direction)-cglCenter;
   delta = (v1*U);
   if(cglCut1:(delta,v1)<-1, // cap1
     // opt TODO? is there a less nested algorithm for correctly handling intersecting end-caps
@@ -493,57 +493,57 @@ cgl3dCylinderShaderCode(direction):=(
       // <v + a*d,n> = <m,n>
       cutVector1=cglGetCutVector1:(U);
       cutVector2=cglGetCutVector2:(U);
-      a1 = ((cglCenter-cglOrientation)*cutVector1-cglViewPos*cutVector1)/(direction*cutVector1);
-      a2 = ((cglCenter+cglOrientation)*cutVector2-cglViewPos*cutVector2)/(direction*cutVector2);
+      a1 = ((cglCenter-cglOrientation)*cutVector1-cglSpacePos*cutVector1)/(direction*cutVector1);
+      a2 = ((cglCenter+cglOrientation)*cutVector2-cglSpacePos*cutVector2)/(direction*cutVector2);
       if(a1<a2,
         normalAndHeight = cglCap2front:(direction,l,1,U,cglGetCutVector2:(U));
-        v2 = cglViewPos + cglRawDepth*direction - cglCenter;
+        v2 = cglSpacePos + cglRawDepth*direction - cglCenter;
         if(cglCapCut1:(v2,U), // cap1 and cap2
           normalAndHeight = cglCap1front:(direction,l,-1,U,cglGetCutVector1:(U));
-          v2 = cglViewPos + cglRawDepth*direction - cglCenter;
+          v2 = cglSpacePos + cglRawDepth*direction - cglCenter;
           if(cglCapCut2:(v2,U),cglDiscard()); // both intersections with caps are cut of by other cap
         );
       ,
         normalAndHeight = cglCap1front:(direction,l,-1,U,cglGetCutVector1:(U));
-        v2 = cglViewPos + cglRawDepth*direction - cglCenter;
+        v2 = cglSpacePos + cglRawDepth*direction - cglCenter;
         if(cglCapCut2:(v2,U), // cap1 and cap2
           normalAndHeight = cglCap2front:(direction,l,1,U,cglGetCutVector2:(U));
-          v2 = cglViewPos + cglRawDepth*direction - cglCenter;
+          v2 = cglSpacePos + cglRawDepth*direction - cglCenter;
           if(cglCapCut1:(v2,U),cglDiscard()); // both intersections with caps are cut of by other cap
         );
       );
     ,
       normalAndHeight = cglCap1front:(direction,l,-1,U,cglGetCutVector1:(U));
-      v2 = cglViewPos + cglRawDepth*direction - cglCenter;
+      v2 = cglSpacePos + cglRawDepth*direction - cglCenter;
       // opt TODO? omit check for second cap if both caps are cut orthogonal to cylinder
       if(cglCapCut2:(v2,U), // cap1 and cap2
         normalAndHeight = cglCap2front:(direction,l,1,U,cglGetCutVector2:(U));
-        v2 = cglViewPos + cglRawDepth*direction - cglCenter;
+        v2 = cglSpacePos + cglRawDepth*direction - cglCenter;
         if(cglCapCut1:(v2,U),cglDiscard()); // both intersections with caps are cut of by other cap
       );
     );
     normal = (normalAndHeight_1,normalAndHeight_2,normalAndHeight_3);
     delta = normalAndHeight_4;
-    pos3d = (cglViewPos+cglRawDepth*direction);
+    pos3d = (cglSpacePos+cglRawDepth*direction);
     texturePos = cglProjection:(normalize((pos3d-cglCenter)-delta*BA),max(-1,min(delta,1)),cglOrientation);
   ,if(cglCut2:(delta,v1)>1, // cap2
     normalAndHeight = cglCap2front:(direction,l,1,U,cglGetCutVector2:(U));
-    v2 = cglViewPos + cglRawDepth*direction - cglCenter;
+    v2 = cglSpacePos + cglRawDepth*direction - cglCenter;
     if(cglCapCut1:(v2,U), // cap1 and cap2
       normalAndHeight = cglCap1front:(direction,l,-1,U,cglGetCutVector1:(U));
-      v2 = cglViewPos + cglRawDepth*direction - cglCenter;
+      v2 = cglSpacePos + cglRawDepth*direction - cglCenter;
       if(cglCapCut2:(v2,U),cglDiscard()); // both intersections with caps are cut of by other cap
     );
     normal = (normalAndHeight_1,normalAndHeight_2,normalAndHeight_3);
     delta = normalAndHeight_4;
-    pos3d = (cglViewPos+cglRawDepth*direction);
+    pos3d = (cglSpacePos+cglRawDepth*direction);
     texturePos = cglProjection:(normalize((pos3d-cglCenter)-delta*BA),max(-1,min(delta,1)),cglOrientation);
   , // intersection with body of cylinder
     cglSetDepth(l_1,direction);
     normal = normalize(v1-delta*BA);
     texturePos = cglProjection:(normal,max(-1,min(delta,1)),cglOrientation);
   ));
-  color = cglPixelExpr:(texturePos,cglViewPos + cglRawDepth*direction,normal);
+  color = cglPixelExpr:(texturePos,cglSpacePos + cglRawDepth*direction,normal);
   cglLight:(color,direction,normal);
 );
 cgl3dCylinderShaderCodeBack(direction):=(
@@ -551,7 +551,7 @@ cgl3dCylinderShaderCodeBack(direction):=(
   l = cglCylinderDepths(direction);
   BA = cglOrientation;
   U = BA/(BA*BA);
-  v2 = (cglViewPos+l_2*direction)-cglCenter;
+  v2 = (cglSpacePos+l_2*direction)-cglCenter;
   delta = (v2*U);
   if(cglCut1:(delta,v2)<-1, // cap 1
     if(cglCut2:(delta,v2)>1, // cap1 & cap2
@@ -559,56 +559,56 @@ cgl3dCylinderShaderCodeBack(direction):=(
       // <v + a*d,n> = <m,n>
       cutVector1=cglGetCutVector1:(U);
       cutVector2=cglGetCutVector2:(U);
-      a1 = ((cglCenter-cglOrientation)*cutVector1-cglViewPos*cutVector1)/(direction*cutVector1);
-      a2 = ((cglCenter+cglOrientation)*cutVector2-cglViewPos*cutVector2)/(direction*cutVector2);
+      a1 = ((cglCenter-cglOrientation)*cutVector1-cglSpacePos*cutVector1)/(direction*cutVector1);
+      a2 = ((cglCenter+cglOrientation)*cutVector2-cglSpacePos*cutVector2)/(direction*cutVector2);
       if(a1<a2,
         normalAndHeight = cglCap2back:(direction,l,1,U,cglGetCutVector2:(U));
-        v3 = cglViewPos + cglRawDepth*direction - cglCenter;
+        v3 = cglSpacePos + cglRawDepth*direction - cglCenter;
         if(cglCapCut1:(v3,U), // cap1 and cap2
           normalAndHeight = cglCap1back:(direction,l,-1,U,cglGetCutVector1:(U));
-          v3 = cglViewPos + cglRawDepth*direction - cglCenter;
+          v3 = cglSpacePos + cglRawDepth*direction - cglCenter;
           if(cglCapCut2:(v3,U),cglDiscard()); // both intersections with caps are cut of by other cap
         );
       ,
         normalAndHeight = cglCap1back:(direction,l,-1,U,cglGetCutVector1:(U));
-        v3 = cglViewPos + cglRawDepth*direction - cglCenter;
+        v3 = cglSpacePos + cglRawDepth*direction - cglCenter;
         if(cglCapCut2:(v3,U), // cap1 and cap2
           normalAndHeight = cglCap2back:(direction,l,1,U,cglGetCutVector2:(U));
-          v3 = cglViewPos + cglRawDepth*direction - cglCenter;
+          v3 = cglSpacePos + cglRawDepth*direction - cglCenter;
           if(cglCapCut1:(v3,U),cglDiscard()); // both intersections with caps are cut of by other cap
         );
       );
     ,
       normalAndHeight = cglCap1back:(direction,l,-1,U,cglGetCutVector1:(U));
-      v3 = cglViewPos + cglRawDepth*direction - cglCenter;
+      v3 = cglSpacePos + cglRawDepth*direction - cglCenter;
       if(cglCapCut2:(v3,U), // cap1 and cap2
         normalAndHeight = cglCap2back:(direction,l,1,U,cglGetCutVector2:(U));
-        v3 = cglViewPos + cglRawDepth*direction - cglCenter;
+        v3 = cglSpacePos + cglRawDepth*direction - cglCenter;
         if(cglCapCut1:(v3,U),cglDiscard()); // both intersections with caps are cut of by other cap
       );
     );
     normal = (normalAndHeight_1,normalAndHeight_2,normalAndHeight_3);
     delta = normalAndHeight_4;
-    pos3d = (cglViewPos+cglRawDepth*direction);
+    pos3d = (cglSpacePos+cglRawDepth*direction);
     texturePos = cglProjection:(normalize((pos3d-cglCenter)-delta*BA),max(-1,min(delta,1)),cglOrientation);
   ,if(cglCut2:(delta,v2)>1, // cap2
     normalAndHeight = cglCap2back:(direction,l,1,U,cglGetCutVector2:(U));
-    v3 = cglViewPos + cglRawDepth*direction - cglCenter;
+    v3 = cglSpacePos + cglRawDepth*direction - cglCenter;
     if(cglCapCut1:(v3,U), // cap1 and cap2
       normalAndHeight = cglCap1back:(direction,l,-1,U,cglGetCutVector1:(U));
-      v3 = cglViewPos + cglRawDepth*direction - cglCenter;
+      v3 = cglSpacePos + cglRawDepth*direction - cglCenter;
       if(cglCapCut2:(v3,U),cglDiscard()); // both intersections with caps are cut of by other cap
     );
     normal = (normalAndHeight_1,normalAndHeight_2,normalAndHeight_3);
     delta = normalAndHeight_4;
-    pos3d = (cglViewPos+cglRawDepth*direction);
+    pos3d = (cglSpacePos+cglRawDepth*direction);
     texturePos = cglProjection:(normalize((pos3d-cglCenter)-delta*BA),max(-1,min(delta,1)),cglOrientation);
   , // intersection with body of cylinder
     cglSetDepth(l_2,direction);
     normal = normalize(v2-delta*BA);
     texturePos = cglProjection:(normal,max(-1,min(delta,1)),cglOrientation);
   ));
-  color = cglPixelExpr:(texturePos,cglViewPos + cglRawDepth*direction,normal);
+  color = cglPixelExpr:(texturePos,cglSpacePos + cglRawDepth*direction,normal);
   cglLight:(color,direction,normal);
 );
 
@@ -742,8 +742,8 @@ cgl3dTorusShaderCode(direction,layer):=(
   center = cglCenter;
   radius1 = cglRadii_1;
   radius2 = cglRadii_2;
-  v=|center-cglViewPos|;
-  V=cglViewPos+v*direction;
+  v=|center-cglSpacePos|;
+  V=cglSpacePos+v*direction;
   // 1. find intersections of view-ray with sphere around center with given radius r1+r2
   // |v+l*d -c|=r
   vc=V-center;
@@ -787,7 +787,7 @@ cgl3dTorusShaderCode(direction,layer):=(
   p0 =  c1*c1 - 4*radius1*radius1*c2;
   dst=cglKthrootP4(layer,[p0,p1,p2,p3,1],x0,x1,x0-1);
   if(dst<x0,cglDiscard());
-  pos3d = cglViewPos+ (v+dst)*direction;
+  pos3d = cglSpacePos+ (v+dst)*direction;
   pc=pos3d-center;
   arcDirection = normalize(pc-(orientation*pc)*orientation);
   arcCenter = center+radius1*arcDirection;
@@ -796,7 +796,7 @@ cgl3dTorusShaderCode(direction,layer):=(
   texturePos = cglProjTorusToSquare(normal,arcDirection,orientation);
   cglCheckAngle1:(texturePos);
   cglCheckAngle2:(texturePos);
-  color = cglPixelExpr:(texturePos,cglViewPos + cglRawDepth*direction,normal);
+  color = cglPixelExpr:(texturePos,cglSpacePos + cglRawDepth*direction,normal);
   cglLight:(color,direction,normal);
 );
 
@@ -806,7 +806,7 @@ cgl3dTorusShaderCode(direction,layer):=(
 
 cgl3dTriangleShaderCode(direction):=(
   regional(color,normal,texCoord);
-  cglRawDepth = |cglViewPos-cglSpacePos|; // set raw depth to correct value (depth is handled by v-shader)
+  cglRawDepth = |cglSpacePos-cglSpacePos|; // set raw depth to correct value (depth is handled by v-shader)
   texCoord = cglTextureMapping:(cglSpacePos,direction);
   normal = cglNormalExpr:(cglSpacePos,texCoord);
   color = cglPixelExpr:(texCoord,cglSpacePos,normal);
@@ -1097,7 +1097,7 @@ cglSurfaceUpdateColor(direction, dst, color) := (
   cglSetDepth(dst,direction);
   x = cglRay(direction, dst); // the intersection point in R^3
   normal = normalize(cglNormalExpr:(x));
-  pos3d = cglViewPos+dst*direction;
+  pos3d = cglSpacePos+dst*direction;
   pixelCol = cglPixelExpr:(cglSurfaceComputeTextureCoords(pos3d,normal),pos3d,normal);
   color = (1 - cglAlpha) * color + cglAlpha * pixelCol;
   cglLight:(color,direction,normal);
@@ -1212,7 +1212,7 @@ cglSurfaceKthRoot(direction,l,u,K):=(
 cgl3dSurfaceShaderCode(direction) := (
   regional(depths,u,l);
   // discard points outside bounding sphere
-  depths = cglCutoffRegion:(cglViewPos,direction);
+  depths = cglCutoffRegion:(cglSpacePos,direction);
   l = depths_1;
   u = depths_2;
   cglSurfaceIterateRoots(direction,l,u);
@@ -1221,7 +1221,7 @@ cgl3dSurfaceShaderCode(direction) := (
 cgl3dSurfaceLayerShaderCode(direction) := (
   regional(depths,u,l);
   // discard points outside bounding sphere
-  depths = cglCutoffRegion:(cglViewPos,direction);
+  depths = cglCutoffRegion:(cglSpacePos,direction);
   l = depths_1;
   u = depths_2;
   cglSurfaceKthRoot(direction,l,u,K);
