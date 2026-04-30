@@ -176,16 +176,24 @@ CodeBuilder.prototype.computeType = function(expr) { //expression
     } else if (expr['ctype'] === 'void') {
         return type.voidt;
     } else if (expr['ctype'] === 'field') {
-        let t = generalize(this.getType(expr['obj']));
+        let baseType = generalize(this.getType(expr['obj']));
+        if (baseType.type === 'tuple' && baseType.names !== undefined) {
+            let keyIndex = baseType.names.indexOf(expr['key']);
+            if (keyIndex < 0) {
+                cglLogError(`cannot find key ${expr['key']} in type ${typeToString(baseType)}`);
+                return false;
+            }
+            return baseType.elements[keyIndex];
+        }
         if (expr['key'].length == 1) {
-            if (t.type === 'list')
-                return t.parameters;
-            else if (issubtypeof(t, type.point))
+            if (baseType.type === 'list')
+                return baseType.parameters;
+            else if (issubtypeof(baseType, type.point))
                 return type.float;
-        } else if (expr['key'] == 'xy' && issubtypeof(t, type.point))
+        } else if (expr['key'] == 'xy' && issubtypeof(baseType, type.point))
             return type.vec2;
 
-        if (!t) return false;
+        if (!baseType) return false;
     } else if (expr['ctype'] === 'string') {
         return type.image;
     } else if (expr['ctype'] === 'list' || expr['ctype'] === 'boolean') {
@@ -273,7 +281,7 @@ CodeBuilder.prototype.computeType = function(expr) { //expression
         }
         let key = expr['key'];
         if (baseType.type !== 'tuple' || baseType.names === undefined) {
-            cglLogError("element access is only supported on JSON values");
+            cglLogError("element access is only supported on JSON and lambda values");
             cglLogDebug(baseType);
             return false;
         }
@@ -715,6 +723,7 @@ CodeBuilder.prototype.determineUniforms = function(expr) {
             }
             if (expr['ctype'] === 'userdata') {
                 computeUniforms(expr['obj'], forceconstant);
+                computeUniforms(expr['key'], forceconstant);
             }
             if (expr['ctype'] === 'jsonatom') {
                 computeUniforms(expr['value'], forceconstant);
@@ -825,6 +834,7 @@ CodeBuilder.prototype.generatePixelBindings = function(expr) {
         }
         if (expr['ctype'] === 'userdata') {
             rec(expr['obj'], bounded);
+            rec(expr['key'], bounded);
         }
         if (expr['ctype'] === 'jsonatom') {
             rec(expr['value'], bounded);
@@ -1330,6 +1340,22 @@ CodeBuilder.prototype.compile = function(expr, generateTerm) {
         });
     } else if (expr['ctype'] === 'field') {
         let objt = this.getType(expr['obj']);
+        if(objt.type === "tuple" && objt.names !== undefined) { // JSON element
+            let key = expr['key'];
+            let index = objt.names.indexOf(key);
+            if (index === undefined || index < 0) {
+                cglLogError(`${typeToString(objt)} does not have a field ${key}`);
+                return;
+            }
+            let objterm = self.compile(expr['obj'], true).term;
+            let term = accesstuple(objt, index)([objterm], null, this);
+            return (generateTerm ? {
+                term: term,
+                code: ''
+            } : {
+                code: `${term};\n`
+            });
+        }
         let index = {
             'x': 0,
             'y': 1,
