@@ -909,7 +909,7 @@ let CindyGL = function(api) {
         let x1=viewBounds[1].x;
         let y1=viewBounds[1].y;
         let defaultZ = Math.max(x1-x0,y1-y0)/2;
-        let transform = coerce.toList(api.evaluateAndVal(args[0])).map(e=>coerce.toList(e));
+        let transform = coerce.toList(api.evaluateAndVal(args[0])).map(e=>coerce.toList(e).map(coerce.toReal));
         let zoom = coerce.toReal(api.evaluateAndVal(args[1]));
         let skewFactor = modifs["skewFactor"] === undefined ? 0.5 : coerce.toReal(api.evaluateAndVal(modifs["skewFactor"]));
         let zScale = modifs["zScale"] ===undefined ? 1 : coerce.toReal(api.evaluateAndVal(modifs["zScale"]));
@@ -921,7 +921,7 @@ let CindyGL = function(api) {
             [0,0,zoom*zScale*((z1-z0)/2)*(1-skewFactor),zoom*zScale*(z0+z1)/2],
             [0,0,-zoom*skewFactor,zoom],
         ];
-        let trafo = m4Mul(projection,transform);
+        let trafo = m4Mul(transform,projection);
         CindyGL.sceneRenderer.transform = m4FlatTranspose(trafo);
         CindyGL.sceneRenderer.inverseTrafo = m4InverseFlatTranspose(trafo);
         Renderer.prevShader = null;

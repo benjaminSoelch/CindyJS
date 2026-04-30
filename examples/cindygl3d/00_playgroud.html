@@ -23,12 +23,10 @@
             sx = mouse().x;
             sy = mouse().y;
             dragging = false;
-            zoom = 1.0;
 
             updateZoom():=(
               if(zoom>5,zoom=5);
               if(zoom<0.2,zoom=0.2);
-              zoom3d(zoom);
             );
         </script>
         <script id="csdraw" type="text/x-cindyscript">
@@ -65,11 +63,23 @@ d = cgl3dnewMesh((1,1,0),((1,0,0),(0,1,0),(0,0,1)));
 e = cgl3dnewCuboid((0,1,1),(0,0,0),(1,0,0),(0,1,0),(0,0,1));
 
 
-frameUpdate():=(
-cgl3dStartRender(layers->0);
-cgl3dRenderOpaque([a,b,c,d,e]);
-cgl3dRenderTranslucent([]);
-cgl3dFinishRender();
+T = ((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1));
+zoom = 1;
+
+rotate3d(alpha,beta):=(
+  rotZ=[
+    [1,0,0,0],
+    [0,cos(beta),-sin(beta),0],
+    [0,sin(beta),cos(beta),0],
+    [0,0,0,1]
+  ];
+  rotY=[
+    [cos(alpha),0,-sin(alpha),0],
+    [0,1,0,0],
+    [sin(alpha),0,cos(alpha),0],
+    [0,0,0,1]
+  ];
+  T = rotY * rotZ * T;
 );
 </textarea>
 <textarea id="frameUpdate" style="width: 100%;height: 25%;margin-left: auto;">
@@ -77,6 +87,11 @@ cgl3dFinishRender();
     preFrame();
     render3d();
     postFrame();*/
+cgl3dStartRender(layers->0);
+cgl3dSetRenderTransform(T,zoom);
+cgl3dRenderOpaque([a,b,c,d,e]);
+cgl3dRenderTranslucent([]);
+cgl3dFinishRender();
 </textarea>
 </div>
 <!--
@@ -96,13 +111,15 @@ mesh3d(samples,topology->TopologyCloseX+TopologyCloseY);
                     cdy.evokeCS("reset3d();"+textarea.value+";");
                 }
             });
-            document.getElementById('frameUpdate').addEventListener('keypress', function(event) {
+            const frameTextArea = document.getElementById('frameUpdate');
+            frameTextArea.addEventListener('keypress', function(event) {
                 if (event.key === 'Enter') {
-                    cdy.evokeCS("frameUpdate();"+textarea.value+";");
+                    cdy.evokeCS("frameUpdate():=("+frameTextArea.value+");");
                 }
             });
             function redrawScene(){
-                cdy.evokeCS("frameUpdate():=("+textarea.value+");");
+                cdy.evokeCS("frameUpdate():=("+frameTextArea.value+");");
+                cdy.evokeCS("reset3d();"+textarea.value+";");
             }
             setTimeout(function() { redrawScene(); }, 100); // 100ms delay to allow CS initscript to execute
             setTimeout(function() { redrawScene(); }, 1000); // 1s should be enough to ensure that everythign is loaded
