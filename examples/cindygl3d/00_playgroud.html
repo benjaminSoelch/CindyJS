@@ -54,14 +54,13 @@
     )
 ));*/
 
-a = cgl3dnewObject((1,0,0));
+a = cgl3dnewObject(cglDepth=1;(1,0,0));
 
-b = cgl3dnewSphere((0,1,0),(0,0,0),1);
-c = cgl3dnewCylinder((0,0,1),(0,1,0),(0,-1,0),1);
+b = cgl3dnewSphere((0,1,0),(0,0,-1),1);
+c = cgl3dnewCylinder((0,0,1),(0,1,0),(0,.25,0),0.75);
 d = cgl3dnewMesh((1,1,0),((1,0,0),(0,1,0),(0,0,1)));
 
-e = cgl3dnewCuboid((0,1,1),(0,0,0),(1,0,0),(0,1,0),(0,0,1));
-
+e = cgl3dnewCuboid((0,1,1),(0,0,0),(.5,0,0),(0,.5,0),(0,0,.5));
 
 T = ((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1));
 zoom = 1;
@@ -74,12 +73,12 @@ rotate3d(alpha,beta):=(
     [0,0,0,1]
   ];
   rotY=[
-    [cos(alpha),0,-sin(alpha),0],
+    [cos(alpha),0,sin(alpha),0],
     [0,1,0,0],
-    [sin(alpha),0,cos(alpha),0],
+    [-sin(alpha),0,cos(alpha),0],
     [0,0,0,1]
   ];
-  T = rotY * rotZ * T;
+  T = T * rotY * rotZ;
 );
 </textarea>
 <textarea id="frameUpdate" style="width: 100%;height: 25%;margin-left: auto;">

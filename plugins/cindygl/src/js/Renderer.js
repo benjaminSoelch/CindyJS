@@ -4,11 +4,11 @@ function dot3(u,v){
 const BoundingBoxType = {
     none: 0, // full screen
     // XXX? add support for bounding boxes to 2D-mode?
-    // rect: 1, // draw on rectange [vec2,vec2]
+    // rect: 1, // draw on rectangle [vec2,vec2]
     sphere: 2, // draw on bounding cube of sphere [vec3,float]
     cylinder: 3, // draw in bounding cuboid of cylinder [vec3,vec3,float]
     triangles: 4, // draw on triangular mesh (given as list of triangles [3*vec3]
-    cuboid: 5, // draw shapw within cuboid, cull back faces
+    cuboid: 5, // draw shape within cuboid, cull back faces
 }
 Renderer.noBounds = function(){
     return { 'type': BoundingBoxType.none };
@@ -225,11 +225,10 @@ Renderer.prototype.updateVertices = function() {
     if(this.mode3D) {
         if(this.boundingBox['type'] == BoundingBoxType.none) {
             this.vertices = new Float32Array([-1, -1, 0, 1, -1, 0, -1, 1, 0, 1, 1, 0]);
-        } else if(this.boundingBox['type']==BoundingBoxType.sphere) {
-            this.vertices = new Float32Array([-1, -1, 0, 1, -1, 0, -1, 1, 0, 1, 1, 0]);
         } else if(this.boundingBox['type']==BoundingBoxType.triangles) {
             this.vertices = new Float32Array(this.boundingBox['vertices']);
-        } else if(this.boundingBox['type']==BoundingBoxType.cuboid || this.boundingBox['type']==BoundingBoxType.cylinder) {
+        } else if(this.boundingBox['type']==BoundingBoxType.sphere || this.boundingBox['type']==BoundingBoxType.cuboid
+                || this.boundingBox['type']==BoundingBoxType.cylinder) {
             // copied from Cindy3D
             // TODO? use vertex-indices
             this.vertices = new Float32Array([
@@ -317,7 +316,7 @@ Renderer.computeAttributeData = function (eltType,values){
 // TODO? separate function for triangle attributes
 Renderer.prototype.updateAttributes = function() {
     Renderer.prevBoundingBoxType = this.boundingBox['type'];
-    if (this.boundingBox['type'] === BoundingBoxType.cylinder || this.boundingBox['type'] === BoundingBoxType.cuboid) {
+    if (this.boundingBox['type'] === BoundingBoxType.sphere ||this.boundingBox['type'] === BoundingBoxType.cylinder || this.boundingBox['type'] === BoundingBoxType.cuboid) {
         gl.enable(gl.CULL_FACE);
         gl.cullFace(gl.FRONT); // cull front faces to allow view-pos inside cuboid
     } else {
@@ -368,7 +367,7 @@ Renderer.prototype.updateAttributes = function() {
             totalBufferSize += value.aData.byteLength;
             index ++;
         });
-    } else if(this.boundingBox['type'] == BoundingBoxType.cylinder || this.boundingBox['type'] == BoundingBoxType.cuboid) {
+    } else if(this.boundingBox['type'] == BoundingBoxType.sphere ||this.boundingBox['type'] == BoundingBoxType.cylinder || this.boundingBox['type'] == BoundingBoxType.cuboid) {
         texCoords = new Float32Array([0, 0, 1, 0, 0, 1, 1, 1,0, 0, 1, 0, 0, 1, 1, 1,0, 0, 1, 0, 0, 1, 1, 1,0,0,1,0]);
         totalBufferSize+=texCoords.byteLength;
     } else {
