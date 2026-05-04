@@ -70,6 +70,14 @@ cylinderModifiers = {"cglLight": cgl3d.light.default,
     "cglPixelExpr":(s,t,n)=>(0,0,1)
 };
 c = cgl3dnewCylinder(cgl3d.shader.cylinder:(#),(0,1,0),(0,.25,0),0.75,plotModifiers->cylinderModifiers);
+torusModifiers = {"cglLight": cgl3d.light.default,
+    "cglTorusProjGetDirection1":cglTorusProjGetDirection1Default,
+    "cglCheckAngle1":(texPos)=>(0;),"cglCheckAngle2":(texPos)=>(0;),
+    "cglRadii":(1,0.2),
+    "cglProjection": cgl3d.projection.torus,
+    "cglPixelExpr":(s,t,n)=>(0,0,1)
+};
+c = cgl3dnewCylinder(cgl3d.shader.torus:(#,1),(0,0,0),(0,1,0),1.2,plotModifiers->torusModifiers);
 d = cgl3dnewMesh((1,1,0),((1,0,0),(0,1,0),(0,0,1)));
 
 e = cgl3dnewCuboid((0,1,1),(0,0,0),(.5,0,0),(0,.5,0),(0,0,.5));

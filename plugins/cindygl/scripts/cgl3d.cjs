@@ -721,7 +721,7 @@ cglTorusProjGetDirection1Default = lambda((normal,radiusDirection,orientation),
 );
 // the torus with the given orientation onto the unit square using normal vector and radius-direction as input
 // assumes that normal and radiusDirection are normalized
-cglProjTorusToSquare(normal,radiusDirection,orientation):=(
+cgl3d.projection.torus = (normal,radiusDirection,orientation) => (
   regional(v1,v2,phi1,phi2);
   v1 = cglTorusProjGetDirection1:(normal,radiusDirection,orientation);
   v2 = -normalize(cross(orientation,v1));
@@ -730,7 +730,7 @@ cglProjTorusToSquare(normal,radiusDirection,orientation):=(
   (phi1,phi2)/(2*pi);
 );
 // opt TODO? separate bounding box-type for torus
-cgl3dTorusShaderCode(direction,layer):=(
+cgl3d.shader.torus = (direction,layer) => (
   regional(center,radius1,radius2,v,V,vc,b0,c0,D0,x0,x1,
     orientation,b1,c1,E,W,a2,b2,c2,p3,p2,p1,p0,dst,pos3d,pc,
     arcDirection,arcCenter,normal,color,texturePos);
@@ -790,7 +790,7 @@ cgl3dTorusShaderCode(direction,layer):=(
   arcCenter = center+radius1*arcDirection;
   normal = normalize(pos3d - arcCenter);
   cglSetDepth(v+dst,direction);
-  texturePos = cglProjTorusToSquare(normal,arcDirection,orientation);
+  texturePos = cgl3d.projection.torus:(normal,arcDirection,orientation); // TODO? customize through modifier
   cglCheckAngle1:(texturePos);
   cglCheckAngle2:(texturePos);
   color = cglPixelExpr:(texturePos,cglSpacePos + cglRawDepth*direction,normal);
@@ -2268,17 +2268,17 @@ cglTorus3d(center,orientation,radius1,radius2):=(
   tags = cglValOrDefault(tags,[]);
   opacityExpr = if(usesAlpha,false,if(hasAlpha,lambda((),cglAlpha>=1),true));
   if(needBackFace,
-    ids = [colorplot3d(cgl3dTorusShaderCode(#,4),
+    ids = [colorplot3d(cgl3d.shader.torus:(#,4),
       center-radius2*orientation, center+radius2*orientation, radius1+radius2,
       plotModifiers->modifiers,tags->["torus","backside"]++tags,opaqueIf->opacityExpr),
-    colorplot3d(cgl3dTorusShaderCode(#,3),
+    colorplot3d(cgl3d.shader.torus:(#,3),
       center-radius2*orientation, center+radius2*orientation, radius1+radius2,
       plotModifiers->modifiers,tags->["torus","backside"]++tags,opaqueIf->opacityExpr),
-    colorplot3d(cgl3dTorusShaderCode(#,2),
+    colorplot3d(cgl3d.shader.torus:(#,2),
       center-radius2*orientation, center+radius2*orientation, radius1+radius2,
       plotModifiers->modifiers,tags->["torus","backside"]++tags,opaqueIf->opacityExpr)];
   );
-  topLayer = colorplot3d(cgl3dTorusShaderCode(#,1),
+  topLayer = colorplot3d(cgl3d.shader.torus:(#,1),
     center-radius2*orientation, center+radius2*orientation, radius1+radius2,
     plotModifiers->modifiers,tags->["torus"]++tags,opaqueIf->opacityExpr);
   ids=if(needBackFace,append(ids,topLayer),topLayer);
