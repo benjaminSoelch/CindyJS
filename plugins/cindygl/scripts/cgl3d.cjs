@@ -801,7 +801,7 @@ cgl3d.shader.torus = (direction,layer) => (
 // polygons & meshes
 /////////////////////
 
-cgl3dTriangleShaderCode(direction):=(
+cgl3d.shader.triangle = (direction) => (
   regional(color,normal,texCoord);
   cglRawDepth = |cglSpacePos-cglSpacePos|; // set raw depth to correct value (depth is handled by v-shader)
   texCoord = cglTextureMapping:(cglSpacePos,direction);
@@ -2387,7 +2387,7 @@ cglTriangle3d(p1,p2,p3):=(
   modifiers_"cglPixelExpr" = exprData_"pixelExpr";
   tags = cglValOrDefault(tags,[]);
   opacityExpr = if(usesAlpha,false,if(hasAlpha,lambda((),cglAlpha>=1),true));
-  colorplot3d(cgl3dTriangleShaderCode(#),[p1,p2,p3],
+  colorplot3d(cgl3d.shader.triangle:(#),[p1,p2,p3],
     plotModifiers->modifiers,vModifiers->vModifiers,tags->["triangle"]++tags,opaqueIf->opacityExpr);
 );
 
@@ -2516,7 +2516,7 @@ cglTriangles3d(triangles):=(
   modifiers_"cglPixelExpr" = exprData_"pixelExpr";
   tags = cglValOrDefault(tags,[]);
   opacityExpr = if(usesAlpha,false,if(hasAlpha,lambda((),cglAlpha>=1),true));
-  colorplot3d(cgl3dTriangleShaderCode(#),vertices,
+  colorplot3d(cgl3d.shader.triangle:(#),vertices,
     plotModifiers->modifiers,vModifiers->vModifiers,tags->["triangles"]++tags,opaqueIf->opacityExpr);
 );
 
@@ -2631,7 +2631,7 @@ cglPolygon3d(vertices):=(
   ));
   tags = cglValOrDefault(tags,[]);
   opacityExpr = if(usesAlpha,false,if(hasAlpha,lambda((),cglAlpha>=1),true));
-  colorplot3d(cgl3dTriangleShaderCode(#),trianglesAndNormals_1,
+  colorplot3d(cgl3d.shader.triangle:(#),trianglesAndNormals_1,
     plotModifiers->modifiers,vModifiers->vModifiers,tags->["polygon"]++tags,opaqueIf->opacityExpr);
 );
 
@@ -2724,7 +2724,7 @@ cglMesh3d(grid):=(
   );
   tags = cglValOrDefault(tags,[]);
   opacityExpr = if(usesAlpha,false,if(hasAlpha,lambda((),cglAlpha>=1),true));
-  colorplot3d(cgl3dTriangleShaderCode(#),triangles,
+  colorplot3d(cgl3d.shader.triangle:(#),triangles,
     plotModifiers->modifiers,vModifiers->vModifiers,tags->["polygon"]++tags,opaqueIf->opacityExpr);
 );
 

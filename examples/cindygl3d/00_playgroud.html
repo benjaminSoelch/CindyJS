@@ -78,7 +78,9 @@ torusModifiers = {"cglLight": cgl3d.light.default,
     "cglPixelExpr":(s,t,n)=>(0,0,1)
 };
 c = cgl3dnewCylinder(cgl3d.shader.torus:(#,1),(0,0,0),(0,1,0),1.2,plotModifiers->torusModifiers);
-d = cgl3dnewMesh((1,1,0),((1,0,0),(0,1,0),(0,0,1)));
+d = cgl3dnewMesh(cgl3d.shader.triangle:(#),((1,0,0),(0,1,0),(0,0,1)),plotModifiers->{
+  "cglPixelExpr":(s,t,n)=>(1,1,0),"cglLight":cgl3d.light.default,"cglTextureMapping":(cglSpacePos,direction)=>(0),"cglNormalExpr":(cglSpacePos,texCoord)=>((1,1,1)/sqrt(3)),
+});
 
 e = cgl3dnewCuboid((0,1,1),(0,0,0),(.5,0,0),(0,.5,0),(0,0,.5));
 
