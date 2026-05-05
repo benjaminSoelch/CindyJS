@@ -79,16 +79,31 @@ torusModifiers = {"cglLight": cgl3d.light.default,
 };
 c = cgl3dnewCylinder(cgl3d.shader.torus:(#,1),(0,0,0),(0,1,0),1.2,plotModifiers->torusModifiers);
 d = cgl3dnewMesh(cgl3d.shader.triangle:(#),((1,0,0),(0,1,0),(0,0,1)),plotModifiers->{
-  "cglPixelExpr":(s,t,n)=>(1,1,0),"cglLight":cgl3d.light.default,"cglTextureMapping":(cglSpacePos,direction)=>(0),"cglNormalExpr":(cglSpacePos,texCoord)=>((1,1,1)/sqrt(3)),
+  "cglPixelExpr":(s,t,n)=>(1,1,0),"cglLight":cgl3d.light.default,"cglTextureMapping":(cglSpacePos,direction)=>(0),"cglNormalExpr":(cglSpacePos,texCoord)=>((1,1,1)/sqrt(3))
 });
 
 e = cgl3dnewCuboid((0,1,1),(0,0,0),(.5,0,0),(0,.5,0),(0,0,.5));
+
+e = cgl3dnewCuboid((0,1,1),(0,0,-1),(.5,0,0),(0,.5,0),(0,0,.5));
+
+cutoff = cgl3d.cutoff.sphere:((0,0,0),1);
+surfaceModifiers = {"cglLight": cgl3d.light.default,
+  "cglCutoffRegion": cutoff:"expr",
+  "cglInterpMat": cglSurfaceInterpolationMatrix(2),
+  "cglChebNodes": cglSurfaceChebyshevNodes(2),
+  "cglSurfaceExpr": (p) => (x=p_1;y=p_2;z=p_3;x^2+y^2-z^2-0.5),
+  "cglNormalExpr": (p) => (x=p_1;y=p_2;z=p_3;(x,y,z)),
+  "cglPixelExpr": (s,t,n)=>(0,1,1),"cglColor0":(0,0,0),"cglAlpha":1,
+  "cglResolution": 1
+};
+modifiers = cglMergeDicts(modifiers,cutoff:"modifs"); 
+f = cgl3dnewSphere(cgl3d.shader.surface:(#),(0,0,0),1,plotModifiers->surfaceModifiers);
 
 </textarea>
 <textarea id="frameUpdate" style="width: 100%;height: 25%;margin-left: auto;">
   cgl3dStartRender(layers->0);
   cgl3dSetRenderTransform(cgl3d.renderTransform,cgl3d.zoomFactor);
-  cgl3dRenderOpaque([a,b,c,d,e]);
+  cgl3dRenderOpaque([a,b,c,d,e,f]);
   cgl3dRenderTranslucent([]);
   cgl3dFinishRender();
 </textarea>
