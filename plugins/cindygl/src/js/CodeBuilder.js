@@ -82,10 +82,12 @@ CodeBuilder.prototype.texturereaders;
 const BUILTIN_DISCARD = "cgldiscard";
 const BUILTIN_TEXTURE4 = "cgltexture";
 const BUILTIN_TEXTURE3 = "cgltexturergb";
+const BUILTIN_POINT_DEPTH = "cglpointdepth";
 const BUILTIN_CGLDEPTH = "cglDepth";
 /** @type {Map<string,{type:string,code:string,expr:string,valueType:*,writable:boolean}>} */
 CodeBuilder.builtIns=new Map([
     [BUILTIN_DISCARD,{type:"operator",code:"discard;\n",expr:"",valueType:type.voidt,writable:false}],
+    [BUILTIN_POINT_DEPTH,{type:"function",code:"",expr:"cgl_point_depth",valueType:type.float,args:[type.vec3],writable:false}],
     [BUILTIN_TEXTURE4,{type:"function",code:"",expr:"texture",valueType:type.vec4,args:[type.image,type.vec2],writable:false}],
     [BUILTIN_TEXTURE3,{type:"function",code:"",expr:"texture",valueType:type.vec3,args:[type.image,type.vec2],writable:false}],
     // 3D- only

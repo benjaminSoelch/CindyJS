@@ -96,7 +96,7 @@ surfaceModifiers = {"cglLight": cgl3d.light.default,
   "cglPixelExpr": (s,t,n)=>(0,1,1),"cglColor0":(0,0,0),"cglAlpha":1,
   "cglResolution": 1
 };
-modifiers = cglMergeDicts(modifiers,cutoff:"modifs"); 
+surfaceModifiers = cglMergeDicts(surfaceModifiers,cutoff:"modifs"); 
 f = cgl3dnewSphere(cgl3d.shader.surface:(#),(0,0,0),1,plotModifiers->surfaceModifiers);
 
 </textarea>

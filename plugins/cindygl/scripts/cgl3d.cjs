@@ -64,9 +64,8 @@ reset3d() := cgl3d.resetObjects:();
 
 cgl3d.compute.pixelDepth = (rawDepth,direction) => (
   cglRawDepth = rawDepth;
-  cglDepth = 0; // TODO compute actual depth value
+  cglDepth = cglPointDepth(cglSpacePos + rawDepth*direction);
 );
-
 
 /////////////////////
 // light functions
