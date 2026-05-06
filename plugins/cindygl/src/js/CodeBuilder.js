@@ -752,7 +752,7 @@ CodeBuilder.prototype.determineUniforms = function(expr) {
             }
             if (expr['ctype'] === 'userdata') {
                 computeUniforms(expr['obj'], forceconstant);
-                if (dependsOnPixel(expr['key']) || expr['key']['ctype'] === 'string')
+                if (dependsOnPixel(expr['key']) || expr['key']['ctype'] === 'string' || expr['key']['ctype'] === 'variable')
                     computeUniforms(expr['key'], forceconstant);
             }
             if (expr['ctype'] === 'jsonatom') {
