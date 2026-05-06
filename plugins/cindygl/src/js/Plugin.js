@@ -915,11 +915,10 @@ let CindyGL = function(api) {
         let zScale = modifs["zScale"] ===undefined ? 1 : coerce.toReal(api.evaluateAndVal(modifs["zScale"]));
         let z0 = modifs["z0"] ===undefined ? -defaultZ : zoom*coerce.toReal(api.evaluateAndVal(modifs["z0"]));
         let z1 = modifs["z1"] ===undefined ? defaultZ : zoom*coerce.toReal(api.evaluateAndVal(modifs["z1"]));
-        // TODO: modify projection such that z0..z1 gets mapped to z=-1...1
         let projection = [
             [(x1-x0)/2,0,0,(x0+x1)/2],
             [0,(y1-y0)/2,0,(y0+y1)/2],
-            [0,0,zScale*((z1-z0)/2)*(1-skewFactor),zScale*(z0+z1)/2],
+            [0,0,zScale*((z1*(1-skewFactor)-z0*(1+skewFactor))/2),zScale*(z1*(1-skewFactor)+z0*(1+skewFactor))/2],
             [0,0,-skewFactor,1],
         ];
         let trafo = m4Mul(transform,projection);
