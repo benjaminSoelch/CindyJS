@@ -73,6 +73,13 @@ cgl3d.render = () => (
   cgl3dFinishRender();
 );
 render3d() := cgl3d.render:();
+render3d(p0,p1) := (
+  cgl3dStartRender(p0->p0,p1->p1,layers->0);
+  cgl3dSetRenderTransform(cgl3d.renderTransform,cgl3d.zoomFactor);
+  cgl3dRenderOpaque(cgl3d.objects.opaque);
+  cgl3dRenderTranslucent(cgl3d.objects.translucent);
+  cgl3dFinishRender();
+);
 cgl3d.addObject = (obj) => (
   regional(id);
   id = cgl3dObjectId(obj);

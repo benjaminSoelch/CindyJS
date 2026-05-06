@@ -826,8 +826,8 @@ let CindyGL = function(api) {
         // internal measures. might be multiple of api.instance['canvas']['clientWidth'] on HiDPI-Displays
         let iw = api.instance['canvas']['width'];
         let ih = api.instance['canvas']['height'];
-        let p0 = computeUpperLeftCorner(api);
-        let p1 = computeLowerRightCorner(api);
+        let p0 = modifs["p0"] === undefined ? computeUpperLeftCorner(api) : api.extractPoint(api.evaluateAndVal(modifs["p0"]));
+        let p1 = modifs["p1"] === undefined ? computeLowerRightCorner(api) : api.extractPoint(api.evaluateAndVal(modifs["p1"]));
         prepareRender3d(p0,p1,[0,0,iw,ih],iw,ih,null,modifs);
         return nada;
     });
@@ -851,7 +851,9 @@ let CindyGL = function(api) {
 
         var xx = iw * (ul.x - cul.x) / (clr.x - cul.x);
         var yy = ih * (ul.y - cul.y) / (clr.y - cul.y);
-        prepareRender3d(a,b,[xx, yy, iw*fx, ih*fy], iw*fx, ih*fy, null, modifs);
+        let p0 = modifs["p0"] === undefined ? a : api.extractPoint(api.evaluateAndVal(modifs["p0"]));
+        let p1 = modifs["p1"] === undefined ? b : api.extractPoint(api.evaluateAndVal(modifs["p1"]));
+        prepareRender3d(p0,p1,[xx, yy, iw*fx, ih*fy], iw*fx, ih*fy, null, modifs);
         return nada;
     });
     api.defineFunction("cgl3dStartRender", 1, (args, modifs) => {
@@ -865,8 +867,8 @@ let CindyGL = function(api) {
         let canvaswrapper = generateCanvasWrapperIfRequired(imageobject, api, false);
         var cw = imageobject.width;
         var ch = imageobject.height;
-        let p0 = {x:0,y:0};
-        let p1 = {x:cw,y:ch};
+        let p0 = modifs["p0"] === undefined ? {x:0,y:0} : api.extractPoint(api.evaluateAndVal(modifs["p0"]));
+        let p1 = modifs["p1"] === undefined ? {x:cw,y:ch} : api.extractPoint(api.evaluateAndVal(modifs["p1"]));
         prepareRender3d(p0,p1,[0, 0, cw, ch], cw, ch, canvaswrapper, modifs);
         return nada;
     });
@@ -878,10 +880,10 @@ let CindyGL = function(api) {
         gl.clear(gl.DEPTH_BUFFER_BIT|gl.COLOR_BUFFER_BIT);
         let defaultZ = Math.max(p1.x-p0.x,p1.y-p0.y)/2;
         let skewFactor = modifs["skewFactor"] === undefined ? 0.5 : coerce.toReal(api.evaluateAndVal(modifs["skewFactor"]));
-        let zScale = modifs["zScale"] ===undefined ? 1 : coerce.toReal(api.evaluateAndVal(modifs["zScale"]));
-        let z0 = modifs["z0"] ===undefined ? -defaultZ : coerce.toReal(api.evaluateAndVal(modifs["z0"]));
-        let z1 = modifs["z1"] ===undefined ? defaultZ : coerce.toReal(api.evaluateAndVal(modifs["z1"]));
-        let zoom = modifs["zoom"] ===undefined ? 1 : coerce.toReal(api.evaluateAndVal(modifs["zoom"]));
+        let zScale = modifs["zScale"] === undefined ? 1 : coerce.toReal(api.evaluateAndVal(modifs["zScale"]));
+        let z0 = modifs["z0"] === undefined ? -defaultZ : coerce.toReal(api.evaluateAndVal(modifs["z0"]));
+        let z1 = modifs["z1"] === undefined ? defaultZ : coerce.toReal(api.evaluateAndVal(modifs["z1"]));
+        let zoom = modifs["zoom"] === undefined ? 1 : coerce.toReal(api.evaluateAndVal(modifs["zoom"]));
         let transform = [
             [zoom*(p1.x-p0.x)/2,0,0,zoom*(p1.x+p0.x)/2],
             [0,zoom*(p1.y-p0.y)/2,0,zoom*(p1.y+p0.y)/2],
