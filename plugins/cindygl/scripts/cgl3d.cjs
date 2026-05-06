@@ -1888,10 +1888,10 @@ cglSphere3d(center,radius):=(
   opacityExpr = if(usesAlpha,false,if(hasAlpha,lambda((),cglAlpha>=1),true));
   needBackFace = hasAlpha % usesAlpha;
   if(needBackFace,
-    ids = [cgl3d.addObject:(cgl3dnewSphere(cgl3d.shader.sphere:(#,true),center,radius,
+    ids = [cgl3d.addObject:(cgl3dNewSphere(cgl3d.shader.sphere:(#,true),center,radius,
       plotModifiers->modifiers,opaqueIf->opacityExpr,onUpdate->onUpdate))];
   );
-  topLayer = cgl3d.addObject:(cgl3dnewSphere(cgl3d.shader.sphere:(#,false),center,radius,
+  topLayer = cgl3d.addObject:(cgl3dNewSphere(cgl3d.shader.sphere:(#,false),center,radius,
     plotModifiers->modifiers,opaqueIf->opacityExpr,onUpdate->onUpdate));
   ids=if(needBackFace,append(ids,topLayer),topLayer);
 );
@@ -1990,10 +1990,10 @@ cglCylinder3d(center,orientation,radius):=(
   );
   opacityExpr = if(usesAlpha,false,if(hasAlpha,lambda((),cglAlpha>=1),true));
   if(needBackFace,
-    ids = [cgl3d.addObject:(cgl3dnewCylinder(cgl3d.shader.cylinderBack:(#),center,orientation,radius,overhang->overhang,
+    ids = [cgl3d.addObject:(cgl3dNewCylinder(cgl3d.shader.cylinderBack:(#),center,orientation,radius,overhang->overhang,
      plotModifiers->modifiers,opaqueIf->opacityExpr))];
   );
-  topLayer = cgl3d.addObject:(cgl3dnewCylinder(cgl3d.shader.cylinder:(#),center,orientation,radius,overhang->overhang,
+  topLayer = cgl3d.addObject:(cgl3dNewCylinder(cgl3d.shader.cylinder:(#),center,orientation,radius,overhang->overhang,
     plotModifiers->modifiers,opaqueIf->opacityExpr));
   ids=if(needBackFace,append(ids,topLayer),topLayer);
 );
@@ -2199,17 +2199,17 @@ cglTorus3d(center,orientation,radius1,radius2):=(
   tags = cglValOrDefault(tags,[]);
   opacityExpr = if(usesAlpha,false,if(hasAlpha,lambda((),cglAlpha>=1),true));
   if(needBackFace,
-    ids = [cgl3d.addObject:(cgl3dnewCylinder(cgl3d.shader.torus:(#,4),
+    ids = [cgl3d.addObject:(cgl3dNewCylinder(cgl3d.shader.torus:(#,4),
       center, radius2*orientation, radius1+radius2,
       plotModifiers->modifiers,tags->["torus","backside"]++tags,opaqueIf->opacityExpr)),
-    cgl3d.addObject:(cgl3dnewCylinder(cgl3d.shader.torus:(#,3),
+    cgl3d.addObject:(cgl3dNewCylinder(cgl3d.shader.torus:(#,3),
       center, radius2*orientation, radius1+radius2,
       plotModifiers->modifiers,tags->["torus","backside"]++tags,opaqueIf->opacityExpr)),
-    cgl3d.addObject:(cgl3dnewCylinder(cgl3d.shader.torus:(#,2),
+    cgl3d.addObject:(cgl3dNewCylinder(cgl3d.shader.torus:(#,2),
       center, radius2*orientation, radius1+radius2,
       plotModifiers->modifiers,tags->["torus","backside"]++tags,opaqueIf->opacityExpr))];
   );
-  topLayer = cgl3d.addObject:(cgl3dnewCylinder(cgl3d.shader.torus:(#,1),
+  topLayer = cgl3d.addObject:(cgl3dNewCylinder(cgl3d.shader.torus:(#,1),
     center, radius2*orientation, radius1+radius2,
     plotModifiers->modifiers,tags->["torus"]++tags,opaqueIf->opacityExpr));
   ids=if(needBackFace,append(ids,topLayer),topLayer);
@@ -2310,8 +2310,8 @@ cglTriangle3d(p1,p2,p3):=(
   modifiers_"cglPixelExpr" = exprData_"pixelExpr";
   tags = cglValOrDefault(tags,[]);
   opacityExpr = if(usesAlpha,false,if(hasAlpha,lambda((),cglAlpha>=1),true));
-  colorplot3d(cgl3d.shader.triangle:(#),[p1,p2,p3],
-    plotModifiers->modifiers,vModifiers->vModifiers,tags->["triangle"]++tags,opaqueIf->opacityExpr);
+  cgl3d.addObject:(cgl3dNewMesh(cgl3d.shader.triangle:(#),[p1,p2,p3],
+    plotModifiers->modifiers,vModifiers->vModifiers,tags->["triangle"]++tags,opaqueIf->opacityExpr));
 );
 
 // TODO improve triangle rendering
@@ -2439,8 +2439,8 @@ cglTriangles3d(triangles):=(
   modifiers_"cglPixelExpr" = exprData_"pixelExpr";
   tags = cglValOrDefault(tags,[]);
   opacityExpr = if(usesAlpha,false,if(hasAlpha,lambda((),cglAlpha>=1),true));
-  colorplot3d(cgl3d.shader.triangle:(#),vertices,
-    plotModifiers->modifiers,vModifiers->vModifiers,tags->["triangles"]++tags,opaqueIf->opacityExpr);
+  cgl3d.addObject:(cgl3dNewMesh(cgl3d.shader.triangle:(#),vertices,
+    plotModifiers->modifiers,vModifiers->vModifiers,tags->["triangles"]++tags,opaqueIf->opacityExpr));
 );
 
 cglInterface("polygon3d",cglPolygon3d,(vertices),(triangulation,color,colors,texture,
@@ -2547,8 +2547,8 @@ cglPolygon3d(vertices):=(
   ));
   tags = cglValOrDefault(tags,[]);
   opacityExpr = if(usesAlpha,false,if(hasAlpha,lambda((),cglAlpha>=1),true));
-  colorplot3d(cgl3d.shader.triangle:(#),trianglesAndNormals_1,
-    plotModifiers->modifiers,vModifiers->vModifiers,tags->["polygon"]++tags,opaqueIf->opacityExpr);
+  cgl3d.addObject:(cgl3dNewMesh(cgl3d.shader.triangle:(#),trianglesAndNormals_1,
+    plotModifiers->modifiers,vModifiers->vModifiers,tags->["polygon"]++tags,opaqueIf->opacityExpr));
 );
 
 // feature TODO? adjust uv coordinates if side of grid-cell is collapsed
@@ -2639,8 +2639,8 @@ cglMesh3d(grid):=(
   );
   tags = cglValOrDefault(tags,[]);
   opacityExpr = if(usesAlpha,false,if(hasAlpha,lambda((),cglAlpha>=1),true));
-  colorplot3d(cgl3d.shader.triangle:(#),triangles,
-    plotModifiers->modifiers,vModifiers->vModifiers,tags->["polygon"]++tags,opaqueIf->opacityExpr);
+  cgl3d.addObject:(cgl3dNewMesh(cgl3d.shader.triangle:(#),triangles,
+    plotModifiers->modifiers,vModifiers->vModifiers,tags->["polygon"]++tags,opaqueIf->opacityExpr));
 );
 
 // feature TODO? plane3d
@@ -2707,16 +2707,15 @@ cglSurface3d(fun) := (
     bounds = cutoffRegion_"bounds";
     opacityExpr = if(usesAlpha,false,lambda((),cglAlpha>=1));
     // code TODO? is there a way to avoid duplicate code for bounding box selection
-    // ? allow passing lazy-func as first parameter of colorplot3d
     if(layers==0,
       if(bounds_"type" == "unbounded",
-        colorplot3d(cgl3d.shader.surface:(#),plotModifiers->modifiers,opaqueIf->opacityExpr)
+        cgl3d.addObject:(cgl3dNewObject(cgl3d.shader.surface:(#),plotModifiers->modifiers,opaqueIf->opacityExpr))
       ,if(bounds_"type" == "sphere",
-        colorplot3d(cgl3d.shader.surface:(#),bounds_"center",bounds_"radius",plotModifiers->modifiers,opaqueIf->opacityExpr)
+        cgl3d.addObject:(cgl3dNewSphere(cgl3d.shader.surface:(#),bounds_"center",bounds_"radius",plotModifiers->modifiers,opaqueIf->opacityExpr))
       ,if(bounds_"type" == "cylinder",
-        colorplot3d(cgl3d.shader.surface:(#),bounds_"point1",bounds_"point2",bounds_"radius",plotModifiers->modifiers,opaqueIf->opacityExpr)
+        cgl3d.addObject:(cgl3dNewCylinder(cgl3d.shader.surface:(#),bounds_"point1",bounds_"point2",bounds_"radius",plotModifiers->modifiers,opaqueIf->opacityExpr))
       ,if(bounds_"type" == "cuboid",
-        colorplot3d(cgl3d.shader.surface:(#),bounds_"center",bounds_"v1",bounds_"v2",bounds_"v3",plotModifiers->modifiers,opaqueIf->opacityExpr)
+        cgl3d.addObject:(cgl3dNewCuboid(cgl3d.shader.surface:(#),bounds_"center",bounds_"v1",bounds_"v2",bounds_"v3",plotModifiers->modifiers,opaqueIf->opacityExpr))
       ,
         cglLogError("unknown bounding box type: "+text(bounds_"type"));
       ))));
@@ -2725,13 +2724,13 @@ cglSurface3d(fun) := (
       apply(0..(layers-1),i,
         modifiers_"K"=layers-i;
         if(bounds_"type" == "unbounded",
-          colorplot3d(cgl3d.shader.surfaceLayer:(#),plotModifiers->modifiers,opaqueIf->opacityExpr)
+          cgl3d.addObject:(cgl3dNewObject(cgl3d.shader.surfaceLayer:(#),plotModifiers->modifiers,opaqueIf->opacityExpr))
         ,if(bounds_"type" == "sphere",
-          colorplot3d(cgl3d.shader.surfaceLayer:(#),bounds_"center",bounds_"radius",plotModifiers->modifiers,opaqueIf->opacityExpr)
+          cgl3d.addObject:(cgl3dNewSphere(cgl3d.shader.surfaceLayer:(#),bounds_"center",bounds_"radius",plotModifiers->modifiers,opaqueIf->opacityExpr))
         ,if(bounds_"type" == "cylinder",
-          colorplot3d(cgl3d.shader.surfaceLayer:(#),bounds_"point1",bounds_"point2",bounds_"radius",plotModifiers->modifiers,opaqueIf->opacityExpr)
+          cgl3d.addObject:(cgl3dNewCylinder(cgl3d.shader.surfaceLayer:(#),bounds_"point1",bounds_"point2",bounds_"radius",plotModifiers->modifiers,opaqueIf->opacityExpr))
         ,if(bounds_"type" == "cuboid",
-          colorplot3d(cgl3d.shader.surfaceLayer:(#),bounds_"center",bounds_"v1",bounds_"v2",bounds_"v3",plotModifiers->modifiers,opaqueIf->opacityExpr)
+          cgl3d.addObject:(cgl3dNewCuboid(cgl3d.shader.surfaceLayer:(#),bounds_"center",bounds_"v1",bounds_"v2",bounds_"v3",plotModifiers->modifiers,opaqueIf->opacityExpr))
         ,
           cglLogError("unknown bounding box type: "+text(bounds_"type"));
         ))));
@@ -3067,7 +3066,7 @@ let recomputeProjMatrix = function(){
             };
             if(!sharesTag)
                 return;
-            // TODO? execute colorplot code to get correct z-coordinate
+            // TODO? execute shader code to get correct z-coordinate
             if(obj3d.boundingBox['type'] == BoundingBoxType.sphere) {
                 let center = obj3d.boundingBox['center'];
                 // TODO? also detect positions sligthly outside sphere
