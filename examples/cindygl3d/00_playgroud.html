@@ -45,67 +45,17 @@
 <!--no indentation to ensure text is aligned correctly-->
 <div class="container" style="display: flex;flex-direction: column;width: 50%;height: 100vh; margin-left: auto;">
 <textarea id="exampleCode" style="width: 100%;height: 75%; margin-left: auto;">
-/*forall((1,-1),x,forall((1,-1),y,
+forall((1,-1),x,forall((1,-1),y,
     draw3d((x,y,1),(x,y,-1));
     draw3d((x,1,y),(x,-1,y));
     draw3d((1,x,y),(-1,x,y));
     forall((1,-1),z,
         draw3d((x,y,z));
     )
-));*/
-
-a = cgl3dnewObject(cglDepth=1;(1,0,0));
-
-b = cgl3dnewSphere(cgl3d.shader.sphere:(#,false),(0,0,-1),1,plotModifiers->{
-  "cglPixelExpr":(s,t,n)=>(0,1,0),"cglLight":cgl3d.light.default,"cglProjection":cgl3d.projection.sphereEquirect
-});
-cylinderModifiers = {"cglLight": cgl3d.light.default,
-    "cglCap1front":cglCapVoidShader,"cglCap1back":cglCapOpenShaderBack,
-    "cglCap2front":cglCapVoidShader,"cglCap2back":cglCapOpenShaderBack,
-    "cglCylinderProjGetDirection1":cglCylinderProjGetDirection1Default,
-    "cglCut1":cglCutOrthogonal,"cglCut2":cglCutOrthogonal,
-    "cglGetCutVector1":cglCutVectorNone,"cglGetCutVector2":cglCutVectorNone,
-    "cglCapCut1":cglCapCutFlat1,"cglCapCut2":cglCapCutFlat2,
-    "cglProjection": cgl3d.projection.cylinder,
-    "cglPixelExpr":(s,t,n)=>(0,0,1)
-};
-c = cgl3dnewCylinder(cgl3d.shader.cylinder:(#),(0,1,0),(0,.25,0),0.75,plotModifiers->cylinderModifiers);
-torusModifiers = {"cglLight": cgl3d.light.default,
-    "cglTorusProjGetDirection1":cglTorusProjGetDirection1Default,
-    "cglCheckAngle1":(texPos)=>(0;),"cglCheckAngle2":(texPos)=>(0;),
-    "cglRadii":(1,0.2),
-    "cglProjection": cgl3d.projection.torus,
-    "cglPixelExpr":(s,t,n)=>(0,0,1)
-};
-c = cgl3dnewCylinder(cgl3d.shader.torus:(#,1),(0,0,0),(0,1,0),1.2,plotModifiers->torusModifiers);
-d = cgl3dnewMesh(cgl3d.shader.triangle:(#),((1,0,0),(0,1,0),(0,0,1)),plotModifiers->{
-  "cglPixelExpr":(s,t,n)=>(1,1,0),"cglLight":cgl3d.light.default,"cglTextureMapping":(cglSpacePos,direction)=>(0),"cglNormalExpr":(cglSpacePos,texCoord)=>((1,1,1)/sqrt(3))
-});
-
-e = cgl3dnewCuboid((0,1,1),(0,0,0),(.5,0,0),(0,.5,0),(0,0,.5));
-
-e = cgl3dnewCuboid((0,1,1),(0,0,-1),(.5,0,0),(0,.5,0),(0,0,.5));
-
-cutoff = cgl3d.cutoff.sphere:((0,0,0),1);
-surfaceModifiers = {"cglLight": cgl3d.light.default,
-  "cglCutoffRegion": cutoff:"expr",
-  "cglInterpMat": cglSurfaceInterpolationMatrix(2),
-  "cglChebNodes": cglSurfaceChebyshevNodes(2),
-  "cglSurfaceExpr": (p) => (x=p_1;y=p_2;z=p_3;x^2+y^2-z^2-0.5),
-  "cglNormalExpr": (p) => (x=p_1;y=p_2;z=p_3;(x,y,z)),
-  "cglPixelExpr": (s,t,n)=>(0,1,1),"cglColor0":(0,0,0),"cglAlpha":1,
-  "cglResolution": 1
-};
-surfaceModifiers = cglMergeDicts(surfaceModifiers,cutoff:"modifs"); 
-f = cgl3dnewSphere(cgl3d.shader.surface:(#),(0,0,0),1,plotModifiers->surfaceModifiers);
-
+));
 </textarea>
 <textarea id="frameUpdate" style="width: 100%;height: 25%;margin-left: auto;">
-  cgl3dStartRender(layers->0);
-  cgl3dSetRenderTransform(cgl3d.renderTransform,cgl3d.zoomFactor);
-  cgl3dRenderOpaque([a,b,c,d,e,f]);
-  cgl3dRenderTranslucent([]);
-  cgl3dFinishRender();
+  render3d();
 </textarea>
 </div>
 <!--
@@ -136,8 +86,8 @@ mesh3d(samples,topology->TopologyCloseX+TopologyCloseY);
                 cdy.evokeCS("reset3d();"+textarea.value+";");
             }
             setTimeout(function() { redrawScene(); }, 100); // 100ms delay to allow CS initscript to execute
-            setTimeout(function() { redrawScene(); }, 1000); // 1s should be enough to ensure that everythign is loaded
-            // zoom using mouse wheel, inverted direction for compatability with old raycaster script
+            setTimeout(function() { redrawScene(); }, 1000); // 1s should be enough to ensure that everything is loaded
+            // zoom using mouse wheel, inverted direction for compatibility with old raycaster script
             window.addEventListener("wheel", // use only sign as value range may differ depending on browser
               event => cdy.evokeCS(`zoom=zoom*${Math.pow(0.95,Math.sign(event.deltaY))};updateZoom();`)
             );

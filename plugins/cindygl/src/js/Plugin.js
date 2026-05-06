@@ -982,8 +982,9 @@ let CindyGL = function(api) {
     };
 
     api.defineFunction("cgl3dObjectId", 1, (args, modifs) => {
-        if(args[0]['ctype'] !== "cgl3dObject") return nada;
-        return toCjsNumber(args[0]['value'].id);
+        let arg = api.evaluate(args[0]);
+        if(arg['ctype'] !== "cgl3dObject") return nada;
+        return toCjsNumber(arg['value'].id);
     });
     api.defineFunction("cgl3dObjectGet", 2, (args, modifs) => {
         // TODO: get field of object

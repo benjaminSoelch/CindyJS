@@ -363,13 +363,13 @@ cglCapOpenShaderBack = cglCapVoidShader;
 cglCapRoundShaderFront = lambda((direction,cylinderDepths,delta,U,cutVector),
     regional(m,normal);
     m = cglCenter+delta*cglOrientation;
-    normal = cglSphereNormal(direction,m,false);
+    normal = cgl3d.compute.sphereNormal:(direction,m,false);
     (normal_1,normal_2,normal_3,delta);
 );
 cglCapRoundShaderBack = lambda((direction,cylinderDepths,delta,U,cutVector),
     regional(m,normal);
     m = cglCenter+delta*cglOrientation;
-    normal = cglSphereNormal(direction,m,true);
+    normal = cgl3d.compute.sphereNormal:(direction,m,true);
     (normal_1,normal_2,normal_3,delta);
 );
 cglCapFlatShaderFront = lambda((direction,cylinderDepths,delta,U,cutVector),
@@ -1898,36 +1898,24 @@ cglSphere3d(center,radius):=(
 
 
 cglInterface("draw3d",cglDraw3d,(point1,point2),(color,color1,color2,colors,texture,
-  textureRGB,textureRGBA,interpolateTexture,repeatTexture,colorExpr:(texturePos,spacePos,normal),
-  colorExprRGB:(texturePos,spacePos,normal),colorExprRGBA:(texturePos,spacePos,normal),colorBack,colorsBack,
-  textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
-  colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
-  colorExprRGBABack:(texturePos,spacePos,normal),size,alpha,renderBack,direction1,
+  colorBack,colorsBack,textureBack,size,alpha,renderBack,direction1,
   light,caps,cap1,cap2,projection,plotModifiers,tags,onUpdate));
 cglDraw3d(point1,point2):=(
   size = cglValOrDefault(size,cgl3d.defaults.cylinderSize);
   caps = cglValOrDefault(caps,cgl3d.defaults.curveCaps);
-  cglCylinder3d(point1,point2,size);
+  cglCylinder3d((point1+point2)/2,(point2-point1)/2,size);
 );
-cglInterface("cylinder3d",cglCylinder3d,(point1,point2),(color,color1,color2,colors,texture,
-  textureRGB,textureRGBA,interpolateTexture,repeatTexture,colorExpr:(texturePos,spacePos,normal),
-  colorExprRGB:(texturePos,spacePos,normal),colorExprRGBA:(texturePos,spacePos,normal),colorBack,colorsBack,
-  textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
-  colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
-  colorExprRGBABack:(texturePos,spacePos,normal),size,alpha,renderBack,direction1,
+cglInterface("cylinder3d",cglCylinder3d,(center,orientation),(color,color1,color2,colors,texture,
+  colorBack,colorsBack,textureBack,size,alpha,renderBack,direction1,
   light,caps,cap1,cap2,projection,plotModifiers,tags,onUpdate));
-cglCylinder3d(point1,point2):=(
+cglCylinder3d(center,orientation):=(
   size = cglValOrDefault(size,cgl3d.defaults.cylinderSize);
-  cglCylinder3d(point1,point2,size);
+  cglCylinder3d(center,orientation,size);
 );
-cglInterface("cylinder3d",cglCylinder3d,(point1,point2,radius),(color,color1,color2,colors,texture,
-  textureRGB,textureRGBA,interpolateTexture,repeatTexture,colorExpr:(texturePos,spacePos,normal),
-  colorExprRGB:(texturePos,spacePos,normal),colorExprRGBA:(texturePos,spacePos,normal),colorBack,colorsBack,
-  textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
-  colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
-  colorExprRGBABack:(texturePos,spacePos,normal),alpha,light,cap1,cap2,caps,
+cglInterface("cylinder3d",cglCylinder3d,(center,orientation,radius),(color,color1,color2,colors,texture,
+  colorBack,colorsBack,textureBack,alpha,light,cap1,cap2,caps,
   projection,direction1,plotModifiers,tags,renderBack,onUpdate));
-cglCylinder3d(point1,point2,radius):=(
+cglCylinder3d(center,orientation,radius):=(
   regional(overhang,needBackFace,modifiers,n,ids,topLayer,hasAlpha,usesAlpha,exprData,opacityExpr);
   color = cglValOrDefault(color,cgl3d.defaults.cylinderColor);
   if(!isundefined(colors),
@@ -1977,23 +1965,23 @@ cglCylinder3d(point1,point2,radius):=(
     modifiers_"cglCut1" = if(cap1_"cutOrthogonal",cglCutBoth1,cglCutVector1);
     modifiers_"cglGetCutVector1" = cglGetCutVector1;
     n = cap1_"cutDirection";
-    modifiers_"cglCutDir1" = n/(0.5*(point2-point1)*n);
+    modifiers_"cglCutDir1" = n/(orientation*n);
     modifiers_"cglDirection1" =
-      normalize(n - (normalize(point2-point1)*n)*normalize(point2-point1));
+      normalize(n - (normalize(orientation)*n)*normalize(orientation));
     modifiers_"cglCylinderProjGetDirection1" = lambda((normal,height,orientation),
       cglDirection1);
-    overhang = max(overhang,radius*tan(arccos(|normalize(n)*normalize(point2-point1)|)));
+    overhang = max(overhang,radius*tan(arccos(|normalize(n)*normalize(orientation)|)));
   );
   if(!isundefined(cap2_"cutDirection"),
     modifiers_"cglCut2" = if(cap2_"cutOrthogonal",cglCutBoth2,cglCutVector2);
     modifiers_"cglGetCutVector2" = cglGetCutVector2;
     n = cap2_"cutDirection";
-    modifiers_"cglCutDir2" = n/(0.5*(point2-point1)*n);
+    modifiers_"cglCutDir2" = n/(orientation*n);
     modifiers_"cglDirection1" =
-      normalize(n - (normalize(point2-point1)*n)*normalize(point2-point1));
+      normalize(n - (normalize(orientation)*n)*normalize(orientation));
     modifiers_"cglCylinderProjGetDirection1" = lambda((normal,height,orientation),
       cglDirection1);
-    overhang = max(overhang,radius*tan(arccos(|normalize(n)*normalize(point2-point1)|)));
+    overhang = max(overhang,radius*tan(arccos(|normalize(n)*normalize(orientation)|)));
   );
   if(!isundefined(direction1),
     modifiers_"cglDirection1" = normalize(direction1);
@@ -2003,11 +1991,11 @@ cglCylinder3d(point1,point2,radius):=(
   tags = cglValOrDefault(tags,[]);
   opacityExpr = if(usesAlpha,false,if(hasAlpha,lambda((),cglAlpha>=1),true));
   if(needBackFace,
-    ids = [colorplot3d(cgl3d.shader.cylinderBack:(#),point1,point2,radius,overhang->overhang,
-      plotModifiers->modifiers,tags->["cylinder","backside"]++tags,opaqueIf->opacityExpr)];
+    ids = [cgl3d.addObject:(cgl3dnewCylinder(cgl3d.shader.cylinderBack:(#),center,orientation,radius,overhang->overhang,
+      plotModifiers->modifiers,tags->["cylinder","backside"]++tags,opaqueIf->opacityExpr))];
   );
-  topLayer = colorplot3d(cgl3d.shader.cylinder:(#),point1,point2,radius,overhang->overhang,
-    plotModifiers->modifiers,tags->["cylinder"]++tags,opaqueIf->opacityExpr);
+  topLayer = cgl3d.addObject:(cgl3dnewCylinder(cgl3d.shader.cylinder:(#),center,orientation,radius,overhang->overhang,
+    plotModifiers->modifiers,tags->["cylinder"]++tags,opaqueIf->opacityExpr));
   ids=if(needBackFace,append(ids,topLayer),topLayer);
 );
 
@@ -2020,11 +2008,8 @@ cglJoint(prev,current,next,jointType):=(
     cgl3d.cylinderCap.open
   )));
 );
-cglInterface("connect3d",cglConnect3d,(points),(color,colors,texture,textureRGB,textureRGBA,interpolateTexture,repeatTexture,
-  colorExpr:(texturePos,spacePos,normal),colorExprRGB:(texturePos,spacePos,normal),
-  colorExprRGBA:(texturePos,spacePos,normal),colorBack,colorsBack,textureBack,textureRGBBack,textureRGBABack,
-  interpolateTextureBack,repeatTextureBack,colorExprBack:(texturePos,spacePos,normal),
-  colorExprRGBBack:(texturePos,spacePos,normal),colorExprRGBABack:(texturePos,spacePos,normal),size,alpha,
+cglInterface("connect3d",cglConnect3d,(points),(
+  color,colors,texture,colorBack,colorsBack,textureBack,size,alpha,
   light,caps,cap1,cap2,joints,closed,plotModifiers,tags,onUpdate));
 cglConnect3d(points):=(
   // feature TODO? create wrapper for onUpdate to update complete list of sample points
@@ -2055,7 +2040,7 @@ cglConnect3d(points):=(
   points = remove(apply(points,p,if(p == prev,-1,prev=p;p)),-1);
   if(length(points)>=3,
     // update projection if color is computed per pixel
-    if(!isundefined(colorExpr) % !isundefined(texture) % !isundefined(color:"type"),
+    if(!isundefined(texture) % !isundefined(color:"type"),
       projection = lambda((normal,height,orientation),
         regional(pos0);
         pos0=cgl3d.projection.cylinder:(normal,height,orientation);
@@ -2131,12 +2116,8 @@ cglConnect3d(points):=(
     cglSphere3d(points_1,size);
   )));
 );
-cglInterface("curve3d",cglCurve3d,(expr:(t),from,to),(color,colors,texture,textureRGB,textureRGBA,interpolateTexture,repeatTexture,
-  colorExpr:(texturePos,spacePos,normal),colorExprRGB:(texturePos,spacePos,normal),
-  colorExprRGBA:(texturePos,spacePos,normal),colorBack,colorsBack,
-  textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
-  colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
-  colorExprRGBABack:(texturePos,spacePos,normal),size,samples,alpha,light,
+cglInterface("curve3d",cglCurve3d,(expr:(t),from,to),(
+  color,colors,texture,colorBack,colorsBack,textureBack,size,samples,alpha,light,
   caps,cap1,cap2,joints,closed,plotModifiers,tags,onUpdate));
 cglCurve3d(expr,from,to):=(
   samples = cglValOrDefault(samples,cgl3d.defaults.curveSamples)-1;
@@ -2151,11 +2132,7 @@ cglCurve3d(expr,from,to):=(
 );
 
 cglInterface("torus3d",cglTorus3d,(center,orientation,radius1,radius2),(color,texture,
-  textureRGB,textureRGBA,interpolateTexture,repeatTexture,colorExpr:(texturePos,spacePos,normal),
-  colorExprRGB:(texturePos,spacePos,normal),colorExprRGBA:(texturePos,spacePos,normal),colorBack,
-  textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
-  colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
-  colorExprRGBABack:(texturePos,spacePos,normal),alpha,light,arcRange,angle1range,angle2range,
+  colorBack,textureBack,alpha,light,arcRange,angle1range,angle2range,
   direction1,plotModifiers,tags,onUpdate));
 cglTorus3d(center,orientation,radius1,radius2):=(
   regional(needBackFace,modifiers,ids,topLayer,hasAlpha,usesAlpha,exprData,pixelExpr,opacityExpr);
@@ -2223,35 +2200,27 @@ cglTorus3d(center,orientation,radius1,radius2):=(
   tags = cglValOrDefault(tags,[]);
   opacityExpr = if(usesAlpha,false,if(hasAlpha,lambda((),cglAlpha>=1),true));
   if(needBackFace,
-    ids = [colorplot3d(cgl3d.shader.torus:(#,4),
-      center-radius2*orientation, center+radius2*orientation, radius1+radius2,
-      plotModifiers->modifiers,tags->["torus","backside"]++tags,opaqueIf->opacityExpr),
-    colorplot3d(cgl3d.shader.torus:(#,3),
-      center-radius2*orientation, center+radius2*orientation, radius1+radius2,
-      plotModifiers->modifiers,tags->["torus","backside"]++tags,opaqueIf->opacityExpr),
-    colorplot3d(cgl3d.shader.torus:(#,2),
-      center-radius2*orientation, center+radius2*orientation, radius1+radius2,
-      plotModifiers->modifiers,tags->["torus","backside"]++tags,opaqueIf->opacityExpr)];
+    ids = [cgl3d.addObject:(cgl3dnewCylinder(cgl3d.shader.torus:(#,4),
+      center, radius2*orientation, radius1+radius2,
+      plotModifiers->modifiers,tags->["torus","backside"]++tags,opaqueIf->opacityExpr)),
+    cgl3d.addObject:(cgl3dnewCylinder(cgl3d.shader.torus:(#,3),
+      center, radius2*orientation, radius1+radius2,
+      plotModifiers->modifiers,tags->["torus","backside"]++tags,opaqueIf->opacityExpr)),
+    cgl3d.addObject:(cgl3dnewCylinder(cgl3d.shader.torus:(#,2),
+      center, radius2*orientation, radius1+radius2,
+      plotModifiers->modifiers,tags->["torus","backside"]++tags,opaqueIf->opacityExpr))];
   );
-  topLayer = colorplot3d(cgl3d.shader.torus:(#,1),
-    center-radius2*orientation, center+radius2*orientation, radius1+radius2,
-    plotModifiers->modifiers,tags->["torus"]++tags,opaqueIf->opacityExpr);
+  topLayer = cgl3d.addObject:(cgl3dnewCylinder(cgl3d.shader.torus:(#,1),
+    center, radius2*orientation, radius1+radius2,
+    plotModifiers->modifiers,tags->["torus"]++tags,opaqueIf->opacityExpr));
   ids=if(needBackFace,append(ids,topLayer),topLayer);
 );
 // feature TODO? option to use aspect ratio instead of second radius
 cglInterface("circle3d",cglCircle3d,(center,orientation,radius),(color,texture,
-  textureRGB,textureRGBA,interpolateTexture,repeatTexture,colorExpr:(texturePos,spacePos,normal),
-  colorExprRGB:(texturePos,spacePos,normal),colorExprRGBA:(texturePos,spacePos,normal),colorBack,
-  textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
-  colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
-  colorExprRGBABack:(texturePos,spacePos,normal),size,alpha,
+  colorBack,textureBack,size,alpha,
   light,arcRange,angle1range,angle2range,direction1,plotModifiers,tags,onUpdate));
 cglInterface("torus3d",cglCircle3d,(center,orientation,radius),(color,texture,
-  textureRGB,textureRGBA,interpolateTexture,repeatTexture,colorExpr:(texturePos,spacePos,normal),
-  colorExprRGB:(texturePos,spacePos,normal),colorExprRGBA:(texturePos,spacePos,normal),colorBack,
-  textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
-  colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
-  colorExprRGBABack:(texturePos,spacePos,normal),size,alpha,
+  colorBack,textureBack,size,alpha,
   light,arcRange,angle1range,angle2range,direction1,plotModifiers,tags,onUpdate));
 cglCircle3d(center,orientation,radius):=(
   size = cglValOrDefault(size,cgl3d.defaults.torusSize);
