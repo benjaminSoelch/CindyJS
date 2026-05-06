@@ -54,6 +54,10 @@ cgl3d.rotate = (alpha,beta) => (
   self().renderTransform = self().renderTransform * rotY * rotZ;
 );
 rotate3d(alpha,beta) := cgl3d.rotate:(alpha,beta);
+cgl3d.zoom = (newScale) => (
+  self().zoomFactor = newScale;
+);
+zoom3d(newScale) := cgl3d.zoom:(newScale);
 
 cgl3d.objects = {"opaque": {}, "translucent":{}};
 cgl3d.resetObjects = () => (
@@ -496,7 +500,7 @@ cgl3d.cylinderCap.cutVoidRound = (normal) => {"name":"Cut-Round","cutDirection":
 cgl3d.connect = {};
 
 cgl3d.connect.open = -1;
-cgl3d.connect.oound = 0;
+cgl3d.connect.round = 0;
 cgl3d.connect.flat = 1; // feature TODO? better name
 
 
@@ -1769,11 +1773,13 @@ cglResolveColorExpr0(hasAlpha,colorsMode,isBack):=(
       pixelExpr = if(hasAlpha,
         if(length(color)==4,
           lambda((texPos,pos3d,normal),
-            (colorData)_1:(colorData)_2:(colorData)_3:(colorData:()_4*cglAlpha)
+            regional(col);col=colorData:();
+            (col_1,col_2,col_3,col_4*cglAlpha)
           ,colorData->colorData);
         ,
           lambda((texPos,pos3d,normal),
-            (colorData)_1:(colorData)_2:(colorData)_3:(cglAlpha)
+            regional(col);col=colorData:();
+            (col_1,col_2,col_3,cglAlpha)
           ,colorData->colorData);
         );
       ,
@@ -1939,11 +1945,11 @@ cglCylinder3d(center,orientation,radius):=(
   hasAlpha = !isundefined(alpha);
   alpha = cglValOrDefault(alpha,1);
   modifiers = {"cglLight": light,
-    "cglCap1back":cap1_"shaderBack",
-    "cglCap2back":cap2_"shaderBack",
-    "cglCut1":cglCutOrthogonal,"cglCut2":cglCutOrthogonal,
+    "cglCap1back": cap1:"shaderBack",
+    "cglCap2back": cap2:"shaderBack",
+    "cglCut1": cglCutOrthogonal, "cglCut2": cglCutOrthogonal,
     "cglGetCutVector1":cglCutVectorNone,"cglGetCutVector2":cglCutVectorNone,
-    "cglCapCut1":cap1_"capCut1","cglCapCut2":cap2_"capCut2",
+    "cglCapCut1": cap1:"capCut1","cglCapCut2": cap2:"capCut2",
     "cglProjection": projection};
   modifiers = cglMergeDicts(modifiers,cglValOrDefault(plotModifiers,{}));
   exprData = cglResolveColorExpr(hasAlpha,CglColorsInterpolate);
@@ -1982,14 +1988,13 @@ cglCylinder3d(center,orientation,radius):=(
     modifiers_"cglCylinderProjGetDirection1" = lambda((normal,height,orientation),
       cglDirection1);
   );
-  tags = cglValOrDefault(tags,[]);
   opacityExpr = if(usesAlpha,false,if(hasAlpha,lambda((),cglAlpha>=1),true));
   if(needBackFace,
     ids = [cgl3d.addObject:(cgl3dnewCylinder(cgl3d.shader.cylinderBack:(#),center,orientation,radius,overhang->overhang,
-      plotModifiers->modifiers,tags->["cylinder","backside"]++tags,opaqueIf->opacityExpr))];
+     plotModifiers->modifiers,opaqueIf->opacityExpr))];
   );
   topLayer = cgl3d.addObject:(cgl3dnewCylinder(cgl3d.shader.cylinder:(#),center,orientation,radius,overhang->overhang,
-    plotModifiers->modifiers,tags->["cylinder"]++tags,opaqueIf->opacityExpr));
+    plotModifiers->modifiers,opaqueIf->opacityExpr));
   ids=if(needBackFace,append(ids,topLayer),topLayer);
 );
 
@@ -2068,7 +2073,7 @@ cglConnect3d(points):=(
       plotModifiers_"cglSegmentStart"=a;
       plotModifiers_"cglSegmentEnd"=b;
       alpha = alpha0;
-      ids = [cglCylinder3d(current1,current2,size,cap1->cap1,colors->(color1,color2),
+      ids = [cglCylinder3d((current1+current2)/2,(current2-current1)/2,size,cap1->cap1,colors->(color1,color2),
         cap2->cglJoint(current1,current2,next,jointEnd))];
     );
     ids = ids ++ apply(if(closed,2,4)..length(points),i,
@@ -2085,7 +2090,7 @@ cglConnect3d(points):=(
       plotModifiers_"cglSegmentStart"=a;
       plotModifiers_"cglSegmentEnd"=b;
       alpha = alpha0;
-      cglCylinder3d(current1,current2,size,colors->(color1,color2),
+      cglCylinder3d((current1+current2)/2,(current2-current1)/2,size,colors->(color1,color2),
         cap1->cglJoint(prev,current1,current2,jointStart),cap2->cglJoint(current1,current2,next,jointEnd));
     );
     color1 = color2;
@@ -2096,13 +2101,13 @@ cglConnect3d(points):=(
     cutDir = normalize((normalize(next-current2)+normalize(current2-current1)));
     direction1 = direction1-2*(direction1*cutDir)*cutDir; // mirror direction at cut-plane
     alpha = alpha0;
-    flatten(append(ids,cglCylinder3d(current2,next,size,colors->(color2,nextColor),
+    flatten(append(ids,cglCylinder3d((current2+next)/2,(next-current2)/2,size,colors->(color2,nextColor),
         cap1->cglJoint(current1,current2,next,jointStart),
         cap2->if(closed,cglJoint(current2,next,points_1,jointEnd),cap2))));
   ,if(length(points)==2,
     color1 = if(isundefined(colors),color,colors_1);
     color2 = if(isundefined(colors),color,colors_2);
-    cglCylinder3d(points_1,points_2,size);
+    cglCylinder3d((points_1+points_2)/2,(points_2-points_1)/2,size);
   ,if(length(points)==1,
     if(!isundefined(colors),
       color = colors_1

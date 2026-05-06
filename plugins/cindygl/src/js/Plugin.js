@@ -618,10 +618,10 @@ let CindyGL = function(api) {
         }
         expr = tryEvaluate(expr,api,expr);
         if(expr['ctype']==='lambda'){
-            if(expr.params.length>0) {
+            if(expr['params'].length>0) {
                 cglLogWarning("opacity expression should not have any parameters");
             }
-            expr = expr.body;
+            expr = expr['body'];
         } else {
             expr = obj3d.opaqueIfExpr;
         }
@@ -1017,10 +1017,10 @@ let CindyGL = function(api) {
         try{
             let value = api.evaluate(args[0]);
             if(value['ctype'] === 'lambda'){
-                if(value.params.length>0) {
+                if(value['params'].length>0) {
                     cglLogWarning("cglTryEval expression should not take parameters");
                 }
-                value = value.body;
+                value = value['body'];
             }
             return api.evaluateAndVal(value);
         } catch(error) {
@@ -1071,20 +1071,20 @@ let CindyGL = function(api) {
         if(tryUnwrap) {
             let value = tryResolveLambda(expr);
             if(value['ctype'] === 'lambda') {
-                if(value.params.length === params.length) {
+                if(value['params'].length === params.length) {
                     return value;
                 }
                 cglLogError("lambda expression has wrong number of arguments: "+
-                    `got: ${value.params.length} expected: ${params.length} (${params.map(p=>p['name']).join(",")})`
+                    `got: ${value['params'].length} expected: ${params.length} (${params.map(p=>p['name']).join(",")})`
                 );
                 // TODO? add dummy parameters if given lambda does not have enough paramters
             }
         }
         return {
-            ctype: "lambda",
-            params: params,
-            body: cloneExpression(expr),
-            modifs: {}
+            "ctype": "lambda",
+            "params": params,
+            "body": cloneExpression(expr),
+            "modifs": {}
         };
     }
     /* cglInterface(<name>,<implName>,<args>,<modifs>)
@@ -1150,7 +1150,7 @@ let CindyGL = function(api) {
             cglLogError("expected lambda expression, if the first argument should be used as an expression add checked variables as second parameter");
             return nada;
         }
-        const degreeData = tryDetermineDegree(arg.body,arg.params.map(asName));
+        const degreeData = tryDetermineDegree(arg['body'],arg['params'].map(asName));
         if(degreeData.degree === undefined)
             return nada;
         return toCjsNumber(degreeData.degree);
