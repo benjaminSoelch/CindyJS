@@ -1499,18 +1499,12 @@ cgl3d.resetDefaults:(); // initialisation of code complete -> can initialize def
 // TODO? intersection of surfaces as primitive operation
 // TODO? global clipping region
 // TODO? better lighting system
-// TODO find good list of default modifiers‚
-// function->f(#pos,#norm,#kmin,#kmax....) (colorplot on drawn surface)
-// thickness -> give rendered surfaces a thinkness (needed for conversion to 3d-printer file)
-// ? rememberId -> remember object id
 // TODO function for updating/resetting defaults
 // ? use internal global variables (-> document names of default values)
 // ? always use cglAlpha even if explicitly not specified
 
-// TODO? is the `tags` modifier usefull (currently used by "find object at point" built-in)
-// ? replace with explicit "moveable" modifier
-// TODO? rename spacePos -> pos3d
-
+// TODO? replace uses of `tags` with a "moveable" object-tag
+// TODO? make bounding box parameters modifiers
 
 // TODO? cglLogLevel(...) built-in for setting log-level
 

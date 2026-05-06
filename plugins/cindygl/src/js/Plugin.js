@@ -904,22 +904,23 @@ let CindyGL = function(api) {
             return nada;
         }
         let viewBounds = CindyGL.sceneRenderer.viewBounds;
-        let x0=viewBounds[0].x;
-        let y0=viewBounds[0].y;
-        let x1=viewBounds[1].x;
-        let y1=viewBounds[1].y;
+        let zoom = coerce.toReal(api.evaluateAndVal(args[1]));
+        let x0=zoom*viewBounds[0].x;
+        let y0=zoom*viewBounds[0].y;
+        let x1=zoom*viewBounds[1].x;
+        let y1=zoom*viewBounds[1].y;
         let defaultZ = Math.max(x1-x0,y1-y0)/2;
         let transform = coerce.toList(api.evaluateAndVal(args[0])).map(e=>coerce.toList(e).map(coerce.toReal));
-        let zoom = coerce.toReal(api.evaluateAndVal(args[1]));
         let skewFactor = modifs["skewFactor"] === undefined ? 0.5 : coerce.toReal(api.evaluateAndVal(modifs["skewFactor"]));
         let zScale = modifs["zScale"] ===undefined ? 1 : coerce.toReal(api.evaluateAndVal(modifs["zScale"]));
-        let z0 = modifs["z0"] ===undefined ? -defaultZ : coerce.toReal(api.evaluateAndVal(modifs["z0"]));
-        let z1 = modifs["z1"] ===undefined ? defaultZ : coerce.toReal(api.evaluateAndVal(modifs["z1"]));
+        let z0 = modifs["z0"] ===undefined ? -defaultZ : zoom*coerce.toReal(api.evaluateAndVal(modifs["z0"]));
+        let z1 = modifs["z1"] ===undefined ? defaultZ : zoom*coerce.toReal(api.evaluateAndVal(modifs["z1"]));
+        // TODO: modify projection such that z0..z1 gets mapped to z=-1...1
         let projection = [
-            [zoom*(x1-x0)/2,0,0,zoom*(x0+x1)/2],
-            [0,zoom*(y1-y0)/2,0,zoom*(y0+y1)/2],
-            [0,0,zoom*zScale*((z1-z0)/2)*(1-skewFactor),zoom*zScale*(z0+z1)/2],
-            [0,0,-zoom*skewFactor,zoom],
+            [(x1-x0)/2,0,0,(x0+x1)/2],
+            [0,(y1-y0)/2,0,(y0+y1)/2],
+            [0,0,zScale*((z1-z0)/2)*(1-skewFactor),zScale*(z0+z1)/2],
+            [0,0,-skewFactor,1],
         ];
         let trafo = m4Mul(transform,projection);
         CindyGL.sceneRenderer.transform = m4FlatTranspose(trafo);
