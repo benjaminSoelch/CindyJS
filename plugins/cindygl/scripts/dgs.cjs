@@ -641,7 +641,7 @@ dgs3dRenderConic(self):=(
     if(self:"drawId"==-1,
       M = self:"coords";
       // TODO? use custom cutoff-region instead of default
-      self:"drawId" = surface3d(dgs3dDistanceQuadricPlane(Q,p,(x,y,z,1))-r*r,degree->8,
+      self:"drawId" = surface3d(dgs3dDistanceQuadricPlane2(Q,p,(x,y,z,1))-r*r,degree->8,
         plotModifiers->{"Q":self:"coords"_1,"p":self:"coords"_2,"r":self:"size"},
         alpha->self:"alpha",color->self:"color");
     ,
@@ -1760,6 +1760,22 @@ dgs3dDistanceQuadricPlane(Quadric,Plane,coords):=(
   P = dgs3dEpsilon46(plane,l);
   P = (P / P_4 - coords / coords_4);
   P*P
+);
+dgs3dDistanceQuadricPlane2(Quadric,Plane,coords):=(
+  regional(pol,v,plane,P,Q);
+  P = Q = coords;
+  repeat(2,
+    P = (2*P*Q_4 + Q*P_4);
+    // 1. get polar plane
+    pol = Quadric*P;
+    // 2. project point onto intersection line
+    l = dgs3dDualLine(dgs3dEpsilon44(pol,Plane));
+    v = dgs3dEpsilon46((0,0,0,1),l);
+    plane = (v_1*P_4,v_2*P_4,v_3*P_4,-(v_1,v_2,v_3,0)*P);
+    Q = dgs3dEpsilon46(plane,l);
+  );
+  Q = (Q / Q_4 - coords / coords_4);
+  Q*Q
 );
 dgs3dDistanceQuadricQuadric(Q1,Q2,coords):=(
   regional(pol1,pol2,l,v,plane,P);
