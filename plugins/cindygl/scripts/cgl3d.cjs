@@ -58,6 +58,10 @@ cgl3d.zoom = (newScale) => (
   self().zoomFactor = newScale;
 );
 zoom3d(newScale) := cgl3d.zoom:(newScale);
+// TODO: return actual view-rectangle (? move to plugin level)
+cglViewRect():=(
+  [-1,-1,1,1]
+);
 
 cgl3d.objects = {"opaque": {}, "translucent":{}};
 cgl3d.resetObjects = () => (
@@ -2254,19 +2258,11 @@ cglInterface("cglNormalExpr",cglNormalExprImpl,(expr:(spacePos,texturePos)),());
 cglNormalExprImpl(expr):=expr;
 // feature TODO? normalTexture modifier (texture of normal vectors)
 // API TODO? merge normalExpr and normalTexture into normals modifier and use type to distinguish arguments
-cglInterface("draw3d",cglTriangle3d,(p1,p2,p3),(color,colors,texture,textureRGB,textureRGBA,interpolateTexture,repeatTexture,
-  colorExpr:(texturePos,spacePos,normal),colorExprRGB:(texturePos,spacePos,normal),
-  colorExprRGBA:(texturePos,spacePos,normal),colorBack,colorsBack,
-  textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
-  colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
-  colorExprRGBABack:(texturePos,spacePos,normal),thickness,alpha,light,uv,normal,normals,
+cglInterface("draw3d",cglTriangle3d,(p1,p2,p3),(color,colors,texture,colorBack,colorsBack,
+  textureBack,alpha,light,uv,normal,normals,
   normalExpr,plotModifiers,vertexModifiers,tags,onUpdate));
-cglInterface("triangle3d",cglTriangle3d,(p1,p2,p3),(color,colors,texture,textureRGB,textureRGBA,interpolateTexture,repeatTexture,
-  colorExpr:(texturePos,spacePos,normal),colorExprRGB:(texturePos,spacePos,normal),
-  colorExprRGBA:(texturePos,spacePos,normal),colorBack,colorsBack,
-  textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
-  colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
-  colorExprRGBABack:(texturePos,spacePos,normal),thickness,alpha,light,uv,normal,normals,
+cglInterface("triangle3d",cglTriangle3d,(p1,p2,p3),(color,colors,texture,colorBack,colorsBack,
+  textureBack,alpha,light,uv,normal,normals,
   normalExpr,plotModifiers,vertexModifiers,tags,onUpdate));
 cglTriangle3d(p1,p2,p3):=(
   regional(modifiers,vModifiers,defNormal,hasAlpha,usesAlpha,exprData,pixelExpr,colLen,opacityExpr);
@@ -2326,12 +2322,8 @@ cglTriangle3d(p1,p2,p3):=(
 // TODO? auto-merge rendered triangles with similar parameters into single render-call
 
 // render multiple triangles in a single call
-cglInterface("triangles3d",cglTriangles3d,(triangles),(color,colors,texture,textureRGB,textureRGBA,interpolateTexture,repeatTexture,
-  colorExpr:(texturePos,spacePos,normal),colorExprRGB:(texturePos,spacePos,normal),
-  colorExprRGBA:(texturePos,spacePos,normal),colorBack,colorsBack,
-  textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
-  colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
-  colorExprRGBABack:(texturePos,spacePos,normal),thickness,alpha,light,uv,normals,
+cglInterface("triangles3d",cglTriangles3d,(triangles),(color,colors,texture,colorBack,colorsBack,
+  textureBack,alpha,light,uv,normals,
   normalExpr,plotModifiers,vertexModifiers,tags,onUpdate));
 cglTriangles3d(triangles):=(
   regional(modifiers,vModifiers,defNormal,hasAlpha,usesAlpha,exprData,pixelExpr,colLen,opacityExpr,v1,v2,v3,triuv,n,cols,vertices,triangleCount);
@@ -2451,11 +2443,7 @@ cglTriangles3d(triangles):=(
 );
 
 cglInterface("polygon3d",cglPolygon3d,(vertices),(triangulation,color,colors,texture,
-  textureRGB,textureRGBA,interpolateTexture,repeatTexture,colorExpr:(texturePos,spacePos,normal),
-  colorExprRGB:(texturePos,spacePos,normal),colorExprRGBA:(texturePos,spacePos,normal),colorBack,colorsBack,
-  textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
-  colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
-  colorExprRGBABack:(texturePos,spacePos,normal),thickness,alpha,light,uv,
+  colorBack,colorsBack,textureBack,alpha,light,uv,
   normal,normals,normalExpr,normalType,plotModifiers,vertexModifiers,tags,onUpdate));
 cglPolygon3d(vertices):=(
   regional(modifiers,vModifiers,trianglesAndNormals,hasAlpha,usesAlpha,exprData,pixelExpr,colLen,opacityExpr);
@@ -2559,12 +2547,8 @@ cglPolygon3d(vertices):=(
 );
 
 // feature TODO? adjust uv coordinates if side of grid-cell is collapsed
-cglInterface("mesh3d",cglMesh3d,(grid),(color,colors,texture,textureRGB,textureRGBA,interpolateTexture,repeatTexture,
-  colorExpr:(texturePos,spacePos,normal),colorExprRGB:(texturePos,spacePos,normal),
-  colorExprRGBA:(texturePos,spacePos,normal),colorBack,colorsBack,
-  textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
-  colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
-  colorExprRGBABack:(texturePos,spacePos,normal),thickness,alpha,light,uv,
+cglInterface("mesh3d",cglMesh3d,(grid),(color,colors,texture,colorBack,colorsBack,
+  textureBack,alpha,light,uv,
   normals,normalExpr,normalType,topology,plotModifiers,vertexModifiers,tags,onUpdate));
 cglMesh3d(grid):=(
   regional(Ny,Nx,triangles,modifiers,vModifiers,exprData,pixelExpr,hasAlpha,usesAlpha,colLen,opacityExpr);
@@ -2659,12 +2643,8 @@ cglMesh3d(grid):=(
 
 // feature TODO? allow equation as expression: transform `f == g` to  `f-g` in last top-level expression
 // feature TODO custom projection/uv-mapping from surface to 2D space
-cglInterface("surface3d",cglSurface3d,(expr:(x,y,z)),(color,texture,textureRGB,textureRGBA,
-  interpolateTexture,repeatTexture,colorExpr:(texturePos,spacePos,normal),colorExprRGB:(texturePos,spacePos,normal),
-  colorExprRGBA:(texturePos,spacePos,normal),colorBack,
-  textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
-  colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
-  colorExprRGBABack:(texturePos,spacePos,normal),thickness,alpha,light,
+cglInterface("surface3d",cglSurface3d,(expr:(x,y,z)),(color,texture,colorBack,
+  textureBack,alpha,light,
   texture,uv,dF:(x,y,z),cutoffRegion,degree,layers,plotModifiers,tags,onUpdate));
 cglSurface3d(fun) := (
     regional(N,nodes,F,normalExpr,N,B,modifiers,viewRect,bounds,usesAlpha,opacityExpr,exprData,pixelExpr);
@@ -2747,34 +2727,22 @@ cglSurface3d(fun) := (
 
 // feature TODO! compute surface dF from function df
 // feature TODO? add ability to scale axes independently from CindyJS coordinate system
-cglInterface("plot3d",cglPlot3d,(f:(x,y)),(color,texture,textureRGB,textureRGBA,interpolateTexture,repeatTexture,
-  colorExpr:(texturePos,spacePos,normal),colorExprRGB:(texturePos,spacePos,normal),colorExprRGBA:(texturePos,spacePos,normal),
-  colorBack,textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
-  colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
-  colorExprRGBABack:(texturePos,spacePos,normal),
-  thickness,alpha,light,texture,uv,df:(x,y),cutoffRegion,degree,layers,plotModifiers,tags,onUpdate));
+cglInterface("plot3d",cglPlot3d,(f:(x,y)),(color,texture,colorBack,textureBack,
+  alpha,light,texture,uv,df:(x,y),cutoffRegion,degree,layers,plotModifiers,tags,onUpdate));
 cglPlot3d(f/*f(x,y)*/):=(
   if(isundefined(degree),
       degree = min(cglTryDetermineDegree(f),cglMaxAutoDeg);
   );
   cglSurface3d(lambda((x,y,z),f:(x,y)-z,f->f),degree->degree);
 );
-cglInterface("complexplot3d",cglCPlot3d,(f:(z)),(color,texture,textureRGB,textureRGBA,interpolateTexture,
-  repeatTexture, colorExpr:(texturePos,spacePos,normal),colorExprRGB:(texturePos,spacePos,normal),
-  colorExprRGBA:(texturePos,spacePos,normal),colorBack,
-  textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
-  colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
-  colorExprRGBABack:(texturePos,spacePos,normal),thickness,alpha,light,texture,uv,df:(z),
+cglInterface("complexplot3d",cglCPlot3d,(f:(z)),(color,texture,colorBack,
+  textureBack,alpha,light,texture,uv,df:(z),
   cutoffRegion,degree,layers,plotModifiers,tags,onUpdate));
-cglInterface("cplot3d",cglCPlot3d,(f:(z)),(color,texture,textureRGB,textureRGBA,interpolateTexture,
-  repeatTexture,colorExpr:(texturePos,spacePos,normal),colorExprRGB:(texturePos,spacePos,normal),
-  colorExprRGBA:(texturePos,spacePos,normal),colorBack,
-  textureBack,textureRGBBack,textureRGBABack,interpolateTextureBack,repeatTextureBack,
-  colorExprBack:(texturePos,spacePos,normal),colorExprRGBBack:(texturePos,spacePos,normal),
-  colorExprRGBABack:(texturePos,spacePos,normal),thickness,alpha,light,texture,uv,df:(z),
+cglInterface("cplot3d",cglCPlot3d,(f:(z)),(color,texture,colorBack,
+  textureBack,alpha,light,texture,uv,df:(z),
   cutoffRegion,degree,layers,plotModifiers,tags,onUpdate));
 cglCPlot3d(f/*f(z)*/):=(
-  if(isundefined(color) & isundefined(colorExpr), // TODO find better condition for choosing phase-coloring
+  if(isundefined(color) & isundefined(texture), // TODO find better condition for choosing phase-coloring
     color = {
       "type": "expr",
       "expr": lambda((texturePos,spacePos,normal),
