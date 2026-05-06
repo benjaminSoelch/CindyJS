@@ -61,6 +61,21 @@ cgl3d.resetObjects = () => (
   self().objects.translucent = {};
 );
 reset3d() := cgl3d.resetObjects:();
+cgl3d.render = () => (
+  cgl3dStartRender(layers->0); // TODO set layers to 2 if there are translucent objects
+  cgl3dSetRenderTransform(cgl3d.renderTransform,cgl3d.zoomFactor);
+  cgl3dRenderOpaque(self().objects.opaque);
+  cgl3dRenderTranslucent(self().objects.translucent);
+  cgl3dFinishRender();
+);
+render3d() := cgl3d.render:();
+cgl3d.addObject = (obj) => (
+  regional(id);
+  id = cgl3dObjectId(obj);
+  // TODO determine if object is opaque or translucent
+  self().objects.opaque:id = obj;
+  id
+);
 
 cgl3d.compute.pixelDepth = (rawDepth,direction) => (
   cglRawDepth = rawDepth;
@@ -1427,7 +1442,7 @@ cgl3d.defaults = {};
 cgl3d.defaultStack = [];
 cgl3d.resetDefaults = () => (
   cgl3d.defaults = {};
-  cgl3d.defaults.light = cgl3d.ligth.default;
+  cgl3d.defaults.light = cgl3d.light.default;
 
   cgl3d.defaults.sphereColor = CGLnAMEDcOLORS_"red";
   cgl3d.defaults.sphereSize = 0.5;
@@ -1483,7 +1498,7 @@ cgl3d.resetDefaults:(); // initialisation of code complete -> can initialize def
 //  * cglGroupEnd(); // -> end current group, returns groupId
 // TODO? intersection of surfaces as primitive operation
 // TODO? global clipping region
-// TODO? better ligthing system
+// TODO? better lighting system
 // TODO find good list of default modifiers‚
 // function->f(#pos,#norm,#kmin,#kmax....) (colorplot on drawn surface)
 // thickness -> give rendered surfaces a thinkness (needed for conversion to 3d-printer file)
@@ -1538,12 +1553,12 @@ cgl3d.resetDefaults:(); // initialisation of code complete -> can initialize def
   color:
     a) RGB value as list
     b) cglColor("NAME")
-    c) cglColorExpr(<expr>) // modifer: hasAlpha (defaults to false)
-    d) cglTexture(<name>) // modifers: hasAlpha, interpolate, repeat
+    c) cglColorExpr(<expr>) // modifier: hasAlpha (defaults to false)
+    d) cglTexture(<name>) // modifiers: hasAlpha, interpolate, repeat
   texture:
     a) Texture name
-    b) cglTexture(<name>) // modifers: hasAlpha, interpolate, repeat
-    c) cglColorExpr(<expr>) // modifer: hasAlpha (defaults to false)
+    b) cglTexture(<name>) // modifiers: hasAlpha, interpolate, repeat
+    c) cglColorExpr(<expr>) // modifier: hasAlpha (defaults to false)
   colors -> list of colors
 */
 lowercase(str):=(
@@ -1686,35 +1701,12 @@ CglColorsVertex = 2; // one color per vertex
 cglResolveColorExpr0(hasAlpha,colorsMode,isBack):=(
   regional(pixelExpr,usesAlpha,modifiers,vModifiers);
   hasAlpha = cglValOrDefault(hasAlpha,false); // undefined condition would be silent failure
-  repeatTexture = cglValOrDefault(repeatTexture,false);
-  interpolateTexture = cglValOrDefault(interpolateTexture, true);
+  repeatTexture = false;
+  interpolateTexture = true;
   modifiers = {};
   vModifiers = {};
   usesAlpha = false;
-  if(isundefined(pixelExpr) & !isundefined(colorExprRGBA),
-    usesAlpha = true;
-    cglLogError("the modifer `colorExprRGBA` is deprecated use `color->cglColorExpr(...)` instead");
-    pixelExpr = cglPixelExprFromExpr(colorExprRGBA,hasAlpha,true);
-  );
-  // feature TODO warining for re-definition
-  if(isundefined(pixelExpr) & !isundefined(colorExprRGB),
-    cglLogError("the modifer `colorExprRGB` is deprecated use `color->cglColorExpr(...)` instead");
-    pixelExpr = cglPixelExprFromExpr(colorExprRGB,hasAlpha,false);
-  );
-  if(isundefined(pixelExpr) & !isundefined(colorExpr),
-    cglLogError("the modifer `colorExpr` is deprecated use `color->cglColorExpr(...)` instead");
-    pixelExpr = cglPixelExprFromExpr(colorExpr,hasAlpha,false);
-  );
-  if(isundefined(pixelExpr) & !isundefined(textureRGBA),
-    cglLogError("the modifer `textureRGBA` is deprecated use `texture->cglTexture(...,hasAlpha->true)` instead");
-    usesAlpha = true;
-    pixelExpr = cglPixelExprFromTexture(textureRGBA,hasAlpha,true,repeatTexture,interpolateTexture);
-  );
-  if(isundefined(pixelExpr) & !isundefined(textureRGB),
-    cglLogError("the modifer `textureRGB` is deprecated use `texture->cglTexture(...,hasAlpha->false)` instead");
-    pixelExpr = cglPixelExprFromTexture(textureRGB,hasAlpha,false,repeatTexture,interpolateTexture);
-  );
-  if(isundefined(pixelExpr) & !isundefined(texture),
+  if(!isundefined(texture),
     if(isString(texture),
       pixelExpr = cglPixelExprFromTexture(texture,hasAlpha,false,repeatTexture,interpolateTexture);
     ,if(texture:"type"=="texture",
@@ -1807,15 +1799,8 @@ cglResolveColorExpr0(hasAlpha,colorsMode,isBack):=(
   {"pixelExpr":pixelExpr, "usesAlpha": usesAlpha, "modifiers": modifiers, "vModifiers": vModifiers}
 );
 cglResolveColorExprBack(hasAlpha,colorsMode):=(
-  regional(colorExprRGBA,colorExprRGB,colorExpr,textureRGBA,textureRGB,texture,colors,color);
-  colorExprRGBA = colorExprRGBABack;
-  colorExprRGB = colorExprRGBBack;
-  colorExpr = colorExprBack;
-  textureRGBA = textureRGBABack;
-  textureRGB = textureRGBBack;
+  regional(texture,colors,color);
   texture = textureBack;
-  interpolateTexture = cglValOrDefault(interpolateTextureBack,interpolateTexture);
-  repeatTexture = cglValOrDefault(repeatTextureBack,repeatTexture);
   colors = colorsBack;
   color = colorBack;
   cglResolveColorExpr0(hasAlpha,colorsMode,true);
@@ -1874,28 +1859,16 @@ cglNormalizeRange(range):=(
   range = apply(range,val,mod(val,1)); // pick representant in 0..1
 );
 
-cglInterface("draw3d",cglDraw3d,(pos3d),(color,texture,textureRGB,textureRGBA,interpolateTexture,repeatTexture,
-  colorExpr:(texturePos,spacePos,normal),colorExprRGB:(texturePos,spacePos,normal),
-  colorExprRGBA:(texturePos,spacePos,normal),colorBack,textureBack,textureRGBBack,textureRGBABack,
-  interpolateTextureBack,repeatTextureBack,colorExprBack:(texturePos,spacePos,normal),
-  colorExprRGBBack:(texturePos,spacePos,normal),colorExprRGBABack:(texturePos,spacePos,normal),size,alpha,
+cglInterface("draw3d",cglDraw3d,(pos3d),(color,texture,colorBack,textureBack,size,alpha,
   light,projection,plotModifiers,tags,onUpdate));
-cglInterface("sphere3d",cglDraw3d,(pos3d),(color,texture,textureRGB,textureRGBA,interpolateTexture,repeatTexture,
-  colorExpr:(texturePos,spacePos,normal),colorExprRGB:(texturePos,spacePos,normal),
-  colorExprRGBA:(texturePos,spacePos,normal),colorBack,textureBack,textureRGBBack,textureRGBABack,
-  interpolateTextureBack,repeatTextureBack,colorExprBack:(texturePos,spacePos,normal),
-  colorExprRGBBack:(texturePos,spacePos,normal),colorExprRGBABack:(texturePos,spacePos,normal),size,alpha,
+cglInterface("sphere3d",cglDraw3d,(pos3d),(color,texture,colorBack,textureBack,size,alpha,
   light,projection,plotModifiers,tags,onUpdate));
 cglDraw3d(pos3d):=(
   size = cglValOrDefault(size,cgl3d.defaults.sphereSize);
   cglSphere3d(pos3d,size);
 );
 
-cglInterface("sphere3d",cglSphere3d,(center,radius),(color,texture,textureRGB,textureRGBA,interpolateTexture,repeatTexture,
-  colorExpr:(texturePos,spacePos,normal),colorExprRGB:(texturePos,spacePos,normal),
-  colorExprRGBA:(texturePos,spacePos,normal),colorBack,textureBack,textureRGBBack,textureRGBABack,
-  interpolateTextureBack,repeatTextureBack,colorExprBack:(texturePos,spacePos,normal),
-  colorExprRGBBack:(texturePos,spacePos,normal),colorExprRGBABack:(texturePos,spacePos,normal),alpha,
+cglInterface("sphere3d",cglSphere3d,(center,radius),(color,texture,colorBack,textureBack,alpha,
   light,projection,plotModifiers,tags,onUpdate));
 cglSphere3d(center,radius):=(
   regional(needBackFace,modifiers,ids,topLayer,hasAlpha,usesAlpha,exprData,opacityExpr);
@@ -1914,13 +1887,12 @@ cglSphere3d(center,radius):=(
   modifiers_"cglPixelExpr" = exprData_"pixelExpr";
   opacityExpr = if(usesAlpha,false,if(hasAlpha,lambda((),cglAlpha>=1),true));
   needBackFace = hasAlpha % usesAlpha;
-  tags = cglValOrDefault(tags,[]);
   if(needBackFace,
-    ids = [colorplot3d(cgl3d.shader.sphere:(#,true),center,radius,
-      plotModifiers->modifiers,tags->["sphere","backside"]++tags,opaqueIf->opacityExpr,onUpdate->onUpdate)];
+    ids = [cgl3d.addObject:(cgl3dnewSphere(cgl3d.shader.sphere:(#,true),center,radius,
+      plotModifiers->modifiers,opaqueIf->opacityExpr,onUpdate->onUpdate))];
   );
-  topLayer = colorplot3d(cgl3d.shader.sphere:(#,false),center,radius,
-    plotModifiers->modifiers,tags->["sphere"]++tags,opaqueIf->opacityExpr,onUpdate->onUpdate);
+  topLayer = cgl3d.addObject:(cgl3dnewSphere(cgl3d.shader.sphere:(#,false),center,radius,
+    plotModifiers->modifiers,opaqueIf->opacityExpr,onUpdate->onUpdate));
   ids=if(needBackFace,append(ids,topLayer),topLayer);
 );
 

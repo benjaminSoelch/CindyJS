@@ -408,14 +408,15 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
             } got ${args.length}`);
             return;
         }
+        const localScope = scope != 'global' ? scope : '_main';
         // create independent set of bindings for body of expression
         let nbindings = {};
         Object.entries(exprData['modifs']).forEach(([key,value])=>{
             // TODO? are non-lambda modifiers handled correctly
             let iname = generateUniqueHelperString();
             nbindings[key] = iname;
-            if (!myfunctions[scope].variables) myfunctions[scope].variables = [];
-            myfunctions[scope].variables.push(iname);
+            if (!myfunctions[localScope].variables) myfunctions[localScope].variables = [];
+            myfunctions[localScope].variables.push(iname);
             self.initvariable(iname, false);
             variables[iname].assigments.push(value);
             if(value['ctype'] === 'image' || value['ctype'] === 'string' || value['ctype'] === 'lambda') {
@@ -425,7 +426,6 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
             }
         });
         let inlined = {}; // remember which arguments where inlined
-        const localScope = scope != 'global' ? scope : '_main';
         exprData['params'].forEach((param_,index) => {
             // !!! do not modify the original param, modifications can leak into different uses of the same lambda-expression
             const param = Object.assign({}, param_);
@@ -452,7 +452,7 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
         expr.modifs = Object.entries(exprData['modifs']).map(([name,value])=>{
             return [name,value,nbindings];
         });
-        rec(expr['obj'],nbindings,scope,forceconstant);
+        rec(expr['obj'],nbindings,localScope,forceconstant);
         // prepare variable for result of expression
         expr.resName = generateUniqueHelperString();
         if (!myfunctions[localScope].variables) myfunctions[localScope].variables = [];
@@ -752,7 +752,8 @@ CodeBuilder.prototype.determineUniforms = function(expr) {
             }
             if (expr['ctype'] === 'userdata') {
                 computeUniforms(expr['obj'], forceconstant);
-                computeUniforms(expr['key'], forceconstant);
+                if (dependsOnPixel(expr['key']) || expr['key']['ctype'] === 'string')
+                    computeUniforms(expr['key'], forceconstant);
             }
             if (expr['ctype'] === 'jsonatom') {
                 computeUniforms(expr['value'], forceconstant);

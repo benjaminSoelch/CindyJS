@@ -981,6 +981,10 @@ let CindyGL = function(api) {
         CindyGL.sceneRenderer = null;
     };
 
+    api.defineFunction("cgl3dObjectId", 1, (args, modifs) => {
+        if(args[0]['ctype'] !== "cgl3dObject") return nada;
+        return toCjsNumber(args[0]['value'].id);
+    });
     api.defineFunction("cgl3dObjectGet", 2, (args, modifs) => {
         // TODO: get field of object
         return nada;
