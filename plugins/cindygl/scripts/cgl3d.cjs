@@ -480,7 +480,7 @@ cglCapCutAngleRound2 = lambda((v2,U),
   cglCapCutRound2:(v2,U) % cglCapCutAngle2:(v2,U);
 );
 
-// wrap getting cut-normal in lazy-function to save uniform variable in case where normal is not needed
+// wrap getting cut-normal in lambda-function to save uniform variable in case where normal is not needed
 cglCutVectorNone = lambda((U),U);
 cglGetCutVector1 = lambda((U),cglCutDir1);
 cglGetCutVector2 = lambda((U),cglCutDir2);
@@ -665,7 +665,7 @@ cgl3d.shader.cylinderBack = (direction) => (
 //l  c0  c1  c2  <-roots of p3
 // \ / \ / \ / \ /
 // d0  d1  d2  d3 <-roots of p4
-// use lazy-procedures to allow multiple signatures for same code
+// use lambda-procedures to allow multiple signatures for same code
 // feature TODO? add a way to call same function with multiple signatures
 cglEvalP = lambda((coeffs,t),
   regional(s);
@@ -1317,7 +1317,7 @@ cgl3d.compute.guessDegree = (F) => max(apply(1 .. 2, // take the best result of 
 ));
 
 // use central difference to approximate dF
-cgl3d.compute.guessDerivative = (F) => ( // opt TODO? avoid code duplication for repeated application of cglEval
+cgl3d.compute.guessDerivative = (F) => ( // opt TODO? avoid code duplication for repeated lambda eval
   lambda(p,((
       (F:(p + [eps, 0, 0]) - F:(p - [eps, 0, 0])),
       (F:(p + [0, eps, 0]) - F:(p - [0, eps, 0])),
@@ -2753,7 +2753,7 @@ cglCPlot3d(f/*f(z)*/):=(
       "hasAlpha": false
     };
   );
-  cglSurface3d(cglLazy((x,y,z),abs(cglEval(f,x+i*y))-z,f->f),degree->cglValOrDefault(degree,-1));
+  cglSurface3d(lambda((x,y,z),abs(f:(x+i*y))-z,f->f),degree->cglValOrDefault(degree,-1));
 );
 
 /* TODO: port coordinate system controlls and object management

@@ -26,7 +26,7 @@
             t0 = seconds();
             zoom = 1.0;
 
-            fun = cglLazy((x,y),sin((x^2+y^2)-(seconds()-t0)));
+            fun = lambda((x,y),sin((x^2+y^2)-(seconds()-t0)));
             update():=(
                 reset3d();
                 plot3d(fun);
@@ -57,7 +57,7 @@
               type="text"
               id="exprInput"
               value="sin((x^2+y^2)-(seconds()-t0))"
-              onkeypress="cdy.evokeCS(`fun = cglLazy((x,y),${this.value});update();`)"
+              onkeypress="cdy.evokeCS(`fun = lambda((x,y),${this.value});update();`)"
               size="60"
               style="font-size: 18px"
           />

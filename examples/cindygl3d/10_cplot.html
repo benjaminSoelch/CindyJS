@@ -26,7 +26,7 @@
             t0 = seconds();
             zoom = 1.0;
 
-            fun = cglLazy(z,(z^3-1)/(z^3+1));
+            fun = lambda(z,(z^3-1)/(z^3+1));
             update():=(
                 reset3d();
                 cplot3d(fun,degree->-1);
@@ -56,7 +56,7 @@
               type="text"
               id="exprInput"
               value="(z^3-1)/(z^3+1)"
-              onkeypress="cdy.evokeCS(`fun = cglLazy(z,${this.value});update();`)"
+              onkeypress="cdy.evokeCS(`fun = lambda(z,${this.value});update();`)"
               size="60"
               style="font-size: 18px"
           />
