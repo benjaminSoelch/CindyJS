@@ -235,7 +235,7 @@ CodeBuilder.prototype.computeType = function(expr) { //expression
                         Object.entries(argTypes).map(([name, type]) => [name, type.value])
                     )
                 };
-                let val = this.api.evaluateAndVal(constantexpression);
+                let val = this.evaluateAndVal(constantexpression);
                 return constant(val);
             }
             let entries = Object.entries(argTypes).sort((a,b)=>a[0].localeCompare(b[0]));
@@ -249,14 +249,14 @@ CodeBuilder.prototype.computeType = function(expr) { //expression
             argtypes[i] = this.getType(expr['args'][i]);
             allconstant &= (argtypes[i].type === 'constant');
         }
-        if (allconstant && expr['impl']) { //use api.evaluateAndVal to compute type of constant expression
+        if (allconstant && expr['impl']) { //use evaluateAndVal to compute type of constant expression
             let constantexpression = {
                 "ctype": expr['ctype'],
                 "oper": expr['oper'],
                 "impl": expr['impl'],
                 "args": argtypes.map(a => a.value)
             };
-            let val = this.api.evaluateAndVal(constantexpression);
+            let val = this.evaluateAndVal(constantexpression);
             return constant(val);
         } else { //if there is something non-constant, we will the functions specified in WebGL.js
             let f = getPlainName(expr['oper']);
@@ -315,21 +315,26 @@ CodeBuilder.prototype.getType = function(expr) { //expression, current function
     return expr.computedType;
 };
 
-CodeBuilder.prototype.evalWithModifiers = function(expr) {
+
+CodeBuilder.prototype.evaluateAndVal = function(expr) {
+    if(Object.keys(this.activeModifiers).length == 0) {
+        // no active modifiers
+        return this.api.evaluateAndVal(expr);
+    }
     let exprWithModifs = {
         "ctype": "userdata",
         "obj":{
             "ctype": "lambda",
             "body": expr,
             "params": [],
-            "modifs": {} // TODO use map of known plot-modifier values here
+            "modifs": this.activeModifiers
         },
         "key": {
             "ctype":"list",
             "value":[]
         }
     }
-    return this.api.evaluate(exprWithModifs);
+    return this.api.evaluateAndVal(exprWithModifs);
 }
 
 /**
@@ -378,7 +383,7 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
             console.log(lambdaExpr);
             return undefined;
         }
-        let val = self.evalWithModifiers(lambdaExpr);
+        let val = self.evaluateAndVal(lambdaExpr);
         if(val['ctype'] !== 'lambda'){
             return undefined;
         }
@@ -452,7 +457,10 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
         expr.modifs = Object.entries(exprData['modifs']).map(([name,value])=>{
             return [name,value,nbindings];
         });
+        const oldMods = self.activeModifiers;
+        self.activeModifiers = Object.assign({},self.activeModifiers,exprData['modifs']);
         rec(expr['obj'],nbindings,localScope,forceconstant);
+        self.activeModifiers = oldMods;
         // prepare variable for result of expression
         expr.resName = generateUniqueHelperString();
         if (!myfunctions[localScope].variables) myfunctions[localScope].variables = [];
@@ -809,7 +817,7 @@ CodeBuilder.prototype.determineUniforms = function(expr) {
 
 CodeBuilder.prototype.determineUniformTypes = function() {
     for (let uname in this.uniforms) {
-        let tval = this.api.evaluateAndVal(this.uniforms[uname].expr);
+        let tval = this.evaluateAndVal(this.uniforms[uname].expr);
         if (!tval["ctype"] || tval["ctype"] === "undefined") {
             cglLogError("can not evaluate:",this.uniforms[uname].expr);
             return false;
@@ -831,6 +839,8 @@ CodeBuilder.prototype.copyRequiredFunctions = function(expr) {
     for (let i in expr['args']) {
         this.copyRequiredFunctions(expr['args'][i]);
     }
+    if(expr['key'] !== undefined)
+      this.copyRequiredFunctions(expr['key']);
 }
 
 
@@ -899,7 +909,7 @@ CodeBuilder.prototype.generatePixelBindings = function(expr) {
         let notassigned = [];
 
         for (let v in free) {
-            if (this.api.nada == this.api.evaluateAndVal({
+            if (this.api.nada == this.evaluateAndVal({
                     "ctype": 'variable',
                     "name": v
                 })) notassigned.push(v);
@@ -1141,7 +1151,7 @@ CodeBuilder.prototype.compile = function(expr, generateTerm) {
 
 
         if (this.variables[it].T.type === 'constant' || arraytype.type === 'constant') {
-            let arrayval = this.api.evaluateAndVal(expr['args'][0]);
+            let arrayval = this.evaluateAndVal(expr['args'][0]);
             for (let i = 0; i < n; i++) {
                 this.variables[it].T = constant(arrayval['value'][i]); //overwrites binding
                 this.typetime++;
@@ -1272,7 +1282,7 @@ CodeBuilder.prototype.compile = function(expr, generateTerm) {
         let fname = expr['oper'];
 
         if (getPlainName(fname) === 'verbatimglsl') {
-            let glsl = this.api.evaluateAndVal(expr['args'][0])['value'];
+            let glsl = this.evaluateAndVal(expr['args'][0])['value'];
             return (generateTerm ? {
                 term: glsl,
                 code: ''
@@ -1562,6 +1572,7 @@ CodeBuilder.prototype.generateColorPlotProgram = function(expr,modifierTypes,mod
 
     this.modifierTypes = modifierTypes;
     this.modifierNames = new Map();
+    this.activeModifiers = {};
     this.readsDepth = false;
     this.writesDepth = false;
 

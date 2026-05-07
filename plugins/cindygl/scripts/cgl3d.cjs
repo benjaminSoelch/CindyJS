@@ -1129,8 +1129,7 @@ cglSurfaceUpdateColor(direction, dst, color) := (
   x = cglRay(direction, dst); // the intersection point in R^3
   normal = normalize(cglNormalExpr:(x));
   pos3d = cglSpacePos+dst*direction;
-  texCoord = cglSurfaceComputeTextureCoords(pos3d,normal);
-  pixelCol = cglPixelExpr:(texCoord,pos3d,normal);
+  pixelCol = cglPixelExpr:(cglSurfaceComputeTextureCoords(pos3d,normal),pos3d,normal);
   color = (1 - cglAlpha) * color + cglAlpha * pixelCol;
   cglLight:(color,direction,normal);
 );
