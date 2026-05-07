@@ -23,10 +23,12 @@
             sx = mouse().x;
             sy = mouse().y;
             dragging = false;
+            zoom = 1;
 
             updateZoom():=(
               if(zoom>5,zoom=5);
               if(zoom<0.2,zoom=0.2);
+              zoom3d(zoom);
             );
         </script>
         <script id="csdraw" type="text/x-cindyscript">

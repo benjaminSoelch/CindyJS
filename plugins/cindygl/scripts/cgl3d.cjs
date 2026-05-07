@@ -60,7 +60,11 @@ cgl3d.zoom = (newScale) => (
 zoom3d(newScale) := cgl3d.zoom:(newScale);
 // TODO: return actual view-rectangle (? move to plugin level)
 cglViewRect():=(
-  [-1,-1,1,1]
+  regional(bounds,p0,p1);
+  bounds = screenbounds();
+  p0 = (bounds_4).xy;
+  p1 = (bounds_2).xy;
+  cgl3d.zoomFactor*[p0_1,p0_2,p1_1,p1_2]
 );
 
 cgl3d.objects = {"opaque": {}, "translucent":{}};
@@ -77,6 +81,7 @@ cgl3d.render = () => (
   cgl3dFinishRender();
 );
 render3d() := cgl3d.render:();
+// TODO? make p0,p1 part of coordinate system
 render3d(p0,p1) := (
   cgl3dStartRender(p0->p0,p1->p1,layers->0);
   cgl3dSetRenderTransform(cgl3d.renderTransform,cgl3d.zoomFactor);
