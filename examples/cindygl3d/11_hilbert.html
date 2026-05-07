@@ -92,7 +92,7 @@
                 sphere3d(p,r1,color->cglColorExpr((spacePos+(1,1,1))/2))
               );
               forall(consecutive(points),l,
-                cylinder3d(l_1,l_2,r2,color->cglColorExpr((spacePos+(1,1,1))/2))
+                cylinder3d((l_1+l_2)/2,(l_2-l_1)/2,r2,color->cglColorExpr((spacePos+(1,1,1))/2))
               )
             );
         </script>

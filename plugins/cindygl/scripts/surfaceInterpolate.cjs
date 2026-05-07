@@ -325,13 +325,13 @@ interpolateSurface(points):=(
   coordPFct = coordsPnFct(degree);
   samples = apply(points,p,coordPFct:(hom(p)));
   // 2. build matrix of samples points & find solution(s) for matrix equation
-  // TODO checking the kernel is slow for large matrices -> find better way to obtain solution in singual case
+  // TODO checking the kernel is slow for large matrices -> find better way to obtain solution in singular case
   if(length(samples) <= length(samples_1)-1,
     print("degree: "+text(degree)+" missing: "+(length(samples_1)-length(samples)-1));
   ,
     print("degree: "+text(degree)+" additional: "+(length(samples)-length(samples_1)+1));
   );
-  // assume that surface coefficents add up to 1
+  // assume that surface coefficients add up to 1
   M = append(samples,apply(samples_1,1));
   b = append(apply(samples,0),1);
   K = linearsolve(transpose(M)*M,transpose(M)*b);
@@ -340,10 +340,10 @@ interpolateSurface(points):=(
   // 5. create surface function from kernel vector
   {
     "degree": degree,
-    "f": lambda((x,y,z),coordP:((x,y,z,1))*cglCoeffVec,coordP->coordPFct),
+    "f": lambda((x,y,z),coordP:[(x,y,z,1)]*cglCoeffVec,coordP->coordPFct),
     "df":  lambda((x,y,z),
       regional(p,n,kx,ky,kz);
-      p = coordP:((x,y,z,1));
+      p = coordP:[(x,y,z,1)];
       n = (0,0,0);
       // kx, ky, kz count how often does x/y/z appear in the coordinates of the current term
       // coordsP... returns the coefficients sorted in lexicographical order, 

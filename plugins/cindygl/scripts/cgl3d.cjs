@@ -2659,7 +2659,7 @@ cglSurface3d(fun) := (
     layers = cglValOrDefault(layers,0);
     // convert function to form taking vector insteads of 3 arguments
     F = lambda(p,fun:( p.x, p.y, p.z),fun->fun);
-    normalExpr = if(isundefined(dF),cgl3d.compute.guessDerivative:(F),lambda(p,dF:(p_1,p_2,p_3)));
+    normalExpr = if(isundefined(dF),cgl3d.compute.guessDerivative:(F),lambda(p,dF:(p_1,p_2,p_3),dF->dF));
     if(isundefined(degree),
       N = min(cglTryDetermineDegree(fun),cglMaxAutoDeg);
       if(isundefined(N),
@@ -2687,7 +2687,6 @@ cglSurface3d(fun) := (
       "cglResolution": 2/min(|viewRect_1-viewRect_3|,|viewRect_2-viewRect_4|)
     };
     modifiers = cglMergeDicts(modifiers,cglValOrDefault(plotModifiers,{}));
-    repeatTexture = cglValOrDefault(repeatTexture,true); // repeat surface texture by default
     hasAlpha = true;
     exprData = cglResolveColorExpr(false,CglColorsIgnore); // do not use alpha-modifier directly in color-expression
     usesAlpha = exprData_"usesAlpha";

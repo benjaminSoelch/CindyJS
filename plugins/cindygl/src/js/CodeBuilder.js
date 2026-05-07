@@ -375,7 +375,13 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
                 }
                 modifierData.used = true;
                 return exprType.value;
-            } else if (variables[exprName] && variables[exprName].T && variables[exprName].T.type === 'lambda') {
+            } else if (self.activeModifiers[exprName] !== undefined) {
+                let modVal = self.activeModifiers[exprName];
+                if (modVal['ctype'] !== 'lambda'){
+                    return undefined;
+                }
+                return modVal;
+            }else if (variables[exprName] && variables[exprName].T && variables[exprName].T.type === 'lambda') {
                 return variables[exprName].T.value;
             }
         }

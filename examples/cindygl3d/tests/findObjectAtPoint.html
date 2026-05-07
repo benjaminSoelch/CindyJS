@@ -3,9 +3,9 @@
     <head>
         <meta charset="utf-8" />
         <title>Cindy JS</title>
-        <script type="text/javascript" src="../../build/js/Cindy.js"></script>
-        <script type="text/javascript" src="../../build/js/CindyGL.js"></script>
-        <link rel="stylesheet" href="../../css/cindy.css" />
+        <script type="text/javascript" src="../../../build/js/Cindy.js"></script>
+        <script type="text/javascript" src="../../../build/js/CindyGL.js"></script>
+        <link rel="stylesheet" href="../../../css/cindy.css" />
     </head>
 
     <body style="font-family: Arial">
@@ -25,7 +25,7 @@
             dragging = false;
             phi=(1+sqrt(5))/2;
 
-            s=1.4;
+            s=0.7;
             r1=.3;
             r2=.2;
             col=[1,0,0];
@@ -34,14 +34,14 @@
 
             drawOctahedron():=(
               forall((1,-1),x,
-                sphere3d([s*x,0,0],r1,color->col);
+                sphere3d([2*s*x,0,0],r1,color->col);
                 forall((1,-1),y,
-                  sphere3d([0,s*y,0],r1,color->col);
-                  cylinder3d([s*x,0,0],[0,s*y,0],r2,color->col);
+                  sphere3d([0,2*s*y,0],r1,color->col);
+                  cylinder3d([s*x,s*y,0],[-s*x,s*y,0],r2,color->col);
                   forall((1,-1),z,
-                    sphere3d([0,0,s*z],r1,color->col);
-                    cylinder3d([s*x,0,0],[0,0,s*z],r2,color->col);
-                    cylinder3d([0,s*y,0],[0,0,s*z],r2,color->col);
+                    sphere3d([0,0,2*s*z],r1,color->col);
+                    cylinder3d([s*x,0,s*z],[-s*x,0,s*z],r2,color->col);
+                    cylinder3d([0,s*y,s*z],[0,-s*y,s*z],r2,color->col);
                   );
                 );
               );
@@ -91,7 +91,7 @@
                     },
                 ],
                 import: {
-                    "init": ["../../plugins/cindygl/scripts/cgl3d.cjs"]
+                    "init": ["../../../plugins/cindygl/scripts/cgl3d.cjs"]
                 }
             });
         </script>

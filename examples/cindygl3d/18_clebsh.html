@@ -23,7 +23,7 @@
             dragging = false;
             zoom = 1.0;
 
-            cglDefaults_"cylinderCaps"=CylinderCapRound;
+            cgl3d.defaults:"cylinderCaps"=cgl3d.cylinderCap.round;
             a = 0.25;
             b = -0.25;
             c = 0.25;
@@ -104,7 +104,7 @@
                 r2 = b*b-c;
                 if(r2>0,
                   r = sqrt(r2);
-                  cylinder3d(m-(b+r)*v,m-(b-r)*v,0.5*pointSize,color->color);
+                  cylinder3d(m-b*v,r*v,0.5*pointSize,color->color);
                 );
               );
             );
@@ -122,12 +122,12 @@
                 radius = min(|x1-x0|,|y1-y0|)/2;
                 reset3d();
                 if(alpha>0,
-                  surface3d(clebsh(x,y,z),alpha->alpha,color->cglYellow,colorBack->cglCyan,layers->3);
+                  surface3d(clebsh(x,y,z),alpha->alpha,color->"yellow",colorBack->"cyan",layers->3);
                 );
                 if(pointSize>0,
-                  forall(lns1,l,line5d(l,cglRed));
-                  forall(lns2,l,line5d(l,cglBlue));
-                  forall(pts1,p,point5d(p,cglWhite));
+                  forall(lns1,l,line5d(l,"red"));
+                  forall(lns2,l,line5d(l,"blue"));
+                  forall(pts1,p,point5d(p,"white"));
                 );
                 // TODO? draw blue+blue and blue+red intersections
             );
