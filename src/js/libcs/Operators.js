@@ -4860,6 +4860,7 @@ function infix_lambda(args, modifs) {
         body: args[1],
         params: params,
         modifs: modValues,
+        declarationScope: namespace.scopeId,
     };
 }
 evaluator.islambda$1 = function (args, modifs) {

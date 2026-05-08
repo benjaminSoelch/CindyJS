@@ -211,6 +211,8 @@ function evalfunction(params, body, args, modifs) {
     Object.entries(modifs).forEach(function ([key, value]) {
         modValues[key] = evaluate(value);
     });
+    const oldScope = namespace.scopeId;
+    namespace.scopeId = namespace.nextScopeId();
     for (i = 0; i < params.length; i++) {
         namespace.newvar(params[i].name);
         namespace.setvar(params[i].name, set[i]);
@@ -227,10 +229,7 @@ function evalfunction(params, body, args, modifs) {
             erg.modifs[key] = namespace.getvar(key);
         }
     };
-    // FIXME: only capture if lambda is local to scope
-    // temporarily disabled capturing due to problems with invalid capture-state
-    let shouldCapture = false && erg.ctype === "lambda";
-    if (shouldCapture) {
+    if (erg.ctype === "lambda" && erg.declarationScope === namespace.scopeId) {
         namespace.forEachLocal(captureVar);
     }
     namespace.cleanVstack();
@@ -241,9 +240,11 @@ function evalfunction(params, body, args, modifs) {
     });
 
     for (i = 0; i < params.length; i++) {
-        if (shouldCapture) captureVar(params[i].name);
+        if (erg.ctype === "lambda" && erg.declarationScope === namespace.scopeId) captureVar(params[i].name);
         namespace.removevar(params[i].name);
     }
+    namespace.scopeId = oldScope;
+
     return erg;
 }
 function evalmyfunctions(name, args, modifs) {
