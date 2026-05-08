@@ -539,7 +539,28 @@ function parseRec(tokens, closing) {
                     }
                     lst.push(expr);
                 }
-                if (!(seq.length & 1)) {
+                if (seq.length > 1 && seq[seq.length - 1].toktype == "OP" && seq[seq.length - 1].text == ".") {
+                    // dot call
+                    if (pair !== "()") throw ParseError("only (…) is defined for dot-call.", tok.start);
+                    const callOp = seq.pop();
+                    const baseOp = seq[seq.length - 1];
+                    callOp.ctype = "invokelambda";
+                    callOp.obj = baseOp;
+                    const args = (callOp.args = []);
+                    const modifs = (callOp.modifs = {});
+                    // TODO: avoid duplicate code with normal call
+                    for (const elt of lst) {
+                        if (elt && elt.ctype === "infix" && elt.oper === "->") {
+                            const id = elt.args[0];
+                            if (id.ctype !== "variable")
+                                throw ParseError("Modifier name must be an identifier", elt.start);
+                            modifs[id.name] = elt.args[1];
+                        } else {
+                            args.push(elt);
+                        }
+                    }
+                    seq[seq.length - 1] = callOp;
+                } else if (!(seq.length & 1)) {
                     // value position
                     if (pair === "||") {
                         if (lst.length === 1) {
@@ -760,6 +781,14 @@ Parser.prototype.postprocess = function (expr) {
             ctype: "jsonatom",
             key: expr.key,
             value: expr.value,
+        };
+    }
+    if (expr.ctype === "invokelambda") {
+        return {
+            ctype: "invokelambda",
+            obj: this.postprocess(expr.obj),
+            args: expr.args,
+            modifs: expr.modifs,
         };
     }
     throw Error("Unsupported AST node of type " + expr.ctype);
