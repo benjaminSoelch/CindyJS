@@ -4862,7 +4862,7 @@ function infix_lambda(args, modifs) {
         modifs: modValues,
         declarationScope: namespace.scopeId,
     };
-}
+};
 evaluator.islambda$1 = function (args, modifs) {
     const v0 = evaluate(args[0]);
     if (v0.ctype === "lambda") {
