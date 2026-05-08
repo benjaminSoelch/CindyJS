@@ -215,8 +215,8 @@ function evalfunction(params, body, args, modifs) {
             erg.modifs[key] = namespace.getvar(key);
         }
     };
-    if (erg.ctype === "lambda") {
-        namespace.forEachLocal(captureVar);
+    if (erg.ctype === "lambda" && erg.captures !== undefined) {
+        erg.captures.forEach(captureVar);
     }
     namespace.cleanVstack();
 
@@ -226,9 +226,10 @@ function evalfunction(params, body, args, modifs) {
     });
 
     for (i = 0; i < params.length; i++) {
-        if (erg.ctype === "lambda") captureVar(params[i].name);
+        if (erg.ctype === "lambda" && erg.captures) captureVar(params[i].name);
         namespace.removevar(params[i].name);
     }
+    if (erg.ctype === "lambda") delete erg.captures; // no captures on returned lambda
     return erg;
 }
 function evalmyfunctions(name, args, modifs) {
