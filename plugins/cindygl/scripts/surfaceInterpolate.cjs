@@ -323,7 +323,7 @@ interpolateSurface(points):=(
   degree = min(maxDegree,degree);
   // 1. convert samples to d-th power coordinates
   coordPFct = coordsPnFct(degree);
-  samples = apply(points,p,coordPFct:(hom(p)));
+  samples = apply(points,p,coordPFct.(hom(p)));
   // 2. build matrix of samples points & find solution(s) for matrix equation
   // TODO checking the kernel is slow for large matrices -> find better way to obtain solution in singular case
   if(length(samples) <= length(samples_1)-1,
@@ -340,10 +340,10 @@ interpolateSurface(points):=(
   // 5. create surface function from kernel vector
   {
     "degree": degree,
-    "f": lambda((x,y,z),coordP:[(x,y,z,1)]*cglCoeffVec,coordP->coordPFct),
+    "f": lambda((x,y,z),coordP.((x,y,z,1))*cglCoeffVec,coordP->coordPFct),
     "df":  lambda((x,y,z),
       regional(p,n,kx,ky,kz);
-      p = coordP:[(x,y,z,1)];
+      p = coordP.((x,y,z,1));
       n = (0,0,0);
       // kx, ky, kz count how often does x/y/z appear in the coordinates of the current term
       // coordsP... returns the coefficients sorted in lexicographical order, 

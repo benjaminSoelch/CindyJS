@@ -275,15 +275,14 @@ CodeBuilder.prototype.computeType = function(expr) { //expression
             }
             return implementation ? implementation.res : false;
         }
+    } else if (expr['ctype'] === 'invokelambda') {
+        return generalize(this.getType(expr['obj']));
     } else if (expr['ctype'] === 'userdata') {
         let baseType = generalize(this.getType(expr['obj']));
         if (!baseType) return false;
-        if (expr.params !== undefined) {// lambdaExpression
-            return generalize(this.getType(expr['obj']));
-        }
         let key = expr['key'];
         if (baseType.type !== 'tuple' || baseType.names === undefined) {
-            cglLogError("element access is only supported on JSON and lambda values");
+            cglLogError("element access is only supported on JSON values");
             cglLogDebug(baseType);
             return false;
         }
@@ -322,18 +321,16 @@ CodeBuilder.prototype.evaluateAndVal = function(expr) {
         return this.api.evaluateAndVal(expr);
     }
     let exprWithModifs = {
-        "ctype": "userdata",
+        "ctype": "invokelambda",
         "obj":{
             "ctype": "lambda",
             "body": expr,
             "params": [],
             "modifs": this.activeModifiers
         },
-        "key": {
-            "ctype":"list",
-            "value":[]
-        }
-    }
+        "args": [],
+        "modifs": {},
+    };
     return this.api.evaluateAndVal(exprWithModifs);
 }
 
@@ -363,7 +360,10 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
         return ans;
     }
 
-    function tryGetLambdaData(lambdaExpr,forceLambda) {
+    function resolveLambdaData(expr, bindings, scope, forceconstant) {
+        let lambdaExpr = expr['obj'];
+        let argsExpr = expr['key'];
+        let exprData = undefined;
         if(lambdaExpr['ctype'] === 'variable'){
             let exprName = lambdaExpr['name'];
             exprName = bindings[exprName] || exprName;
@@ -374,49 +374,21 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
                     return;
                 }
                 modifierData.used = true;
-                return exprType.value;
+                exprData = exprType.value;
             } else if (self.activeModifiers[exprName] !== undefined) {
                 let modVal = self.activeModifiers[exprName];
-                if (modVal['ctype'] !== 'lambda'){
-                    return undefined;
-                }
-                return modVal;
-            }else if (variables[exprName] && variables[exprName].T && variables[exprName].T.type === 'lambda') {
-                return variables[exprName].T.value;
+                if (modVal['ctype'] !== 'lambda'){ return; }
+                exprData = modVal;
+            } else if (variables[exprName] && variables[exprName].T && variables[exprName].T.type === 'lambda') {
+                exprData = variables[exprName].T.value;
             }
         }
-        if (!forceLambda){
-            console.log(lambdaExpr);
-            return undefined;
-        }
-        let val = self.evaluateAndVal(lambdaExpr);
-        if(val['ctype'] !== 'lambda'){
-            return undefined;
-        }
-        return val;
-    }
-
-    function resolveLambdaData(expr, bindings, scope, forceconstant) {
-        let lambdaExpr = expr['obj'];
-        let argsExpr = expr['key'];
-        let args;
-        let forceLambda = true;
-        if(argsExpr['ctype'] === 'list') {
-            args = argsExpr['value'];
-        } else if(argsExpr['ctype'] === 'function' && argsExpr['oper'].toLowerCase() === "genlist") {
-            args = argsExpr['args'];
-        } else if(argsExpr['ctype'] === 'void') {
-            args = [];
-        } else {
-            args = [argsExpr];
-            forceLambda = argsExpr['ctype'] !== 'string'; // only const-string allowed for JSON-key
-        }
-        let exprData = tryGetLambdaData(lambdaExpr,forceLambda);
-        if (!exprData) return;
-        if (args.length !== exprData['params'].length){
+        if(exprData === undefined) exprData = self.evaluateAndVal(lambdaExpr);
+        if(exprData['ctype'] !== 'lambda'){ return;}
+        if (expr['args'].length !== exprData['params'].length){
             cglLogError(`wrong number of arguments for lambda function expected ${
                 exprData['params'].length
-            } got ${args.length}`);
+            } got ${expr['args'].length}`);
             return;
         }
         const localScope = scope != 'global' ? scope : '_main';
@@ -446,11 +418,10 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
             if (!myfunctions[localScope].variables) myfunctions[localScope].variables = [];
             myfunctions[localScope].variables.push(iname);
             self.initvariable(iname, false);
-            variables[iname].assigments.push(args[index]);
+            variables[iname].assigments.push(expr['args'][index]);
         });
         // clone expression to allow more than one instantiation
         expr['obj'] = cloneExpression(exprData['body']);
-        expr.args = args;
         // expression added to code in indirect way -> some functions may not yet have been copied
         self.copyRequiredFunctions(expr['obj']);
         expr.params = exprData['params'].map(param=>{
@@ -477,16 +448,11 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
     //dfs over executed code
     function rec(expr, bindings, scope, forceconstant) {
         expr.bindings = bindings;
-        if (expr['ctype'] === 'userdata') {
-            rec(expr['obj'], bindings, scope, forceconstant);
-            rec(expr['key'], bindings, scope, forceconstant);
-            resolveLambdaData(expr,bindings,scope,forceconstant);
-        }
         // TODO? add support for: sum$2, sum$3, product$2, product$3
         for (let i in expr['args']) {
             let needtobeconstant = forceconstant || (expr['oper'] === "repeat$2" && i == 0) || (expr['oper'] === "repeat$3" && i == 0) || (expr['oper'] === "_" && i == 1);
             let nbindings = bindings;
-            if (["repeat", "forall", "apply"].indexOf(getPlainName(expr['oper'])) !== -1) {
+            if (expr['oper'] !== undefined && ["repeat", "forall", "apply"].indexOf(getPlainName(expr['oper'])) !== -1) {
                 if (i == 1) {
                     nbindings = (expr['oper'] === "repeat$2") ? addvar(bindings, '#', type.int) :
                         (expr['oper'] === "repeat$3") ? addvar(bindings, expr['args'][1]['name'], type.int) :
@@ -501,7 +467,14 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
                 scope,
                 needtobeconstant);
         }
+        if (expr['ctype'] === 'invokelambda') {
+            resolveLambdaData(expr,bindings,scope,forceconstant);
+        }
         if (expr['ctype'] === 'field') rec(expr['obj'], bindings, scope, forceconstant);
+        if (expr['ctype'] === 'userdata') {
+            rec(expr['obj'], bindings, scope, forceconstant);
+            rec(expr['key'], bindings, scope, forceconstant);;
+        }
         if (expr['ctype'] === 'jsonatom') rec(expr['value'], bindings, scope, forceconstant);
 
         if (expr['ctype'] === 'variable') {
@@ -746,6 +719,9 @@ CodeBuilder.prototype.determineUniforms = function(expr) {
         if (expr['ctype'] === 'userdata') {
             return expr["dependsOnPixel"] = dependsOnPixel(expr['obj']) || dependsOnPixel(expr['key']);
         }
+        if (expr['ctype'] === 'invokelambda') {
+            return expr["dependsOnPixel"] = dependsOnPixel(expr['obj']);
+        }
         if (expr['ctype'] === 'jsonatom') {
             return expr["dependsOnPixel"] = dependsOnPixel(expr['value']);
         }
@@ -764,10 +740,12 @@ CodeBuilder.prototype.determineUniforms = function(expr) {
             if (expr['ctype'] === 'field') {
                 computeUniforms(expr['obj'], forceconstant);
             }
+            if (expr['ctype'] === 'invokelambda') {
+                computeUniforms(expr['obj'], forceconstant);
+            }
             if (expr['ctype'] === 'userdata') {
                 computeUniforms(expr['obj'], forceconstant);
-                if (dependsOnPixel(expr['key']) || expr['key']['ctype'] === 'string' || expr['key']['ctype'] === 'variable')
-                    computeUniforms(expr['key'], forceconstant);
+                computeUniforms(expr['key'], forceconstant);
             }
             if (expr['ctype'] === 'jsonatom') {
                 computeUniforms(expr['value'], forceconstant);
@@ -876,6 +854,9 @@ CodeBuilder.prototype.generatePixelBindings = function(expr) {
         }
 
         if (expr['ctype'] === 'field') {
+            rec(expr['obj'], bounded);
+        }
+        if (expr['ctype'] === 'invokelambda') {
             rec(expr['obj'], bounded);
         }
         if (expr['ctype'] === 'userdata') {
@@ -1436,48 +1417,47 @@ CodeBuilder.prototype.compile = function(expr, generateTerm) {
                 code: `${term};\n`
             });
         }
-    } else if (expr['ctype'] === 'userdata') {
-        if (expr.params !== undefined) {
-            let code = "";;
-            let args = expr.args;
-            // assign arguments to parameters
-            expr.params.forEach((param,index)=>{
-                if(param['inline'])return;// skip inlined parameters
-                code+=this.compile(opAssign(param,args[index]),false).code;
-            });
-            // assign values to modifiers
-            expr.modifs.forEach(([key,value,bindings])=>{
-                if(value['ctype']==='lambda')
-                    return; // skip textures and lambda values
-                if(value['ctype']==='string' || value['ctype']==='image') {
-                    // TODO? seperate map for image uniforms
-                    // create fake uniform variable to make image information accessible to TextureReader
-                    this.uniforms[bindings[key] || key] = {
-                        expr: value,
-                        type: type.image,
-                        forceconstant: false
-                    };
-                    return;
-                }
-                code+=this.compile(opAssign({ctype:'variable',name:key,bindings:bindings},value),false).code;
-            });
-            // evaluate lambda expression
-            let result = this.compile(expr["obj"],generateTerm);
-            // store computed result in variable to ensure correct evaluation order for multiple lambda-calls in single expression
-            if(result.term) {
-                let resType = this.getType(expr["obj"]);
-                if(result.term && resType !== type.voidt) {
-                    result.code += `${expr.resName} = ${result.term};\n`;
-                    result.term = expr.resName;
-                } else {
-                    result.code += result.term;
-                    result.term = "";
-                }
+    } else if (expr['ctype'] === 'invokelambda') {
+        let code = "";
+        let args = expr['args'];
+        // assign arguments to parameters
+        expr.params.forEach((param,index)=>{
+            if(param['inline'])return;// skip inlined parameters
+            code+=this.compile(opAssign(param,args[index]),false).code;
+        });
+        // assign values to modifiers
+        expr.modifs.forEach(([key,value,bindings])=>{
+            if(value['ctype']==='lambda')
+                return; // skip textures and lambda values
+            if(value['ctype']==='string' || value['ctype']==='image') {
+                // TODO? seperate map for image uniforms
+                // create fake uniform variable to make image information accessible to TextureReader
+                this.uniforms[bindings[key] || key] = {
+                    expr: value,
+                    type: type.image,
+                    forceconstant: false
+                };
+                return;
             }
-            // insert assignemnt code before expression code
-            result.code = code+result.code;
-            return result;
+            code+=this.compile(opAssign({ctype:'variable',name:key,bindings:bindings},value),false).code;
+        });
+        // evaluate lambda expression
+        let result = this.compile(expr["obj"],generateTerm);
+        // store computed result in variable to ensure correct evaluation order for multiple lambda-calls in single expression
+        if(result.term) {
+            let resType = this.getType(expr["obj"]);
+            if(result.term && resType !== type.voidt) {
+                result.code += `${expr.resName} = ${result.term};\n`;
+                result.term = expr.resName;
+            } else {
+                result.code += result.term;
+                result.term = "";
+            }
         }
+        // insert assignemnt code before expression code
+        result.code = code+result.code;
+        return result;
+    } else if (expr['ctype'] === 'userdata') {
         let objt = this.getType(expr['obj']);
         let key = expr['key'].value;
         if (!objt || objt.names === undefined) {

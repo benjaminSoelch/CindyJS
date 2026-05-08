@@ -78,7 +78,7 @@ cglCubesSimplex(p1,p2,p3,p4,k):=(
     regional(f1,f2,p,id,i,sign,triangles,q1,q2,q12,f12);
     id = 0;
     forall((p1,p2,p3,p4),p,
-    sign = expr:(p_1,p_2,p_3)<0;
+    sign = expr.(p_1,p_2,p_3)<0;
     id = 2*id + if(sign,1,0);
     );
     triangles = cglCubesLookup(id);
@@ -104,8 +104,8 @@ cglCubesSimplex(p1,p2,p3,p4,k):=(
         q1 = p3; q2 = p4;
         ))
     );
-    f1 = expr:(q1_1,q1_2,q1_3);
-    f2 = expr:(q2_1,q2_2,q2_3);
+    f1 = expr.(q1_1,q1_2,q1_3);
+    f2 = expr.(q2_1,q2_2,q2_3);
     // FIXME: in some rare cases points f(q1) and f(q2) have same sign
     //   this seems to happen when the value at one (or both) of the vertices is close to zero
     //   using linear approximation in these cases removed most of the artifacts
@@ -113,7 +113,7 @@ cglCubesSimplex(p1,p2,p3,p4,k):=(
         // bisection search
         forall(1..4,
         q12 = (q1+q2)/2;
-        f12 = expr:(q12_1,q12_2,q12_3);
+        f12 = expr.(q12_1,q12_2,q12_3);
         if((f1<0)!=(f12<0),
             q2 = q12; f2 = f12;
         ,

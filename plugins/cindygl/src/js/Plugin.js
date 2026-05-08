@@ -1058,7 +1058,7 @@ let CindyGL = function(api) {
     function tryResolveLambda(value) {
         // lambda can only be the result of evaluating a variable, function, user-data or element-access
         if(value['ctype'] === "variable" || value['ctype'] === "function" || value['ctype'] === "userdata"
-                || (value['ctype'] === "infix" && value['oper'] === '_'))
+                || value['ctype'] === "field" || (value['ctype'] === "infix" && value['oper'] === '_'))
             value = tryEvaluate(value,api,value);
         if(value['ctype'] === 'lambda') {
             return value;

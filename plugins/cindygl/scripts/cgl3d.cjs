@@ -53,11 +53,11 @@ cgl3d.rotate = (alpha,beta) => (
   ];
   self().renderTransform = self().renderTransform * rotY * rotZ;
 );
-rotate3d(alpha,beta) := cgl3d.rotate:(alpha,beta);
+rotate3d(alpha,beta) := cgl3d.rotate.(alpha,beta);
 cgl3d.zoom = (newScale) => (
   self().zoomFactor = newScale;
 );
-zoom3d(newScale) := cgl3d.zoom:(newScale);
+zoom3d(newScale) := cgl3d.zoom.(newScale);
 // TODO: return actual view-rectangle (? move to plugin level)
 cglViewRect():=(
   regional(bounds,p0,p1);
@@ -72,7 +72,7 @@ cgl3d.resetObjects = () => (
   self().objects.opaque = {};
   self().objects.translucent = {};
 );
-reset3d() := cgl3d.resetObjects:();
+reset3d() := cgl3d.resetObjects.();
 cgl3d.render = () => (
   cgl3dStartRender(layers->0); // TODO set layers to 2 if there are translucent objects
   cgl3dSetRenderTransform(cgl3d.renderTransform,cgl3d.zoomFactor);
@@ -80,7 +80,7 @@ cgl3d.render = () => (
   cgl3dRenderTranslucent(self().objects.translucent);
   cgl3dFinishRender();
 );
-render3d() := cgl3d.render:();
+render3d() := cgl3d.render.();
 // TODO? make p0,p1 part of coordinate system
 render3d(p0,p1) := (
   cgl3dStartRender(p0->p0,p1->p1,layers->0);
@@ -236,7 +236,7 @@ cgl3d.compute.sphereNormal = (direction,center,isBack) => (
   );*/
   if(isBack,dst=dst2);
   pos3d = cglSpacePos+ dst*direction;
-  cgl3d.compute.pixelDepth:(dst,direction);
+  cgl3d.compute.pixelDepth.(dst,direction);
   normalize(pos3d - center);
 );
 cgl3d.compute.sphereDepths = (rayStart,direction,center,radius) => (
@@ -272,10 +272,10 @@ cgl3d.projection.sphereEquirect = (normal) => (
 
 cgl3d.shader.sphere = (direction,isBack) => (
   regional(normal,texturePos,color);
-  normal = cgl3d.compute.sphereNormal:(direction,cglCenter,isBack);
-  texturePos = cglProjection:(normal);
-  color = cglPixelExpr:(texturePos,cglSpacePos + cglRawDepth*direction,normal);
-  cglLight:(color,direction,normal);
+  normal = cgl3d.compute.sphereNormal.(direction,cglCenter,isBack);
+  texturePos = cglProjection.(normal);
+  color = cglPixelExpr.(texturePos,cglSpacePos + cglRawDepth*direction,normal);
+  cglLight.(color,direction,normal);
 );
 
 /////////////////////
@@ -360,7 +360,7 @@ cglCylinderProjGetDirection1Default = lambda((normal,height,orientation),
 // assumes that normal is normalized, and height is in the range -1..1
 cgl3d.projection.cylinder = (normal,height,orientation) => (
   regional(d1,d2);
-  d1 = cglCylinderProjGetDirection1:(normal,height,orientation);
+  d1 = cglCylinderProjGetDirection1.(normal,height,orientation);
   d2 = -normalize(cross(orientation,d1));
   ((arctan2(d1*normal,d2*normal)+pi)/(2*pi),0.5*(height+1));
 );
@@ -375,7 +375,7 @@ cglCapOpenShaderNoBack = lambda((direction,cylinderDepths,delta,U,cutVector),
     v2 = (cglSpacePos+cylinderDepths_2*direction)-cglCenter;
     delta2 = v2*cutVector;
     if(delta2*delta>1,cglDiscard());
-    cgl3d.compute.pixelDepth:(cylinderDepths_2,direction);
+    cgl3d.compute.pixelDepth.(cylinderDepths_2,direction);
     normal = normalize(v2-delta2*cglOrientation);
     (normal_1,normal_2,normal_3,delta2);
 );
@@ -383,13 +383,13 @@ cglCapOpenShaderBack = cglCapVoidShader;
 cglCapRoundShaderFront = lambda((direction,cylinderDepths,delta,U,cutVector),
     regional(m,normal);
     m = cglCenter+delta*cglOrientation;
-    normal = cgl3d.compute.sphereNormal:(direction,m,false);
+    normal = cgl3d.compute.sphereNormal.(direction,m,false);
     (normal_1,normal_2,normal_3,delta);
 );
 cglCapRoundShaderBack = lambda((direction,cylinderDepths,delta,U,cutVector),
     regional(m,normal);
     m = cglCenter+delta*cglOrientation;
-    normal = cgl3d.compute.sphereNormal:(direction,m,true);
+    normal = cgl3d.compute.sphereNormal.(direction,m,true);
     (normal_1,normal_2,normal_3,delta);
 );
 cglCapFlatShaderFront = lambda((direction,cylinderDepths,delta,U,cutVector),
@@ -398,7 +398,7 @@ cglCapFlatShaderFront = lambda((direction,cylinderDepths,delta,U,cutVector),
     // <v + a*d,o> = <m,o>
     a = (m*cglOrientation-cglSpacePos*cglOrientation)/(direction*cglOrientation);
     if(|cglSpacePos + a*direction - m| > cglRadius,cglDiscard());
-    cgl3d.compute.pixelDepth:(a,direction);
+    cgl3d.compute.pixelDepth.(a,direction);
     normal = normalize(cglOrientation*delta);
     (normal_1,normal_2,normal_3,delta)
 );
@@ -408,7 +408,7 @@ cglCapFlatShaderBack = lambda((direction,cylinderDepths,delta,U,cutVector),
     // <v + a*d,o> = <m,o>
     a = (m*cglOrientation-cglSpacePos*cglOrientation)/(direction*cglOrientation);
     if(|cglSpacePos + a*direction - m| > cglRadius,cglDiscard());
-    cgl3d.compute.pixelDepth:(a,direction);
+    cgl3d.compute.pixelDepth.(a,direction);
     normal = -normalize(cglOrientation*delta);
     (normal_1,normal_2,normal_3,delta)
 );
@@ -420,7 +420,7 @@ cglCapAngleFlatShaderFront = lambda((direction,cylinderDepths,delta,U,cutVector)
     p = cglSpacePos + a*direction;
     o = normalize(cglOrientation);
     if(|p-m - ((p-m)*o)*o| > cglRadius,cglDiscard());
-    cgl3d.compute.pixelDepth:(a,direction);
+    cgl3d.compute.pixelDepth.(a,direction);
     normal = delta*normalize(cutVector);
     delta = (p-cglCenter)*U;
     (normal_1,normal_2,normal_3,delta)
@@ -433,21 +433,21 @@ cglCapAngleFlatShaderBack = lambda((direction,cylinderDepths,delta,U,cutVector),
     p = cglSpacePos + a*direction;
     o = normalize(cglOrientation);
     if(|p-m - ((p-m)*o)*o| > cglRadius,cglDiscard());
-    cgl3d.compute.pixelDepth:(a,direction);
+    cgl3d.compute.pixelDepth.(a,direction);
     normal = -delta*normalize(cutVector);
     delta = (p-cglCenter)*U;
     (normal_1,normal_2,normal_3,delta)
 );
 cglCapAngleVoidRoundShaderFront = lambda((direction,cylinderDepths,delta,U,cutVector),
   regional(res,v2);
-  res = cglCapRoundShaderFront:(direction,cylinderDepths,delta,U,cutVector);
+  res = cglCapRoundShaderFront.(direction,cylinderDepths,delta,U,cutVector);
   v2 = cglSpacePos + cglRawDepth * direction - cglCenter;
   if((delta*(v2*cutVector)>1) % (delta*(v2*U)<1),cglDiscard());
   res
 );
 cglCapAngleVoidRoundShaderBack = lambda((direction,cylinderDepths,delta,U,cutVector),
   regional(res,v2);
-  res = cglCapRoundShaderBack:(direction,cylinderDepths,delta,U,cutVector);
+  res = cglCapRoundShaderBack.(direction,cylinderDepths,delta,U,cutVector);
   v2 = cglSpacePos + cglRawDepth * direction - cglCenter;
   if((delta*(v2*cutVector)>1) % (delta*(v2*U)<1),cglDiscard());
   res
@@ -467,10 +467,10 @@ cglCapCutFlat2 = lambda((v2,U),
 );
 cglCapCutRound1 = lambda((v2,U),
   // v2 = pos3d - center ->  pos3d - m = v2 + center - (center-orientation) = v2 - orientation
-  cglCapCutFlat1:(v2,U) & (|v2 + cglOrientation| > cglRadius)
+  cglCapCutFlat1.(v2,U) & (|v2 + cglOrientation| > cglRadius)
 );
 cglCapCutRound2 = lambda((v2,U),
-  cglCapCutFlat2:(v2,U) & (|v2 - cglOrientation| > cglRadius)
+  cglCapCutFlat2.(v2,U) & (|v2 - cglOrientation| > cglRadius)
 );
 cglCapCutAngle1 = lambda((v2,U),
   v2*cglCutDir1<-1
@@ -479,10 +479,10 @@ cglCapCutAngle2 = lambda((v2,U),
   v2*cglCutDir2>1
 );
 cglCapCutAngleRound1 = lambda((v2,U),
-  cglCapCutRound1:(v2,U) % cglCapCutAngle1:(v2,U);
+  cglCapCutRound1.(v2,U) % cglCapCutAngle1.(v2,U);
 );
 cglCapCutAngleRound2 = lambda((v2,U),
-  cglCapCutRound2:(v2,U) % cglCapCutAngle2:(v2,U);
+  cglCapCutRound2.(v2,U) % cglCapCutAngle2.(v2,U);
 );
 
 // wrap getting cut-normal in lambda-function to save uniform variable in case where normal is not needed
@@ -523,135 +523,135 @@ cgl3d.connect.flat = 1; // feature TODO? better name
 // feature TODO? separate projection for end-caps
 cgl3d.shader.cylinder = (direction) => (
   regional(l,BA,U,v1,delta,normalAndHeight,v2,normal,texturePos,color,pos3d);
-  l = cgl3d.compute.cylinderDepths:(direction);
+  l = cgl3d.compute.cylinderDepths.(direction);
   BA = cglOrientation;
   U = BA/(BA*BA);
   v1 = (cglSpacePos+l_1*direction)-cglCenter;
   delta = (v1*U);
-  if(cglCut1:(delta,v1)<-1, // cap1
+  if(cglCut1.(delta,v1)<-1, // cap1
     // opt TODO? is there a less nested algorithm for correctly handling intersecting end-caps
-    if(cglCut2:(delta,v1)>1, // cap1 & cap2
+    if(cglCut2.(delta,v1)>1, // cap1 & cap2
       // -> pick cut that is further from viewPosition
       // <v + a*d,n> = <m,n>
-      cutVector1=cglGetCutVector1:(U);
-      cutVector2=cglGetCutVector2:(U);
+      cutVector1=cglGetCutVector1.(U);
+      cutVector2=cglGetCutVector2.(U);
       a1 = ((cglCenter-cglOrientation)*cutVector1-cglSpacePos*cutVector1)/(direction*cutVector1);
       a2 = ((cglCenter+cglOrientation)*cutVector2-cglSpacePos*cutVector2)/(direction*cutVector2);
       if(a1<a2,
-        normalAndHeight = cglCap2front:(direction,l,1,U,cglGetCutVector2:(U));
+        normalAndHeight = cglCap2front.(direction,l,1,U,cglGetCutVector2.(U));
         v2 = cglSpacePos + cglRawDepth*direction - cglCenter;
-        if(cglCapCut1:(v2,U), // cap1 and cap2
-          normalAndHeight = cglCap1front:(direction,l,-1,U,cglGetCutVector1:(U));
+        if(cglCapCut1.(v2,U), // cap1 and cap2
+          normalAndHeight = cglCap1front.(direction,l,-1,U,cglGetCutVector1.(U));
           v2 = cglSpacePos + cglRawDepth*direction - cglCenter;
-          if(cglCapCut2:(v2,U),cglDiscard()); // both intersections with caps are cut of by other cap
+          if(cglCapCut2.(v2,U),cglDiscard()); // both intersections with caps are cut of by other cap
         );
       ,
-        normalAndHeight = cglCap1front:(direction,l,-1,U,cglGetCutVector1:(U));
+        normalAndHeight = cglCap1front.(direction,l,-1,U,cglGetCutVector1.(U));
         v2 = cglSpacePos + cglRawDepth*direction - cglCenter;
-        if(cglCapCut2:(v2,U), // cap1 and cap2
-          normalAndHeight = cglCap2front:(direction,l,1,U,cglGetCutVector2:(U));
+        if(cglCapCut2.(v2,U), // cap1 and cap2
+          normalAndHeight = cglCap2front.(direction,l,1,U,cglGetCutVector2.(U));
           v2 = cglSpacePos + cglRawDepth*direction - cglCenter;
-          if(cglCapCut1:(v2,U),cglDiscard()); // both intersections with caps are cut of by other cap
+          if(cglCapCut1.(v2,U),cglDiscard()); // both intersections with caps are cut of by other cap
         );
       );
     ,
-      normalAndHeight = cglCap1front:(direction,l,-1,U,cglGetCutVector1:(U));
+      normalAndHeight = cglCap1front.(direction,l,-1,U,cglGetCutVector1.(U));
       v2 = cglSpacePos + cglRawDepth*direction - cglCenter;
       // opt TODO? omit check for second cap if both caps are cut orthogonal to cylinder
-      if(cglCapCut2:(v2,U), // cap1 and cap2
-        normalAndHeight = cglCap2front:(direction,l,1,U,cglGetCutVector2:(U));
+      if(cglCapCut2.(v2,U), // cap1 and cap2
+        normalAndHeight = cglCap2front.(direction,l,1,U,cglGetCutVector2.(U));
         v2 = cglSpacePos + cglRawDepth*direction - cglCenter;
-        if(cglCapCut1:(v2,U),cglDiscard()); // both intersections with caps are cut of by other cap
+        if(cglCapCut1.(v2,U),cglDiscard()); // both intersections with caps are cut of by other cap
       );
     );
     normal = (normalAndHeight_1,normalAndHeight_2,normalAndHeight_3);
     delta = normalAndHeight_4;
     pos3d = (cglSpacePos+cglRawDepth*direction);
-    texturePos = cglProjection:(normalize((pos3d-cglCenter)-delta*BA),max(-1,min(delta,1)),cglOrientation);
-  ,if(cglCut2:(delta,v1)>1, // cap2
-    normalAndHeight = cglCap2front:(direction,l,1,U,cglGetCutVector2:(U));
+    texturePos = cglProjection.(normalize((pos3d-cglCenter)-delta*BA),max(-1,min(delta,1)),cglOrientation);
+  ,if(cglCut2.(delta,v1)>1, // cap2
+    normalAndHeight = cglCap2front.(direction,l,1,U,cglGetCutVector2.(U));
     v2 = cglSpacePos + cglRawDepth*direction - cglCenter;
-    if(cglCapCut1:(v2,U), // cap1 and cap2
-      normalAndHeight = cglCap1front:(direction,l,-1,U,cglGetCutVector1:(U));
+    if(cglCapCut1.(v2,U), // cap1 and cap2
+      normalAndHeight = cglCap1front.(direction,l,-1,U,cglGetCutVector1.(U));
       v2 = cglSpacePos + cglRawDepth*direction - cglCenter;
-      if(cglCapCut2:(v2,U),cglDiscard()); // both intersections with caps are cut of by other cap
+      if(cglCapCut2.(v2,U),cglDiscard()); // both intersections with caps are cut of by other cap
     );
     normal = (normalAndHeight_1,normalAndHeight_2,normalAndHeight_3);
     delta = normalAndHeight_4;
     pos3d = (cglSpacePos+cglRawDepth*direction);
-    texturePos = cglProjection:(normalize((pos3d-cglCenter)-delta*BA),max(-1,min(delta,1)),cglOrientation);
+    texturePos = cglProjection.(normalize((pos3d-cglCenter)-delta*BA),max(-1,min(delta,1)),cglOrientation);
   , // intersection with body of cylinder
-    cgl3d.compute.pixelDepth:(l_1,direction);
+    cgl3d.compute.pixelDepth.(l_1,direction);
     normal = normalize(v1-delta*BA);
-    texturePos = cglProjection:(normal,max(-1,min(delta,1)),cglOrientation);
+    texturePos = cglProjection.(normal,max(-1,min(delta,1)),cglOrientation);
   ));
-  color = cglPixelExpr:(texturePos,cglSpacePos + cglRawDepth*direction,normal);
-  cglLight:(color,direction,normal);
+  color = cglPixelExpr.(texturePos,cglSpacePos + cglRawDepth*direction,normal);
+  cglLight.(color,direction,normal);
 );
 cgl3d.shader.cylinderBack = (direction) => (
   regional(l,BA,U,v2,delta,normalAndHeight,v3,normal,texturePos,color,pos3d);
-  l = cgl3d.compute.cylinderDepths:(direction);
+  l = cgl3d.compute.cylinderDepths.(direction);
   BA = cglOrientation;
   U = BA/(BA*BA);
   v2 = (cglSpacePos+l_2*direction)-cglCenter;
   delta = (v2*U);
-  if(cglCut1:(delta,v2)<-1, // cap 1
-    if(cglCut2:(delta,v2)>1, // cap1 & cap2
+  if(cglCut1.(delta,v2)<-1, // cap 1
+    if(cglCut2.(delta,v2)>1, // cap1 & cap2
       // -> pick cut that is further from viewPosition
       // <v + a*d,n> = <m,n>
-      cutVector1=cglGetCutVector1:(U);
-      cutVector2=cglGetCutVector2:(U);
+      cutVector1=cglGetCutVector1.(U);
+      cutVector2=cglGetCutVector2.(U);
       a1 = ((cglCenter-cglOrientation)*cutVector1-cglSpacePos*cutVector1)/(direction*cutVector1);
       a2 = ((cglCenter+cglOrientation)*cutVector2-cglSpacePos*cutVector2)/(direction*cutVector2);
       if(a1<a2,
-        normalAndHeight = cglCap2back:(direction,l,1,U,cglGetCutVector2:(U));
+        normalAndHeight = cglCap2back.(direction,l,1,U,cglGetCutVector2.(U));
         v3 = cglSpacePos + cglRawDepth*direction - cglCenter;
-        if(cglCapCut1:(v3,U), // cap1 and cap2
-          normalAndHeight = cglCap1back:(direction,l,-1,U,cglGetCutVector1:(U));
+        if(cglCapCut1.(v3,U), // cap1 and cap2
+          normalAndHeight = cglCap1back.(direction,l,-1,U,cglGetCutVector1.(U));
           v3 = cglSpacePos + cglRawDepth*direction - cglCenter;
-          if(cglCapCut2:(v3,U),cglDiscard()); // both intersections with caps are cut of by other cap
+          if(cglCapCut2.(v3,U),cglDiscard()); // both intersections with caps are cut of by other cap
         );
       ,
-        normalAndHeight = cglCap1back:(direction,l,-1,U,cglGetCutVector1:(U));
+        normalAndHeight = cglCap1back.(direction,l,-1,U,cglGetCutVector1.(U));
         v3 = cglSpacePos + cglRawDepth*direction - cglCenter;
-        if(cglCapCut2:(v3,U), // cap1 and cap2
-          normalAndHeight = cglCap2back:(direction,l,1,U,cglGetCutVector2:(U));
+        if(cglCapCut2.(v3,U), // cap1 and cap2
+          normalAndHeight = cglCap2back.(direction,l,1,U,cglGetCutVector2.(U));
           v3 = cglSpacePos + cglRawDepth*direction - cglCenter;
-          if(cglCapCut1:(v3,U),cglDiscard()); // both intersections with caps are cut of by other cap
+          if(cglCapCut1.(v3,U),cglDiscard()); // both intersections with caps are cut of by other cap
         );
       );
     ,
-      normalAndHeight = cglCap1back:(direction,l,-1,U,cglGetCutVector1:(U));
+      normalAndHeight = cglCap1back.(direction,l,-1,U,cglGetCutVector1.(U));
       v3 = cglSpacePos + cglRawDepth*direction - cglCenter;
-      if(cglCapCut2:(v3,U), // cap1 and cap2
-        normalAndHeight = cglCap2back:(direction,l,1,U,cglGetCutVector2:(U));
+      if(cglCapCut2.(v3,U), // cap1 and cap2
+        normalAndHeight = cglCap2back.(direction,l,1,U,cglGetCutVector2.(U));
         v3 = cglSpacePos + cglRawDepth*direction - cglCenter;
-        if(cglCapCut1:(v3,U),cglDiscard()); // both intersections with caps are cut of by other cap
+        if(cglCapCut1.(v3,U),cglDiscard()); // both intersections with caps are cut of by other cap
       );
     );
     normal = (normalAndHeight_1,normalAndHeight_2,normalAndHeight_3);
     delta = normalAndHeight_4;
     pos3d = (cglSpacePos+cglRawDepth*direction);
-    texturePos = cglProjection:(normalize((pos3d-cglCenter)-delta*BA),max(-1,min(delta,1)),cglOrientation);
-  ,if(cglCut2:(delta,v2)>1, // cap2
-    normalAndHeight = cglCap2back:(direction,l,1,U,cglGetCutVector2:(U));
+    texturePos = cglProjection.(normalize((pos3d-cglCenter)-delta*BA),max(-1,min(delta,1)),cglOrientation);
+  ,if(cglCut2.(delta,v2)>1, // cap2
+    normalAndHeight = cglCap2back.(direction,l,1,U,cglGetCutVector2.(U));
     v3 = cglSpacePos + cglRawDepth*direction - cglCenter;
-    if(cglCapCut1:(v3,U), // cap1 and cap2
-      normalAndHeight = cglCap1back:(direction,l,-1,U,cglGetCutVector1:(U));
+    if(cglCapCut1.(v3,U), // cap1 and cap2
+      normalAndHeight = cglCap1back.(direction,l,-1,U,cglGetCutVector1.(U));
       v3 = cglSpacePos + cglRawDepth*direction - cglCenter;
-      if(cglCapCut2:(v3,U),cglDiscard()); // both intersections with caps are cut of by other cap
+      if(cglCapCut2.(v3,U),cglDiscard()); // both intersections with caps are cut of by other cap
     );
     normal = (normalAndHeight_1,normalAndHeight_2,normalAndHeight_3);
     delta = normalAndHeight_4;
     pos3d = (cglSpacePos+cglRawDepth*direction);
-    texturePos = cglProjection:(normalize((pos3d-cglCenter)-delta*BA),max(-1,min(delta,1)),cglOrientation);
+    texturePos = cglProjection.(normalize((pos3d-cglCenter)-delta*BA),max(-1,min(delta,1)),cglOrientation);
   , // intersection with body of cylinder
-    cgl3d.compute.pixelDepth:(l_2,direction);
+    cgl3d.compute.pixelDepth.(l_2,direction);
     normal = normalize(v2-delta*BA);
-    texturePos = cglProjection:(normal,max(-1,min(delta,1)),cglOrientation);
+    texturePos = cglProjection.(normal,max(-1,min(delta,1)),cglOrientation);
   ));
-  color = cglPixelExpr:(texturePos,cglSpacePos + cglRawDepth*direction,normal);
-  cglLight:(color,direction,normal);
+  color = cglPixelExpr.(texturePos,cglSpacePos + cglRawDepth*direction,normal);
+  cglLight.(color,direction,normal);
 );
 
 /////////////////////
@@ -683,12 +683,12 @@ cglD = lambda(coeffs,
 );
 cglBinSearchP = lambda((poly, x0, x1, def),
   regional(v0, v1, m, vm);
-  v0 = cglEvalP:(poly, x0);
-  v1 = cglEvalP:(poly, x1);
+  v0 = cglEvalP.(poly, x0);
+  v1 = cglEvalP.(poly, x1);
   if(v0*v1<=0,
     repeat(16,
       m = (x0+x1)/2;
-      vm = cglEvalP:(poly, m);
+      vm = cglEvalP.(poly, m);
       if(v0*vm<=0,
         (x1 = m; v1 = vm;),
         (x0 = m; v0 = vm;)
@@ -699,16 +699,16 @@ cglBinSearchP = lambda((poly, x0, x1, def),
   )
 );
 // wrapper function for cglBinSearchP instantiated for each commonly used degree
-cglBinSearchP4(poly, x0, x1, def) := cglBinSearchP:(poly, x0, x1, def);
-cglBinSearchP3(poly, x0, x1, def) := cglBinSearchP:(poly, x0, x1, def);
-cglBinSearchP2(poly, x0, x1, def) := cglBinSearchP:(poly, x0, x1, def);
-cglBinSearchP1(poly, x0, x1, def) := cglBinSearchP:(poly, x0, x1, def);
+cglBinSearchP4(poly, x0, x1, def) := cglBinSearchP.(poly, x0, x1, def);
+cglBinSearchP3(poly, x0, x1, def) := cglBinSearchP.(poly, x0, x1, def);
+cglBinSearchP2(poly, x0, x1, def) := cglBinSearchP.(poly, x0, x1, def);
+cglBinSearchP1(poly, x0, x1, def) := cglBinSearchP.(poly, x0, x1, def);
  //finds the k-th root of poly in interval (l, u). returns def if there is none
 cglKthrootP3(k, poly, l, u, def) := (
   regional(p1, p2, p3, a0, b0, b1, c0, c1, c2, count);
   p3 = poly;  //cubic
-  p2 = cglD:(p3); //quadratic
-  p1 = cglD:(p2); //linear
+  p2 = cglD.(p3); //quadratic
+  p1 = cglD.(p2); //linear
 
   a0 = cglBinSearchP1(p1, l, u, u);
   b0 = cglBinSearchP2(p2, l, a0, l);
@@ -729,9 +729,9 @@ cglKthrootP4(k, poly, l, u, def) := (
   regional(p1, p2, p3, p4, a0, b0, b1,
     c0, c1, c2, d0, d1, d2, d3,count);
   p4 = poly;  //quartic
-  p3 = cglD:(p4); //cubic
-  p2 = cglD:(p3); //quadratic
-  p1 = cglD:(p2); //linear
+  p3 = cglD.(p4); //cubic
+  p2 = cglD.(p3); //quadratic
+  p1 = cglD.(p2); //linear
 
   a0 = cglBinSearchP1(p1, l, u, u);
   b0 = cglBinSearchP2(p2, l, a0, l);
@@ -768,7 +768,7 @@ cglTorusProjGetDirection1Default = lambda((normal,radiusDirection,orientation),
 // assumes that normal and radiusDirection are normalized
 cgl3d.projection.torus = (normal,radiusDirection,orientation) => (
   regional(v1,v2,phi1,phi2);
-  v1 = cglTorusProjGetDirection1:(normal,radiusDirection,orientation);
+  v1 = cglTorusProjGetDirection1.(normal,radiusDirection,orientation);
   v2 = -normalize(cross(orientation,v1));
   phi1 = arctan2(radiusDirection*v1,radiusDirection*v2)+pi;
   phi2 = arctan2(normal*radiusDirection,normal*orientation)+pi;
@@ -834,12 +834,12 @@ cgl3d.shader.torus = (direction,layer) => (
   arcDirection = normalize(pc-(orientation*pc)*orientation);
   arcCenter = center+radius1*arcDirection;
   normal = normalize(pos3d - arcCenter);
-  cgl3d.compute.pixelDepth:(v+dst,direction);
-  texturePos = cgl3d.projection.torus:(normal,arcDirection,orientation); // TODO? customize through modifier
-  cglCheckAngle1:(texturePos);
-  cglCheckAngle2:(texturePos);
-  color = cglPixelExpr:(texturePos,cglSpacePos + cglRawDepth*direction,normal);
-  cglLight:(color,direction,normal);
+  cgl3d.compute.pixelDepth.(v+dst,direction);
+  texturePos = cgl3d.projection.torus.(normal,arcDirection,orientation); // TODO? customize through modifier
+  cglCheckAngle1.(texturePos);
+  cglCheckAngle2.(texturePos);
+  color = cglPixelExpr.(texturePos,cglSpacePos + cglRawDepth*direction,normal);
+  cglLight.(color,direction,normal);
 );
 
 /////////////////////
@@ -849,10 +849,10 @@ cgl3d.shader.torus = (direction,layer) => (
 cgl3d.shader.triangle = (direction) => (
   regional(color,normal,texCoord);
   cglRawDepth = |cglSpacePos-cglSpacePos|; // set raw depth to correct value (depth is handled by v-shader)
-  texCoord = cglTextureMapping:(cglSpacePos,direction);
-  normal = cglNormalExpr:(cglSpacePos,texCoord);
-  color = cglPixelExpr:(texCoord,cglSpacePos,normal);
-  cglLight:(color,direction,normal);
+  texCoord = cglTextureMapping.(cglSpacePos,direction);
+  normal = cglNormalExpr.(cglSpacePos,texCoord);
+  color = cglPixelExpr.(texCoord,cglSpacePos,normal);
+  cglLight.(color,direction,normal);
 );
 
 cgl3d.normalType = {};
@@ -881,7 +881,7 @@ cgl3d.triangulate.spiral = (elts) => (
     if(mod(eltCount,2)==1,
       odd = prepend(elts_eltCount,odd);
     );
-    even++cgl3d.triangulate.spiral:(odd);
+    even++cgl3d.triangulate.spiral.(odd);
   );
 );
 cgl3d.triangulate.center = (elts) => (
@@ -893,7 +893,7 @@ cgl3d.triangulate.center = (elts) => (
 );
 cgl3d.compute.triangulationPolygon = (triangulator,vertices,vNormals,vModifiers,normalType) => (
   regional(triangles,n,vMap,vData);
-  triangles = triangulator:(vertices);
+  triangles = triangulator.(vertices);
   if(isundefined(vNormals) & normalType != cgl3d.normalType.pixel,
     vNormals = flatten(apply(1..(length(triangles)/3),i,
       n=normalize(cross(triangles_(3*i)-triangles_(3*i-1),triangles_(3*i-2)-triangles_(3*i-1)));
@@ -903,7 +903,7 @@ cgl3d.compute.triangulationPolygon = (triangulator,vertices,vNormals,vModifiers,
       // compute average normal
       vNormals = normalize(sum(vNormals)); // for flat normal-type normals is a single normal
     ,if(normalType==cgl3d.normalType.vertex,
-      vMap = triangulator:(1..length(vertices));
+      vMap = triangulator.(1..length(vertices));
       vData = apply(vertices,(0,0,0));
       // compute average normal for each vertex
       forall(1..length(vNormals),i,
@@ -914,9 +914,9 @@ cgl3d.compute.triangulationPolygon = (triangulator,vertices,vNormals,vModifiers,
       );
     ));
   ,
-    vNormals = triangulator:(vNormals);
+    vNormals = triangulator.(vNormals);
   );
-  vModifiers=apply(vModifiers,e,triangulator:(e));
+  vModifiers=apply(vModifiers,e,triangulator.(e));
   (triangles,vNormals,vModifiers)
 );
 cgl3d.triangulate.default = cgl3d.triangulate.spiral;
@@ -1040,7 +1040,7 @@ cgl3d.mesh.guessNormals = (samples,Nx,Ny,normalType,topology) => (
       normalize(n)
     ));
     // assign normals to corresponding vertices
-    cgl3d.mesh.samplesToTriangles:(vNormals,Nx,Ny,topology,cgl3d.mesh.sampleVertex);
+    cgl3d.mesh.samplesToTriangles.(vNormals,Nx,Ny,topology,cgl3d.mesh.sampleVertex);
   ));
 );
 
@@ -1070,7 +1070,7 @@ cglSurfaceNsign(direction, a, b) := ( // Descartes rule of sign for the interval
   regional(poly,ans);
   // obtain the coefficients in bernstein basis of cglSurfaceExpr along the ray in interval (a,b) by interpolation within this interval
   poly = cglInterpMat * apply(cglChebNodes,
-    cglSurfaceExpr:(cglRay(direction, a+#*(b-a))) //evaluate cglSurfaceExpr(ray(direction, ·)) along Chebyshev nodes for (a,b)
+    cglSurfaceExpr.(cglRay(direction, a+#*(b-a))) //evaluate cglSurfaceExpr(ray(direction, ·)) along Chebyshev nodes for (a,b)
   );
   // count the number of sign changes
   ans = 0;
@@ -1086,10 +1086,10 @@ cglSurfaceNsign(direction, a, b) := ( // Descartes rule of sign for the interval
 // bisect cglSurfaceExpr(ray(direction, ·)) in [x0, x1] assuming that cglSurfaceExpr(ray(direction, x0)) and cglSurfaceExpr(ray(direction, x1)) have opposite signs
 cglSurfaceBisectf(direction, x0, x1) := (
     regional(v0, v1, m, vm);
-    v0 = cglSurfaceExpr:(cglRay(direction, x0));
-    v1 = cglSurfaceExpr:(cglRay(direction, x1));
+    v0 = cglSurfaceExpr.(cglRay(direction, x0));
+    v1 = cglSurfaceExpr.(cglRay(direction, x1));
     repeat(11,
-        m = (x0 + x1) / 2; vm = cglSurfaceExpr:(cglRay(direction, m));
+        m = (x0 + x1) / 2; vm = cglSurfaceExpr.(cglRay(direction, m));
         if (min(v0,vm) <= 0 & 0 <= max(v0, vm), // sgn(v0)!=sgn(vm); avoid products due numerics
             (x1 = m; v1 = vm;),
             (x0 = m; v0 = vm;)
@@ -1125,13 +1125,13 @@ cglSurfaceComputeTextureCoords(pos3d,normal) := (
 // because of the alpha-transparency updatecolor should be called for the intersections with large dst first
 cglSurfaceUpdateColor(direction, dst, color) := (
   regional(x,pos3d,normal,pixelCol);
-  cgl3d.compute.pixelDepth:(dst,direction);
+  cgl3d.compute.pixelDepth.(dst,direction);
   x = cglRay(direction, dst); // the intersection point in R^3
-  normal = normalize(cglNormalExpr:(x));
+  normal = normalize(cglNormalExpr.(x));
   pos3d = cglSpacePos+dst*direction;
-  pixelCol = cglPixelExpr:(cglSurfaceComputeTextureCoords(pos3d,normal),pos3d,normal);
+  pixelCol = cglPixelExpr.(cglSurfaceComputeTextureCoords(pos3d,normal),pos3d,normal);
   color = (1 - cglAlpha) * color + cglAlpha * pixelCol;
-  cglLight:(color,direction,normal);
+  cglLight.(color,direction,normal);
 );
 
 // id encodes a node in a binary tree using heap-indices
@@ -1243,7 +1243,7 @@ cglSurfaceKthRoot(direction,l,u,K):=(
 cgl3d.shader.surface = (direction) => (
   regional(depths,u,l);
   // discard points outside bounding sphere
-  depths = cglCutoffRegion:(cglSpacePos,direction);
+  depths = cglCutoffRegion.(cglSpacePos,direction);
   l = depths_1;
   u = depths_2;
   cglSurfaceIterateRoots(direction,l,u);
@@ -1252,7 +1252,7 @@ cgl3d.shader.surface = (direction) => (
 cgl3d.shader.surfaceLayer = (direction) => (
   regional(depths,u,l);
   // discard points outside bounding sphere
-  depths = cglCutoffRegion:(cglSpacePos,direction);
+  depths = cglCutoffRegion.(cglSpacePos,direction);
   l = depths_1;
   u = depths_2;
   cglSurfaceKthRoot(direction,l,u,K);
@@ -1301,7 +1301,7 @@ cglSurfaceInterpolationMatrix(N):=(
   val
 );
 // guess the degree of the trivariate polynomial F. This approximation is reliable up to degree ~20.
-cglGuessdegHelper(F, s, x) := log(|F:(s*x)|)/log(s*|x|); // is approx. degree+log(leadingcoeff)/log(s*|x|) for large s
+cglGuessdegHelper(F, s, x) := log(|F.(s*x)|)/log(s*|x|); // is approx. degree+log(leadingcoeff)/log(s*|x|) for large s
 // bug TODO guessing degree this way can lead to wrong results for some rational functions  ( e.g.  (z^3-1)/(z*(z^2+1))  -> 1  )
 cgl3d.compute.guessDegree = (F) => max(apply(1 .. 2, // take the best result of 2
   regional(x,s,l,best,it);
@@ -1323,9 +1323,9 @@ cgl3d.compute.guessDegree = (F) => max(apply(1 .. 2, // take the best result of 
 // use central difference to approximate dF
 cgl3d.compute.guessDerivative = (F) => ( // opt TODO? avoid code duplication for repeated lambda eval
   lambda(p,((
-      (F:(p + [eps, 0, 0]) - F:(p - [eps, 0, 0])),
-      (F:(p + [0, eps, 0]) - F:(p - [0, eps, 0])),
-      (F:(p + [0, 0, eps]) - F:(p - [0, 0, eps]))
+      (F.(p + [eps, 0, 0]) - F.(p - [eps, 0, 0])),
+      (F.(p + [0, eps, 0]) - F.(p - [0, eps, 0])),
+      (F.(p + [0, 0, eps]) - F.(p - [0, 0, eps]))
   ) / (2 * eps)),eps->.001,F->F)
 );
 
@@ -1378,7 +1378,7 @@ cgl3d.cutoff.screenSphere = {"expr": lambda((rayStart,direction),
   y0 = viewRect_2;
   x1 = viewRect_3;
   y1 = viewRect_4;
-  cgl3d.compute.sphereDepths:(rayStart,direction,(x0+x1,y0+y1,0)/2,min(|x1-x0|,|y1-y0|)/2)
+  cgl3d.compute.sphereDepths.(rayStart,direction,(x0+x1,y0+y1,0)/2,min(|x1-x0|,|y1-y0|)/2)
 ),"bounds": cgl3d.bounds.unbounded,"modifs":{}};
 cgl3d.cutoff.screenCylinder = {"expr": lambda((rayStart,direction),
   regional(viewRect,x0,y0,x1,y1,r);
@@ -1388,7 +1388,7 @@ cgl3d.cutoff.screenCylinder = {"expr": lambda((rayStart,direction),
   x1 = viewRect_3;
   y1 = viewRect_4;
   r = min(|x1-x0|,|y1-y0|)/2.5;
-  cgl3d.compute.cappedCylinderDepths:(rayStart,direction,(x0+x1,y0+y1,0)/2,[0,r,0],r)
+  cgl3d.compute.cappedCylinderDepths.(rayStart,direction,(x0+x1,y0+y1,0)/2,[0,r,0],r)
 ),"bounds": cgl3d.bounds.unbounded,"modifs":{}};
 cgl3d.cutoff.screenCylinder = (orientation) => {"expr": lambda((rayStart,direction),
   regional(viewRect,x0,y0,x1,y1,r);
@@ -1398,7 +1398,7 @@ cgl3d.cutoff.screenCylinder = (orientation) => {"expr": lambda((rayStart,directi
   x1 = viewRect_3;
   y1 = viewRect_4;
   r = min(|x1-x0|,|y1-y0|)/2.5;
-  cgl3d.compute.cappedCylinderDepths:(rayStart,direction,(x0+x1,y0+y1,0)/2,r*cglBoxOrientation,r)),
+  cgl3d.compute.cappedCylinderDepths.(rayStart,direction,(x0+x1,y0+y1,0)/2,r*cglBoxOrientation,r)),
   "bounds": cgl3d.bounds.unbounded,"modifs":{"cglBoxOrientation":normalize(orientation)}};
 cgl3d.cutoff.screenCube = {"expr": lambda((rayStart,direction),
   regional(viewRect,x0,y0,x1,y1,r);
@@ -1408,28 +1408,28 @@ cgl3d.cutoff.screenCube = {"expr": lambda((rayStart,direction),
   x1 = viewRect_3;
   y1 = viewRect_4;
   r = min(|x1-x0|,|y1-y0|)/3;
-  cgl3d.compute.cuboidDepths:(rayStart,direction,(0,0,0),[r,0,0],[0,r,0],[0,0,r])
+  cgl3d.compute.cuboidDepths.(rayStart,direction,(0,0,0),[r,0,0],[0,r,0],[0,0,r])
 ),"bounds": cgl3d.bounds.unbounded,"modifs":{}};
 
 cgl3d.cutoff.sphere = (center,radius) => {"expr":lambda((rayStart,direction),
-  cgl3d.compute.sphereDepths:(rayStart,direction,cglCenter,cglRadius)
-),"bounds":cgl3d.bounds.sphere:(center,radius),"modifs":{}};
+  cgl3d.compute.sphereDepths.(rayStart,direction,cglCenter,cglRadius)
+),"bounds":cgl3d.bounds.sphere.(center,radius),"modifs":{}};
 cgl3d.cutoff.cylinder = (point1,point2,radius) => {"expr":lambda((rayStart,direction),
-  cgl3d.compute.cappedCylinderDepths:(rayStart,direction,cglCenter,cglOrientation,cglRadius)
-),"bounds":cgl3d.bounds.cylinder:(point1,point2,radius),"modifs":{}};
+  cgl3d.compute.cappedCylinderDepths.(rayStart,direction,cglCenter,cglOrientation,cglRadius)
+),"bounds":cgl3d.bounds.cylinder.(point1,point2,radius),"modifs":{}};
 cgl3d.cutoff.cube = (center,sideLength) => {"expr":lambda((rayStart,direction),
-  cgl3d.compute.cuboidDepths:(rayStart,direction,cglCenter,cglCubeAxes_1,cglCubeAxes_2,cglCubeAxes_3)
-),"bounds":cgl3d.bounds.cuboid:(center,[sideLength,0,0],[0,sideLength,0],[0,0,sideLength]),"modifs":{}};
+  cgl3d.compute.cuboidDepths.(rayStart,direction,cglCenter,cglCubeAxes_1,cglCubeAxes_2,cglCubeAxes_3)
+),"bounds":cgl3d.bounds.cuboid.(center,[sideLength,0,0],[0,sideLength,0],[0,0,sideLength]),"modifs":{}};
 cgl3d.cutoff.cube = (center,sideLength,up,front) => {
   "expr":lambda((rayStart,direction),
-    cgl3d.compute.cuboidDepths:(rayStart,direction,cglCenter,cglCubeAxes_1,cglCubeAxes_2,cglCubeAxes_3)),
-  "bounds":cgl3d.bounds.cuboid:(center,sideLength*normalize(up),sideLength*normalize(front),
+    cgl3d.compute.cuboidDepths.(rayStart,direction,cglCenter,cglCubeAxes_1,cglCubeAxes_2,cglCubeAxes_3)),
+  "bounds":cgl3d.bounds.cuboid.(center,sideLength*normalize(up),sideLength*normalize(front),
     sideLength*normalize(cross(up,front))),"modifs":{}
 };
 cgl3d.cutoff.cuboid = (center,v1,v2,v3) => {
   "expr":lambda((rayStart,direction),
-    cgl3d.compute.cuboidDepths:(rayStart,direction,cglCenter,cglCubeAxes_1,cglCubeAxes_2,cglCubeAxes_3)),
-  "bounds":cgl3d.bounds.cuboid:(center,v1,v2,v3),"modifs":{}
+    cgl3d.compute.cuboidDepths.(rayStart,direction,cglCenter,cglCubeAxes_1,cglCubeAxes_2,cglCubeAxes_3)),
+  "bounds":cgl3d.bounds.cuboid.(center,v1,v2,v3),"modifs":{}
 };
 
 // intersect cutoff-region with the half-space {P ; P*normal <= depth} // code TODO? better name
@@ -1438,12 +1438,12 @@ cglCutoffAddPlane(oldCutoff,normal,depth):=(
   {
     "expr":lambda((rayStart,direction),
       regional(depths,l,n);
-      depths = baseExpr:(rayStart,direction);
+      depths = baseExpr.(rayStart,direction);
       // <v + l*d , n> <= x
       // <v,n> + l<d , n> <= x
       // l <= (x-<v,n>)/<d,n>
-      n = normal:(); // current compiler does not support direct multplication with constant vector
-      l = (depth:()-(rayStart*n))/(direction*n);
+      n = normal.(); // current compiler does not support direct multplication with constant vector
+      l = (depth.()-(rayStart*n))/(direction*n);
       if(n*direction>0,
         depths_2 = min(depths_2,l);
       ,
@@ -1500,10 +1500,10 @@ cgl3d.restureDefaults = () => (
     cgl3d.defaults = cgl3d.defaultStack_(length(cgl3d.defaultStack));
     cgl3d.defaultStack = apply(1..(length(cgl3d.defaultStack)-1),i,cgl3d.defaultStack_i);
   ,
-    cgl3d.resetDefaults:();
+    cgl3d.resetDefaults.();
   );
 );
-cgl3d.resetDefaults:(); // initialisation of code complete -> can initialize default values
+cgl3d.resetDefaults.(); // initialisation of code complete -> can initialize default values
 
 /////////////////////
 // user-interface
@@ -1689,7 +1689,7 @@ cglPixelExprFromExpr(expr,hasAlpha,exprAlpha):=(
     if(hasAlpha,
       lambda((texturePos,spacePos),
         regional(col);
-        col=expr:(texturePos,spacePos);
+        col=expr.(texturePos,spacePos);
         (col_1,col_2,col_3,col_4*cglAlpha)
       ,expr->expr);
     ,
@@ -1699,7 +1699,7 @@ cglPixelExprFromExpr(expr,hasAlpha,exprAlpha):=(
     if(hasAlpha,
       lambda((texturePos,spacePos),
         regional(col);
-        col=expr:(texturePos,spacePos);
+        col=expr.(texturePos,spacePos);
         (col_1,col_2,col_3,cglAlpha)
       ,expr->expr);
     ,
@@ -1744,17 +1744,17 @@ cglResolveColorExpr0(hasAlpha,colorsMode,isBack):=(
       pixelExpr = if(hasAlpha,
         if(length(colors_1)==4,
           lambda((texPos,pos3d,normal),
-            regional(col);col = colorData:();
+            regional(col);col = colorData.();
             (col_1,col_2,col_3,col_4*cglAlpha)
           ,colorData->colorData);
         ,
           lambda((texPos,pos3d,normal),
-            regional(col);col = colorData:();
+            regional(col);col = colorData.();
             (col_1,col_2,col_3,cglAlpha)
           ,colorData->colorData);
         );
       ,
-        lambda((texPos,pos3d,normal),colorData:(),colorData->colorData);
+        lambda((texPos,pos3d,normal),colorData.(),colorData->colorData);
       );
       vModifiers_(if(isBack,"cglColorBack","cglColor")) = colors;
     ,
@@ -1762,18 +1762,18 @@ cglResolveColorExpr0(hasAlpha,colorsMode,isBack):=(
       pixelExpr = if(hasAlpha,
         if(length(colors_1)==4,
           lambda((texPos,pos3d,normal),
-            regional(col);col = (1-texPos_2) * colorData:()_1 + texPos_2 * colorData:()_2;
+            regional(col);col = (1-texPos_2) * colorData.()_1 + texPos_2 * colorData.()_2;
             (col_1,col_2,col_3,col_4*cglAlpha)
           ,colorData->colorData);
         ,
           lambda((texPos,pos3d,normal),
-            regional(col);col = (1-texPos_2) * colorData:()_1 + texPos_2 * colorData:()_2;
+            regional(col);col = (1-texPos_2) * colorData.()_1 + texPos_2 * colorData.()_2;
             (col_1,col_2,col_3,cglAlpha)
           ,colorData->colorData);
         );
       ,
         lambda((texPos,pos3d,normal),
-            (1-texPos_2) * colorData:()_1 + texPos_2 * colorData:()_2
+            (1-texPos_2) * colorData.()_1 + texPos_2 * colorData.()_2
         ,colorData->colorData);
       );
       modifiers_(if(isBack,"cglColorsBack","cglColors")) = colors;
@@ -1788,17 +1788,17 @@ cglResolveColorExpr0(hasAlpha,colorsMode,isBack):=(
       pixelExpr = if(hasAlpha,
         if(length(color)==4,
           lambda((texPos,pos3d,normal),
-            regional(col);col=colorData:();
+            regional(col);col=colorData.();
             (col_1,col_2,col_3,col_4*cglAlpha)
           ,colorData->colorData);
         ,
           lambda((texPos,pos3d,normal),
-            regional(col);col=colorData:();
+            regional(col);col=colorData.();
             (col_1,col_2,col_3,cglAlpha)
           ,colorData->colorData);
         );
       ,
-        lambda((texPos,pos3d,normal),colorData:(),colorData->colorData);
+        lambda((texPos,pos3d,normal),colorData.(),colorData->colorData);
       );
       modifiers_(if(isBack,"cglColorBack","cglColor")) = color;
     ,if(color:"type"=="texture",
@@ -1833,26 +1833,26 @@ cglResolveColorExpr(hasAlpha,colorsMode):=(
     defaultAlpha = if(hasAlpha,lambda((),cglAlpha),lambda((),1));
     if(usesAlphaFront == usesAlphaBack,
       exprData_"pixelExpr" = lambda((texPos,pos3d,normal),
-        if(normal*cglViewDirection<=0,exprFront:(texPos,pos3d,normal),exprBack:(texPos,pos3d,normal))
+        if(normal*cglViewDirection<=0,exprFront.(texPos,pos3d,normal),exprBack.(texPos,pos3d,normal))
       ,exprFront->exprData_"pixelExpr",exprBack->exprDataBack_"pixelExpr")
     ,if(usesAlphaFront,
       exprData_"pixelExpr" = lambda((texPos,pos3d,normal),
         regional(col);
         if(normal*cglViewDirection<=0,
-          exprFront:(texPos,pos3d,normal)
+          exprFront.(texPos,pos3d,normal)
         ,
-          col = exprBack:(texPos,pos3d,normal);
-          (col_1,col_2,col_3,defaultAlpha:())
+          col = exprBack.(texPos,pos3d,normal);
+          (col_1,col_2,col_3,defaultAlpha.())
         )
       ,exprFront->exprData_"pixelExpr",exprBack->exprDataBack_"pixelExpr",defaultAlpha->defaultAlpha)
     ,
       exprData_"pixelExpr" = lambda((texPos,pos3d,normal),
         regional(col);
         if(normal*cglViewDirection<=0,
-          col = exprFront:(texPos,pos3d,normal);
-          (col_1,col_2,col_3,defaultAlpha:())
+          col = exprFront.(texPos,pos3d,normal);
+          (col_1,col_2,col_3,defaultAlpha.())
         ,
-          exprBack:(texPos,pos3d,normal)
+          exprBack.(texPos,pos3d,normal)
         )
       ,exprFront->exprData_"pixelExpr",exprBack->exprDataBack_"pixelExpr",defaultAlpha->defaultAlpha)
     ))
@@ -1903,10 +1903,10 @@ cglSphere3d(center,radius):=(
   opacityExpr = if(usesAlpha,false,if(hasAlpha,lambda((),cglAlpha>=1),true));
   needBackFace = hasAlpha % usesAlpha;
   if(needBackFace,
-    ids = [cgl3d.addObject:(cgl3dNewSphere(cgl3d.shader.sphere:(#,true),center,radius,
+    ids = [cgl3d.addObject.(cgl3dNewSphere(cgl3d.shader.sphere.(#,true),center,radius,
       plotModifiers->modifiers,opaqueIf->opacityExpr,onUpdate->onUpdate))];
   );
-  topLayer = cgl3d.addObject:(cgl3dNewSphere(cgl3d.shader.sphere:(#,false),center,radius,
+  topLayer = cgl3d.addObject.(cgl3dNewSphere(cgl3d.shader.sphere.(#,false),center,radius,
     plotModifiers->modifiers,opaqueIf->opacityExpr,onUpdate->onUpdate));
   ids=if(needBackFace,append(ids,topLayer),topLayer);
 );
@@ -2005,19 +2005,19 @@ cglCylinder3d(center,orientation,radius):=(
   );
   opacityExpr = if(usesAlpha,false,if(hasAlpha,lambda((),cglAlpha>=1),true));
   if(needBackFace,
-    ids = [cgl3d.addObject:(cgl3dNewCylinder(cgl3d.shader.cylinderBack:(#),center,orientation,radius,overhang->overhang,
+    ids = [cgl3d.addObject.(cgl3dNewCylinder(cgl3d.shader.cylinderBack.(#),center,orientation,radius,overhang->overhang,
      plotModifiers->modifiers,opaqueIf->opacityExpr))];
   );
-  topLayer = cgl3d.addObject:(cgl3dNewCylinder(cgl3d.shader.cylinder:(#),center,orientation,radius,overhang->overhang,
+  topLayer = cgl3d.addObject.(cgl3dNewCylinder(cgl3d.shader.cylinder.(#),center,orientation,radius,overhang->overhang,
     plotModifiers->modifiers,opaqueIf->opacityExpr));
   ids=if(needBackFace,append(ids,topLayer),topLayer);
 );
 
 cglJoint(prev,current,next,jointType):=(
   if(jointType==cgl3d.connect.round,
-    cgl3d.cylinderCap.cutVoidRound:((normalize(next-current)+normalize(current-prev))/2);
+    cgl3d.cylinderCap.cutVoidRound.((normalize(next-current)+normalize(current-prev))/2);
   ,if(jointType==cgl3d.connect.flat,
-    cgl3d.cylinderCap.cutVoid:((normalize(next-current)+normalize(current-prev))/2);
+    cgl3d.cylinderCap.cutVoid.((normalize(next-current)+normalize(current-prev))/2);
   ,if(jointType==cgl3d.connect.open,
     cgl3d.cylinderCap.open
   )));
@@ -2057,7 +2057,7 @@ cglConnect3d(points):=(
     if(!isundefined(texture) % !isundefined(color:"type"),
       projection = lambda((normal,height,orientation),
         regional(pos0);
-        pos0=cgl3d.projection.cylinder:(normal,height,orientation);
+        pos0=cgl3d.projection.cylinder.(normal,height,orientation);
         (pos0_1,cglSegmentEnd*pos0_2+cglSegmentStart*(1-pos0_2))
       );
     );
@@ -2136,11 +2136,11 @@ cglInterface("curve3d",cglCurve3d,(expr:(t),from,to),(
 cglCurve3d(expr,from,to):=(
   samples = cglValOrDefault(samples,cgl3d.defaults.curveSamples)-1;
   if(from==to,
-    cglSphere3d(expr:(from),size);
+    cglSphere3d(expr.(from),size);
   ,
     cglConnect3d(apply(0..samples,k,
       t = k/samples;
-      expr:(t*to+(1-t)*from);
+      expr.(t*to+(1-t)*from);
     ));
   );
 );
@@ -2214,17 +2214,17 @@ cglTorus3d(center,orientation,radius1,radius2):=(
   tags = cglValOrDefault(tags,[]);
   opacityExpr = if(usesAlpha,false,if(hasAlpha,lambda((),cglAlpha>=1),true));
   if(needBackFace,
-    ids = [cgl3d.addObject:(cgl3dNewCylinder(cgl3d.shader.torus:(#,4),
+    ids = [cgl3d.addObject.(cgl3dNewCylinder(cgl3d.shader.torus.(#,4),
       center, radius2*orientation, radius1+radius2,
       plotModifiers->modifiers,tags->["torus","backside"]++tags,opaqueIf->opacityExpr)),
-    cgl3d.addObject:(cgl3dNewCylinder(cgl3d.shader.torus:(#,3),
+    cgl3d.addObject.(cgl3dNewCylinder(cgl3d.shader.torus.(#,3),
       center, radius2*orientation, radius1+radius2,
       plotModifiers->modifiers,tags->["torus","backside"]++tags,opaqueIf->opacityExpr)),
-    cgl3d.addObject:(cgl3dNewCylinder(cgl3d.shader.torus:(#,2),
+    cgl3d.addObject.(cgl3dNewCylinder(cgl3d.shader.torus.(#,2),
       center, radius2*orientation, radius1+radius2,
       plotModifiers->modifiers,tags->["torus","backside"]++tags,opaqueIf->opacityExpr))];
   );
-  topLayer = cgl3d.addObject:(cgl3dNewCylinder(cgl3d.shader.torus:(#,1),
+  topLayer = cgl3d.addObject.(cgl3dNewCylinder(cgl3d.shader.torus.(#,1),
     center, radius2*orientation, radius1+radius2,
     plotModifiers->modifiers,tags->["torus"]++tags,opaqueIf->opacityExpr));
   ids=if(needBackFace,append(ids,topLayer),topLayer);
@@ -2317,7 +2317,7 @@ cglTriangle3d(p1,p2,p3):=(
   modifiers_"cglPixelExpr" = exprData_"pixelExpr";
   tags = cglValOrDefault(tags,[]);
   opacityExpr = if(usesAlpha,false,if(hasAlpha,lambda((),cglAlpha>=1),true));
-  cgl3d.addObject:(cgl3dNewMesh(cgl3d.shader.triangle:(#),[p1,p2,p3],
+  cgl3d.addObject.(cgl3dNewMesh(cgl3d.shader.triangle.(#),[p1,p2,p3],
     plotModifiers->modifiers,vModifiers->vModifiers,tags->["triangle"]++tags,opaqueIf->opacityExpr));
 );
 
@@ -2442,7 +2442,7 @@ cglTriangles3d(triangles):=(
   modifiers_"cglPixelExpr" = exprData_"pixelExpr";
   tags = cglValOrDefault(tags,[]);
   opacityExpr = if(usesAlpha,false,if(hasAlpha,lambda((),cglAlpha>=1),true));
-  cgl3d.addObject:(cgl3dNewMesh(cgl3d.shader.triangle:(#),vertices,
+  cgl3d.addObject.(cgl3dNewMesh(cgl3d.shader.triangle.(#),vertices,
     plotModifiers->modifiers,vModifiers->vModifiers,tags->["triangles"]++tags,opaqueIf->opacityExpr));
 );
 
@@ -2537,7 +2537,7 @@ cglPolygon3d(vertices):=(
   vModifiers = cglMergeDicts(vModifiers,exprData_"vModifiers");
   if(hasAlpha, modifiers_"cglAlpha" = alpha);
   modifiers_"cglPixelExpr" = exprData_"pixelExpr";
-  trianglesAndNormals = cgl3d.compute.triangulationPolygon:(triangulation,vertices,normals,vModifiers,normalType);
+  trianglesAndNormals = cgl3d.compute.triangulationPolygon.(triangulation,vertices,normals,vModifiers,normalType);
   vModifiers = trianglesAndNormals_3;
   if(normalType == cgl3d.normalType.flat,
     modifiers_"cglNormal" =trianglesAndNormals_2;
@@ -2546,7 +2546,7 @@ cglPolygon3d(vertices):=(
   ));
   tags = cglValOrDefault(tags,[]);
   opacityExpr = if(usesAlpha,false,if(hasAlpha,lambda((),cglAlpha>=1),true));
-  cgl3d.addObject:(cgl3dNewMesh(cgl3d.shader.triangle:(#),trianglesAndNormals_1,
+  cgl3d.addObject.(cgl3dNewMesh(cgl3d.shader.triangle.(#),trianglesAndNormals_1,
     plotModifiers->modifiers,vModifiers->vModifiers,tags->["polygon"]++tags,opaqueIf->opacityExpr));
 );
 
@@ -2564,7 +2564,7 @@ cglMesh3d(grid):=(
   topology = cglValOrDefault(topology,cgl3d.mesh.topologyOpen);
   Ny = length(grid);
   Nx = length(grid_1);
-  triangles = cgl3d.mesh.samplesToTriangles:(grid,Nx,Ny,topology,cgl3d.mesh.sampleVertex);
+  triangles = cgl3d.mesh.samplesToTriangles.(grid,Nx,Ny,topology,cgl3d.mesh.sampleVertex);
   if(isundefined(normalType),
     if(!isundefined(normalExpr),
       normalType = cgl3d.normalType.pixel;
@@ -2593,13 +2593,13 @@ cglMesh3d(grid):=(
       normalExpr = lambda((spacePos,texturePos),cglNormal);
     );
     if(isundefined(normals),
-      normals = cgl3d.mesh.guessNormals:(grid,Nx,Ny,normalType,topology);
+      normals = cgl3d.mesh.guessNormals.(grid,Nx,Ny,normalType,topology);
     ,if(normalType == cgl3d.normalType.face,
-      normals = cgl3d.mesh.samplesToTriangles:(normals,Nx,Ny,topology,cgl3d.mesh.sampleFace);
+      normals = cgl3d.mesh.samplesToTriangles.(normals,Nx,Ny,topology,cgl3d.mesh.sampleFace);
     ,if(normalType == cgl3d.normalType.triangle,
-      normals = cgl3d.mesh.samplesToTriangles:(normals,Nx,Ny,topology,cgl3d.mesh.sampleTriangle);
+      normals = cgl3d.mesh.samplesToTriangles.(normals,Nx,Ny,topology,cgl3d.mesh.sampleTriangle);
     ,if(normalType == cgl3d.normalType.vertex,
-      normals = cgl3d.mesh.samplesToTriangles:(normals,Nx,Ny,topology,cgl3d.mesh.sampleVertex);
+      normals = cgl3d.mesh.samplesToTriangles.(normals,Nx,Ny,topology,cgl3d.mesh.sampleVertex);
     ,
       cglLogError("unknown normal-type: "+text(normalType));
     ))));
@@ -2619,10 +2619,10 @@ cglMesh3d(grid):=(
   );
   modifiers_"cglTextureMapping" = lambda((pos3d,direction),cglTexCoords);
   vModifiers_"cglTexCoords" = uv;
-  vModifiers=apply(vModifiers,samples,cgl3d.mesh.samplesToTriangles:(samples,Nx,Ny,topology,cgl3d.mesh.sampleVertex));
+  vModifiers=apply(vModifiers,samples,cgl3d.mesh.samplesToTriangles.(samples,Nx,Ny,topology,cgl3d.mesh.sampleVertex));
   // bring vertex colors in correct format (one color per vertex)
-  if(!isundefined(colors),colors = cgl3d.mesh.samplesToTriangles:(colors,Nx,Ny,topology,cgl3d.mesh.sampleVertex));
-  if(!isundefined(colorsBack),colorsBack = cgl3d.mesh.samplesToTriangles:(colorsBack,Nx,Ny,topology,cgl3d.mesh.sampleVertex));
+  if(!isundefined(colors),colors = cgl3d.mesh.samplesToTriangles.(colors,Nx,Ny,topology,cgl3d.mesh.sampleVertex));
+  if(!isundefined(colorsBack),colorsBack = cgl3d.mesh.samplesToTriangles.(colorsBack,Nx,Ny,topology,cgl3d.mesh.sampleVertex));
   exprData = cglResolveColorExpr(hasAlpha,CglColorsVertex);
   usesAlpha = exprData_"usesAlpha";
   modifiers = cglMergeDicts(modifiers,exprData_"modifiers");
@@ -2634,7 +2634,7 @@ cglMesh3d(grid):=(
   );
   tags = cglValOrDefault(tags,[]);
   opacityExpr = if(usesAlpha,false,if(hasAlpha,lambda((),cglAlpha>=1),true));
-  cgl3d.addObject:(cgl3dNewMesh(cgl3d.shader.triangle:(#),triangles,
+  cgl3d.addObject.(cgl3dNewMesh(cgl3d.shader.triangle.(#),triangles,
     plotModifiers->modifiers,vModifiers->vModifiers,tags->["polygon"]++tags,opaqueIf->opacityExpr));
 );
 
@@ -2658,12 +2658,12 @@ cglSurface3d(fun) := (
     cutoffRegion = cglValOrDefault(cutoffRegion,cgl3d.defaults.surfaceCutoff);
     layers = cglValOrDefault(layers,0);
     // convert function to form taking vector insteads of 3 arguments
-    F = lambda(p,fun:( p.x, p.y, p.z),fun->fun);
-    normalExpr = if(isundefined(dF),cgl3d.compute.guessDerivative:(F),lambda(p,dF:(p_1,p_2,p_3),dF->dF));
+    F = lambda(p,fun.( p.x, p.y, p.z),fun->fun);
+    normalExpr = if(isundefined(dF),cgl3d.compute.guessDerivative.(F),lambda(p,dF.(p_1,p_2,p_3),dF->dF));
     if(isundefined(degree),
       N = min(cglTryDetermineDegree(fun),cglMaxAutoDeg);
       if(isundefined(N),
-        N = min(cgl3d.compute.guessDegree:(F),cglMaxAutoDeg);
+        N = min(cgl3d.compute.guessDegree.(F),cglMaxAutoDeg);
       ,if(N<0,
         N=cglMaxAutoDeg
       ));
@@ -2699,13 +2699,13 @@ cglSurface3d(fun) := (
     // code TODO? is there a way to avoid duplicate code for bounding box selection
     if(layers==0,
       if(bounds_"type" == "unbounded",
-        cgl3d.addObject:(cgl3dNewObject(cgl3d.shader.surface:(#),plotModifiers->modifiers,opaqueIf->opacityExpr))
+        cgl3d.addObject.(cgl3dNewObject(cgl3d.shader.surface.(#),plotModifiers->modifiers,opaqueIf->opacityExpr))
       ,if(bounds_"type" == "sphere",
-        cgl3d.addObject:(cgl3dNewSphere(cgl3d.shader.surface:(#),bounds_"center",bounds_"radius",plotModifiers->modifiers,opaqueIf->opacityExpr))
+        cgl3d.addObject.(cgl3dNewSphere(cgl3d.shader.surface.(#),bounds_"center",bounds_"radius",plotModifiers->modifiers,opaqueIf->opacityExpr))
       ,if(bounds_"type" == "cylinder",
-        cgl3d.addObject:(cgl3dNewCylinder(cgl3d.shader.surface:(#),bounds_"point1",bounds_"point2",bounds_"radius",plotModifiers->modifiers,opaqueIf->opacityExpr))
+        cgl3d.addObject.(cgl3dNewCylinder(cgl3d.shader.surface.(#),bounds_"point1",bounds_"point2",bounds_"radius",plotModifiers->modifiers,opaqueIf->opacityExpr))
       ,if(bounds_"type" == "cuboid",
-        cgl3d.addObject:(cgl3dNewCuboid(cgl3d.shader.surface:(#),bounds_"center",bounds_"v1",bounds_"v2",bounds_"v3",plotModifiers->modifiers,opaqueIf->opacityExpr))
+        cgl3d.addObject.(cgl3dNewCuboid(cgl3d.shader.surface.(#),bounds_"center",bounds_"v1",bounds_"v2",bounds_"v3",plotModifiers->modifiers,opaqueIf->opacityExpr))
       ,
         cglLogError("unknown bounding box type: "+text(bounds_"type"));
       ))));
@@ -2714,13 +2714,13 @@ cglSurface3d(fun) := (
       apply(0..(layers-1),i,
         modifiers_"K"=layers-i;
         if(bounds_"type" == "unbounded",
-          cgl3d.addObject:(cgl3dNewObject(cgl3d.shader.surfaceLayer:(#),plotModifiers->modifiers,opaqueIf->opacityExpr))
+          cgl3d.addObject.(cgl3dNewObject(cgl3d.shader.surfaceLayer.(#),plotModifiers->modifiers,opaqueIf->opacityExpr))
         ,if(bounds_"type" == "sphere",
-          cgl3d.addObject:(cgl3dNewSphere(cgl3d.shader.surfaceLayer:(#),bounds_"center",bounds_"radius",plotModifiers->modifiers,opaqueIf->opacityExpr))
+          cgl3d.addObject.(cgl3dNewSphere(cgl3d.shader.surfaceLayer.(#),bounds_"center",bounds_"radius",plotModifiers->modifiers,opaqueIf->opacityExpr))
         ,if(bounds_"type" == "cylinder",
-          cgl3d.addObject:(cgl3dNewCylinder(cgl3d.shader.surfaceLayer:(#),bounds_"point1",bounds_"point2",bounds_"radius",plotModifiers->modifiers,opaqueIf->opacityExpr))
+          cgl3d.addObject.(cgl3dNewCylinder(cgl3d.shader.surfaceLayer.(#),bounds_"point1",bounds_"point2",bounds_"radius",plotModifiers->modifiers,opaqueIf->opacityExpr))
         ,if(bounds_"type" == "cuboid",
-          cgl3d.addObject:(cgl3dNewCuboid(cgl3d.shader.surfaceLayer:(#),bounds_"center",bounds_"v1",bounds_"v2",bounds_"v3",plotModifiers->modifiers,opaqueIf->opacityExpr))
+          cgl3d.addObject.(cgl3dNewCuboid(cgl3d.shader.surfaceLayer.(#),bounds_"center",bounds_"v1",bounds_"v2",bounds_"v3",plotModifiers->modifiers,opaqueIf->opacityExpr))
         ,
           cglLogError("unknown bounding box type: "+text(bounds_"type"));
         ))));
@@ -2736,7 +2736,7 @@ cglPlot3d(f/*f(x,y)*/):=(
   if(isundefined(degree),
       degree = min(cglTryDetermineDegree(f),cglMaxAutoDeg);
   );
-  cglSurface3d(lambda((x,y,z),f:(x,y)-z,f->f),degree->degree);
+  cglSurface3d(lambda((x,y,z),f.(x,y)-z,f->f),degree->degree);
 );
 cglInterface("complexplot3d",cglCPlot3d,(f:(z)),(color,texture,colorBack,
   textureBack,alpha,light,texture,uv,df:(z),
@@ -2750,13 +2750,13 @@ cglCPlot3d(f/*f(z)*/):=(
       "type": "expr",
       "expr": lambda((texturePos,spacePos,normal),
         regional(z);
-        z=f:(spacePos_1+i*spacePos_2);
+        z=f.(spacePos_1+i*spacePos_2);
         hue((arctan2(re(z),im(z))+pi)/(2*pi))
       ,f->f),
       "hasAlpha": false
     };
   );
-  cglSurface3d(lambda((x,y,z),abs(f:(x+i*y))-z,f->f),degree->cglValOrDefault(degree,-1));
+  cglSurface3d(lambda((x,y,z),abs(f.(x+i*y))-z,f->f),degree->cglValOrDefault(degree,-1));
 );
 
 /* TODO: port coordinate system controlls and object management
