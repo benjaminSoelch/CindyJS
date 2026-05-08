@@ -4815,14 +4815,12 @@ function infix_lambda(args, modifs) {
     Object.entries(modifs).forEach(function ([key, value]) {
         modValues[key] = evaluate(value);
     });
-    let captures = [];
-    namespace.forEachLocal((n) => captures.push(n));
     return {
         ctype: "lambda",
         body: args[1],
         params: params,
         modifs: modValues,
-        captures: captures,
+        declarationScope: namespace.scopeId,
     };
 }
 eval_helper.evalLambda = function (lambda, args, modifs) {

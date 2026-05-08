@@ -126,5 +126,12 @@ namespace.forEachLocal = function (action) {
         action(st[i]);
     }
 };
+namespace.scopeId = 0;
+namespace._nextScope = 1;
+namespace.nextScopeId = function () {
+    let res = namespace._nextScope;
+    namespace._nextScope += 1;
+    return res;
+};
 
 export { namespace };
