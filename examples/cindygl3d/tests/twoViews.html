@@ -45,10 +45,9 @@
             sx = mouse().x;
             sy = mouse().y;
 
-            cglCoordSystem();
-            render3d((-4,-2),(0,2),p0->[-2,-2],p1->[2,2]);
+            render3d(screenCorners->[(-4,-2),(0,2)],p0->[-2,-2],p1->[2,2]);
             rotate3d(pi,0);
-            render3d((0,-2),(4,2),p0->[-2,-2],p1->[2,2]);
+            render3d(screenCorners->[(0,-2),(4,2)],p0->[-2,-2],p1->[2,2]);
             rotate3d(-pi,0);
         </script>
 

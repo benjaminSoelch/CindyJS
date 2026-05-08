@@ -822,60 +822,77 @@ let CindyGL = function(api) {
 
     // TODO? automatic update of coordinate system to match render region of screen
 
+    function getDefinedValueOrNull(expr) {
+        if (expr === undefined || expr === null) return null;
+        let val = api.evaluateAndVal(expr);
+        if (val['ctype'] !== "undefined") return val;
+        return null;
+    }
     api.defineFunction("cgl3dStartRender", 0, (args, modifs) => {
-        // internal measures. might be multiple of api.instance['canvas']['clientWidth'] on HiDPI-Displays
-        let iw = api.instance['canvas']['width'];
-        let ih = api.instance['canvas']['height'];
-        let p0 = modifs["p0"] === undefined ? computeUpperLeftCorner(api) : api.extractPoint(api.evaluateAndVal(modifs["p0"]));
-        let p1 = modifs["p1"] === undefined ? computeLowerRightCorner(api) : api.extractPoint(api.evaluateAndVal(modifs["p1"]));
-        prepareRender3d(p0,p1,[0,0,iw,ih],iw,ih,null,modifs);
-        return nada;
-    });
-    api.defineFunction("cgl3dStartRender", 2, (args, modifs) => {
-        var a = api.extractPoint(api.evaluateAndVal(args[0]));
-        var b = api.extractPoint(api.evaluateAndVal(args[1]));
-
-        var ul = {
-            x: Math.min(a.x, b.x),
-            y: Math.max(a.y, b.y)
-        }; //upper left pt
-
-        let iw = api.instance['canvas']['width']; //internal measures. (works also on HiDPI-Displays)
-        let ih = api.instance['canvas']['height'];
-
-        let cul = computeUpperLeftCorner(api);
-        let clr = computeLowerRightCorner(api);
-
-        let fx = Math.abs((a.x - b.x) / (clr.x - cul.x)); //x-ratio of screen that is used
-        let fy = Math.abs((a.y - b.y) / (clr.y - cul.y)); //y-ratio of screen that is used
-
-        var xx = iw * (ul.x - cul.x) / (clr.x - cul.x);
-        var yy = ih * (ul.y - cul.y) / (clr.y - cul.y);
-        let p0 = modifs["p0"] === undefined ? a : api.extractPoint(api.evaluateAndVal(modifs["p0"]));
-        let p1 = modifs["p1"] === undefined ? b : api.extractPoint(api.evaluateAndVal(modifs["p1"]));
-        prepareRender3d(p0,p1,[xx, yy, iw*fx, ih*fy], iw*fx, ih*fy, null, modifs);
-        return nada;
-    });
-    api.defineFunction("cgl3dStartRender", 1, (args, modifs) => {
-        initGLIfRequired();
-        var name = api.evaluateAndVal(args[0]);
-        if (name.ctype !== 'string') {
-            return nada;
+        let image;
+        if (modifs["image"] !== undefined) {
+            image = api.evaluateAndVal(modifs["image"]);
+            if (image['ctype'] === "string") {
+                image = api.getImage(image['value'], true);
+            } else {
+                if (image['ctype'] !== "undefined") {
+                    cglLogWarning("expected image name got: ",image);
+                }
+                image = null;
+            }
         }
-        let imageobject = api.getImage(name['value'], true);
-        //let canvaswrapper = generateWriteCanvasWrapperIfRequired(imageobject, api);
-        let canvaswrapper = generateCanvasWrapperIfRequired(imageobject, api, false);
-        var cw = imageobject.width;
-        var ch = imageobject.height;
-        let p0 = modifs["p0"] === undefined ? {x:0,y:0} : api.extractPoint(api.evaluateAndVal(modifs["p0"]));
-        let p1 = modifs["p1"] === undefined ? {x:cw,y:ch} : api.extractPoint(api.evaluateAndVal(modifs["p1"]));
-        prepareRender3d(p0,p1,[0, 0, cw, ch], cw, ch, canvaswrapper, modifs);
-        return nada;
-    });
-    function prepareRender3d(p0,p1,pixelBounds,iw,ih,canvaswrapper,modifs){
+        let p0 = getDefinedValueOrNull(modifs["p0"]);
+        if (p0 !== null) p0 = api.extractPoint(p0);
+        let p1 = getDefinedValueOrNull(modifs["p1"]);
+        if (p1 !== null) p1 = api.extractPoint(p1);
+        let screenCorners = getDefinedValueOrNull(modifs["screenCorners"]);
+        if (screenCorners !== null) {
+            if (screenCorners['ctype'] === "list" || screenCorners['value'].length !== 2) {
+                screenCorners = screenCorners['value'].map(api.extractPoint);
+            } else {
+                cglLogWarning("expected list of two points got: ",screenCorners);
+                screenCorners = null;
+            }
+        }
+        let cul,clr;
+        let pixelBounds = [];
+        let canvaswrapper;
+        if (image !== null) {
+            canvaswrapper = generateCanvasWrapperIfRequired(image, api, false);
+            cul = {x:0,y:0};
+            clr = {x:image.width,y:image.height};
+            pixelBounds = [0,0,image.width,image.height];
+        } else {
+            canvaswrapper = null;
+            cul = computeUpperLeftCorner(api);
+            clr = computeLowerRightCorner(api);
+            // internal measures. might be multiple of api.instance['canvas']['clientWidth'] on HiDPI-Displays
+            pixelBounds = [0,0,api.instance['canvas']['width'],api.instance['canvas']['height']];
+        }
+        if (screenCorners !== null) {
+            let a = screenCorners[0];
+            let b = screenCorners[1];
+            let ciw = pixelBounds[2];
+            let cih = pixelBounds[3];
+            let ul = {
+                x: Math.min(a.x, b.x),
+                y: Math.max(a.y, b.y)
+            }; //upper left pt
+            let fx = Math.abs((a.x - b.x) / (clr.x - cul.x)); //x-ratio of screen that is used
+            let fy = Math.abs((a.y - b.y) / (clr.y - cul.y)); //y-ratio of screen that is used
+            let xx = ciw * (ul.x - cul.x) / (clr.x - cul.x);
+            let yy = cih * (ul.y - cul.y) / (clr.y - cul.y);
+            if (p0 === null) p0 = a;
+            if (p1 === null) p1 = b;
+            pixelBounds = [xx, yy, ciw*fx, cih*fy];
+        } else {
+            if (p0 === null) p0 = cul;
+            if (p1 === null) p1 = clr;
+        }
+        let iw = pixelBounds[2];
+        let ih = pixelBounds[3];
         initGLIfRequired();
-        let needsTranslucent = true; // TODO: make customizable through modifier
-        let layerCount = getRealModifier(modifs,"layers",needsTranslucent ? 2 : 0);
+        let layerCount = getRealModifier(modifs,"layers",0);
         Renderer.resetCachedState();
         gl.clear(gl.DEPTH_BUFFER_BIT|gl.COLOR_BUFFER_BIT);
         let defaultZ = Math.max(p1.x-p0.x,p1.y-p0.y)/2;
@@ -899,7 +916,7 @@ let CindyGL = function(api) {
         CindyGL.sceneRenderer.transform =  m4FlatTranspose(transform);
         CindyGL.sceneRenderer.inverseTrafo = m4InverseFlatTranspose(transform);
         return nada;
-    }
+    });
     api.defineFunction("cgl3dSetRenderTransform", 2, (args, modifs) => {
         if (CindyGL.sceneRenderer === null){
             cglLogError("no active rendering pass, call `cgl3dStartRender` before calling `cgl3dSetRenderTransform`");

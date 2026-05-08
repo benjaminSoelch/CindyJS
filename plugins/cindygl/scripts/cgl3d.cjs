@@ -74,21 +74,16 @@ cgl3d.resetObjects = () => (
 );
 reset3d() := cgl3d.resetObjects.();
 cgl3d.render = () => (
-  cgl3dStartRender(layers->0); // TODO set layers to 2 if there are translucent objects
+  // TODO set layers to 2 if there are translucent objects
+  cgl3dStartRender(layers->0,image->image,screenCorners->screenCorners,p0->p0,p1->p1);
   cgl3dSetRenderTransform(cgl3d.renderTransform,cgl3d.zoomFactor);
   cgl3dRenderOpaque(self().objects.opaque);
   cgl3dRenderTranslucent(self().objects.translucent);
   cgl3dFinishRender();
 );
-render3d() := cgl3d.render.();
-// TODO? make p0,p1 part of coordinate system
-render3d(p0,p1) := (
-  cgl3dStartRender(p0->p0,p1->p1,layers->0);
-  cgl3dSetRenderTransform(cgl3d.renderTransform,cgl3d.zoomFactor);
-  cgl3dRenderOpaque(cgl3d.objects.opaque);
-  cgl3dRenderTranslucent(cgl3d.objects.translucent);
-  cgl3dFinishRender();
-);
+// prevent capturing of global variables
+cglInterface("render3d",cglRender3d,(),(layers,image,screenCorners,p0,p1));
+cglRender3d() := cgl3d.render.();
 cgl3d.addObject = (obj) => (
   regional(id);
   id = cgl3dObjectId(obj);
