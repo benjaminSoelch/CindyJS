@@ -4823,6 +4823,16 @@ function infix_lambda(args, modifs) {
         declarationScope: namespace.scopeId,
     };
 }
+evaluator.invoke$2 = function (args, modifs) {
+    let lambda = args[0];
+    let lambdaArgs = evaluate(args[1]);
+    if (lambdaArgs.ctype === "list") {
+        lambdaArgs = lambdaArgs.value;
+    } else {
+        lambdaArgs = [lambdaArgs];
+    }
+    eval_helper.evalLambda(lambda, lambdaArgs, modifs);
+};
 eval_helper.evalLambda = function (lambda, args, modifs) {
     lambda = evaluate(lambda);
     if (lambda.ctype !== "lambda") return nada;
