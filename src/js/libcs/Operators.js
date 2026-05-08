@@ -4862,7 +4862,7 @@ function infix_lambda(args, modifs) {
         modifs: modValues,
         declarationScope: namespace.scopeId,
     };
-}
+};
 evaluator.islambda$1 = function (args, modifs) {
     const v0 = evaluate(args[0]);
     if (v0.ctype === "lambda") {
@@ -4875,6 +4875,16 @@ evaluator.islambda$1 = function (args, modifs) {
         ctype: "boolean",
         value: false,
     };
+};
+evaluator.invoke$2 = function (args, modifs) {
+    let lambda = args[0];
+    let lambdaArgs = evaluate(args[1]);
+    if (lambdaArgs.ctype === "list") {
+        lambdaArgs = lambdaArgs.value;
+    } else {
+        lambdaArgs = [lambdaArgs];
+    }
+    return eval_helper.evalLambda(lambda, lambdaArgs, modifs);
 };
 eval_helper.evalLambda = function (lambda, args, modifs) {
     lambda = evaluate(lambda);
