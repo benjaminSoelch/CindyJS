@@ -467,6 +467,11 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
                 scope,
                 needtobeconstant);
         }
+        if (expr['ctype'] === 'function') {
+            Object.values(expr['modifs']).forEach(
+                (mod) => rec(mod,bindings,scope,forceconstant)
+            );
+        }
         if (expr['ctype'] === 'invokelambda') {
             resolveLambdaData(expr,bindings,scope,forceconstant);
         }
@@ -481,6 +486,11 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
             let vname = expr['name'];
             if(CodeBuilder.builtIns.has(vname)) {
                 expr['isbuiltin'] = true;
+            }
+            if (self.activeModifiers.hasOwnProperty(vname)) {
+                // replace lambda-modifiers with their values
+                Object.assign(expr,self.activeModifiers[vname]);
+                return;
             }
             // TODO? special handling for built-in variables
             vname = bindings[vname] || vname;
