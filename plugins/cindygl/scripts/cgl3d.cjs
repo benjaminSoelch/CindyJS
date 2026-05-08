@@ -1861,6 +1861,7 @@ cglResolveColorExpr(hasAlpha,colorsMode):=(
 );
 // bring color into standard from
 cglNormalColor(color):=( // code TODO better name
+  // TODO: handle color names
   if(length(color)==1,
     (color,color,color)
   ,if(if(length(color)==4, color_4 == 1, false),

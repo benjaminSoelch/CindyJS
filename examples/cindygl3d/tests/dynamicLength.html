@@ -19,11 +19,11 @@
         </script>
         <script id="csinit" type="text/x-cindyscript">
             use("CindyGL");
-            f = cglLazy((rgb), 0.5*(rgb_1,rgb_2,rgb_1+rgb_2)+(0.5,0.5,0.5));
-            g = cglLazy((rgb), 0.5*(rgb_1,rgb_2,rgb_1*rgb_2)+(0.5,0.5,0.5));
-            regionalInLazy = cglLazy(v,regional(c);c=v;c);
-            f3 = cglLazy((x,y,z),x^2+y^2-z^2);
-            g3 = cglLazy((x,y,z),x^2+y^2+z^2);
+            f = lambda((rgb), 0.5*(rgb_1,rgb_2,rgb_1+rgb_2)+(0.5,0.5,0.5));
+            g = lambda((rgb), 0.5*(rgb_1,rgb_2,rgb_1*rgb_2)+(0.5,0.5,0.5));
+            regionalInLambda = lambda(v,regional(c);c=v;c);
+            f3 = lambda((x,y,z),x^2+y^2-z^2);
+            g3 = lambda((x,y,z),x^2+y^2+z^2);
             shaderCode(direction):=(
               if(length(color)==3,
                 [color_1,color_2,color_3,0.5]
@@ -37,13 +37,12 @@
               dColor_(length(color)) = 0;
               dColor/3;
             );
-            colorplot3d(shaderCode(#),[1,1,0],1,Ucolor->[1,0,0]);
-            colorplot3d(shaderCode(#),[-1,-1,0],1,Ucolor->[0,1,0,0.5]);
-            colorplot3d(shaderCode2(#),[1,-1,0],1,Ucolor->[1,2,1]);
-            colorplot3d(shaderCode2(#),[-1,1,0],1,Ucolor->[1,3,3,1]);
         </script>
         <script id="csdraw" type="text/x-cindyscript">
-            render3d(layers->0);
+            colorplot(shaderCode(#),(-3,-3),(0,0),plotModifiers->{"color":[1,0,0]});
+            colorplot(shaderCode(#),(-3,0),(0,3),plotModifiers->{"color":[0,1,0,0.5]});
+            colorplot(shaderCode2(#),(0,-3),(3,0),plotModifiers->{"color":[1,2,1]});
+            colorplot(shaderCode2(#),(0,0),(3,3),plotModifiers->{"color":[1,3,3,1]});
         </script>
 
         <div id="CSCanvas" style="border: 0px"></div>
@@ -60,7 +59,7 @@
                         height: 512,
                         transform: [{ visibleRect: [-3, -3, 3, 3] }],
                     },
-                ]
+                ],
             });
         </script>
     </body>

@@ -26,7 +26,7 @@
             rotating = false;
             zoom = 1.0;
 
-            colorplot3d((1,0,0,0.5),(0,0,0),(1,0,0),(0,1,0),(0,0,1));
+            cgl3d.addObject.(cgl3dNewCuboid((1,0,0,0.5),(0,0,0),(1,0,0),(0,1,0),(0,0,1)));
             updateZoom():=(
               if(zoom>4,zoom=4);
               if(zoom<0.05,zoom=0.05);
@@ -63,7 +63,10 @@
                         height: 512,
                         transform: [{ visibleRect: [-3, -3, 3, 3] }],
                     },
-                ]
+                ],
+                import: {
+                    "init": ["../../../plugins/cindygl/scripts/cgl3d.cjs"]
+                },
             });
         </script>
     </body>

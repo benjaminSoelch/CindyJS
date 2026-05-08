@@ -15,29 +15,12 @@
             use("CindyGL");
             oo = 1000; //"infinity"
             t0 = seconds();
-            normalize(v):=(v/|v|);// TODO? direct access to glsl normalize
-            sphere(direction):=(
-              // |v+l*d -c|=r
-              vc=cglViewPos-cglCenter;
-              // -> l*l <d,d> + l * 2<v-c,d> + <v-c,v-c> - r*r
-              b2=(vc*direction); // 1/2 * b
-              c=vc*vc-cglRadius*cglRadius;
-              D4=b2*b2-c; // 1/4* ( b*b - 4 *a*c)
-              if(D4<0,cglDiscard());
-              dst=-b2-re(sqrt(D4));// sqrt should always be real
-              pos3d = cglViewPos+ dst*direction;
-              normal = normalize(pos3d - cglCenter);
-              brigthness = 0.4 - 0.1*direction*normal; // 0.3 ... 0.5
-              color = brigthness*(cglCenter+[1,1,1]);
-              cglDepth = dst*0.05;
-              [color_1,color_2,color_3]
-            );
             prevN=0;
             updateImage(N):=(
               r=1/N;
               reset3d();
               forall(0..N,x,forall(0..N,y,forall(0..N,z,
-                colorplot3d(sphere(#),[2*x/N-1,2*y/N-1,2*z/N-1],r*1.05);
+                sphere3d([2*x/N-1,2*y/N-1,2*z/N-1],r*1.05);
               )));
             );
         </script>
@@ -53,11 +36,7 @@
             drawtext(A+(.03,.03),(N+1));
             if(N!=prevN,prevN=N;updateImage(N));
 
-            rho = re(time/5+mouse().y);
-            theta = re(mouse().x+time/10);
-
-            cglResetRotation();
-            rotate3d(theta,rho);
+            rotate3d(0.01,0.03*sin(time));
             render3d();
         </script>
 
@@ -82,6 +61,9 @@
                     { name: "l", type: "Segment", args: ["N0", "N1"], color: [0, 0, 0], pinned: false, size: 2 },
                     { name: "A", type: "Free", pos: [2, -1.0], color: [0, 0, 1], pinned: false,narrow: true, size: 4 },
                 ],
+                import: {
+                    "init": ["../../../plugins/cindygl/scripts/cgl3d.cjs" ]
+                },
             });
         </script>
     </body>

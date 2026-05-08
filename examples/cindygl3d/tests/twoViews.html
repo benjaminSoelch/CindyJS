@@ -33,7 +33,7 @@
                 (-1,1,-1),
                 (-1,-1,1)
             );
-            faceColors = (cglYellow,cglRed,cglGreen,cglBlue);
+            faceColors = ("yellow","reg","green","blue");
             faces = triples(points);
             forall(1..length(faces),i,polygon3d(faces_i,color->faceColors_i));
         </script>
@@ -45,10 +45,10 @@
             sx = mouse().x;
             sy = mouse().y;
 
-            cglCoordSystem(p0->[-2,-2],p1->[2,2]);
-            cglRender3d((-4,-2),(0,2));
+            cglCoordSystem();
+            render3d((-4,-2),(0,2),p0->[-2,-2],p1->[2,2]);
             rotate3d(pi,0);
-            cglRender3d((0,-2),(4,2));
+            render3d((0,-2),(4,2),p0->[-2,-2],p1->[2,2]);
             rotate3d(-pi,0);
         </script>
 
