@@ -24,12 +24,12 @@
                 zoom3d(zoom);
                 dgs3dHandleZoom(zoom);
             );
-            cglDefaults_"sphereSize" = 0.1;
-            cglDefaults_"cylinderSize" = 0.05;
+            cgl3d.defaults:"sphereSize" = 0.1;
+            cgl3d.defaults:"cylinderSize" = 0.05;
 
             A = point3d((0,0,0));
             B = point3d((1,0,0));
-            C = point3d((0,0,1),color->cglYellow);
+            C = point3d((0,0,1),color->"yellow");
             l = join3d(A,B);
             m = parallel3d(l,C);
         </script>

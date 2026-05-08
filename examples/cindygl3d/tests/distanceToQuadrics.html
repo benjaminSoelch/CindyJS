@@ -24,18 +24,18 @@
                 zoom3d(zoom);
                 dgs3dHandleZoom(zoom);
             );
-            cglDefaults_"sphereSize" = 0.1;
-            cglDefaults_"cylinderSize" = 0.05;
+            cgl3d.defaults:"sphereSize" = 0.1;
+            cgl3d.defaults:"cylinderSize" = 0.05;
 
-            A = point3d((1,1,1),color->cglWhite);
+            A = point3d((1,1,1),color->"white");
             pts1 = apply(1..9,
                 point3d((random(),random(),random()),size->0.05)
             );
-            Q1 = quadricBy9Points(pts1,color->cglYellow);
+            Q1 = quadricBy9Points(pts1,color->"yellow");
             pts2 = apply(1..9,
                 point3d((random(),random(),random()),size->0.05)
             );
-            Q2 = quadricBy9Points(pts2,color->cglGreen);
+            Q2 = quadricBy9Points(pts2,color->"green");
 
             q1 = dgs3dPolar(Q1,A,visible->false);
             q2 = dgs3dPolar(Q2,A,visible->false);
@@ -44,7 +44,7 @@
             Y = point3d((0,0,0),pinned->true,visible->false);
             l:"children" = append(l:"children",Y);
             Y:"parents" = [l];
-            Y:"recompute" = cglLazy(self,
+            Y:"recompute" = lambda(self,
                 regional(l,PQ,v,n);
                 l = self:"parents"_1;
                 PQ = transpose(kernel(dgs3dLineMatrix(l:"coords")));
@@ -53,7 +53,7 @@
                 self:"coords" = dgs3dEpsilon46(n,l:"coords");
                 DGS3DmOVEoK
             );
-            cglEval(Y:"recompute",Y);
+            Y:"recompute".(Y);
             l2 = join3d(A,Y);
             // TODO: find linear combination of Q1,Q2 such that l2 is normal to polar-plane (?polar is linear comb of q1,q2)
 

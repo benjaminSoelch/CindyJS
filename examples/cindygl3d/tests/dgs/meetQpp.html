@@ -24,8 +24,8 @@
                 zoom3d(zoom);
                 dgs3dHandleZoom(zoom);
             );
-            cglDefaults_"sphereSize" = 0.1;
-            cglDefaults_"cylinderSize" = 0.05;
+            cgl3d.defaults:"sphereSize" = 0.1;
+            cgl3d.defaults:"cylinderSize" = 0.05;
 
             A = point3d((1,0,0));
             B = point3d((0,1,0));
@@ -45,7 +45,7 @@
             Q = join3d(l1,l2,l3);
             p = join3d(X,Y,Z);
             q = join3d(U,V,W);
-            c = meet3d(Q,p,q,color->cglYellow);
+            c = meet3d(Q,p,q,color->"yellow");
         </script>
         <script id="csdraw" type="text/x-cindyscript">
             dgs3dPreFrame();

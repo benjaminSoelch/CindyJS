@@ -24,10 +24,10 @@
                 zoom3d(zoom);
                 dgs3dHandleZoom(zoom);
             );
-            cglDefaults_"sphereSize" = 0.1;
-            cglDefaults_"cylinderSize" = 0.05;
+            cgl3d.defaults:"sphereSize" = 0.1;
+            cgl3d.defaults:"cylinderSize" = 0.05;
 
-            A = point3d((1,1,1),color->cglYellow);
+            A = point3d((1,1,1),color->"yellow");
             pts = apply(1..9,
                 point3d((random(),random(),random()))
             );
@@ -62,13 +62,13 @@
               |pt*pol|
             );
 
-            A:"recompute" = cglLazy(self,
+            A:"recompute" = lambda(self,
               quadDistance = distanceToQuadric(self:"coords",Q:"coords");
               print(quadDistance);
               DGS3DmOVEoK
             );
             polar3d(Q,A);
-            cglEval(A:"recompute",A);
+            A:"recompute".(A);
             surface3d(distanceToQuadric((x,y,z,1),Q:"coords")-quadDistance,degree->8,alpha->0.75);
         </script>
         <script id="csdraw" type="text/x-cindyscript">

@@ -24,13 +24,13 @@
                 zoom3d(zoom);
                 dgs3dHandleZoom(zoom);
             );
-            cglDefaults_"sphereSize" = 0.1;
-            cglDefaults_"cylinderSize" = 0.05;
+            cgl3d.defaults:"sphereSize" = 0.1;
+            cgl3d.defaults:"cylinderSize" = 0.05;
 
             A = point3d((0,0,0));
             B = point3d((1,0,0));
             C = point3d((0,1,0));
-            D = point3d((0,0,1),color->cglYellow);
+            D = point3d((0,0,1),color->"yellow");
             p = join3d(A,B,C);
             l = normal3d(p,D);
         </script>

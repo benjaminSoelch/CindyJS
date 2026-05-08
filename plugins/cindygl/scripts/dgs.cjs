@@ -41,7 +41,7 @@ dgs3dHandleZoom(zoom):=(
 dgs3dUpdateCutoff();
 
 // TODO make focus color customizable, ? set color depending on color of point
-dgs3dFocusColor = cglGreen;
+dgs3dFocusColor = "green";
 dgs3dMovementAxes(point):=(
   regional(normal,l,PQ);
   if(length(point:"parents")>0,
@@ -481,16 +481,16 @@ dgs3dLoad(values):=(
     obj:"parents" = apply(obj:"parents",dgs3dObjById(#));
     obj:"children" = apply(obj:"children",dgs3dObjById(#));
     if(obj:"type" == "point",
-      dgs3dPoints.(obj:"id") = obj;
+      dgs3dPoints:(obj:"id") = obj;
       if(obj:"movable",
-        dgs3dMovablePoints.(obj:"id") = obj;
+        dgs3dMovablePoints:(obj:"id") = obj;
       )
     ,if(obj:"type" == "line",
-      dgs3dLines.(obj:"id") = obj;
+      dgs3dLines:(obj:"id") = obj;
     ,if(obj:"plane" == "plane",
-      dgs3dPlanes.(obj:"id") = obj;
+      dgs3dPlanes:(obj:"id") = obj;
     ,if(obj:"plane" == "quadric",
-      dgs3dQuadrics.(obj:"id") = obj;
+      dgs3dQuadrics:(obj:"id") = obj;
     ))));
   );
 );
@@ -517,17 +517,17 @@ dgs3dNewObject(type,parents):=(
   dgs3dObjects:objId = obj;
   if(type == "point",
     dgs3dPoints:objId = obj;
-    obj:"color" = cglValOrDefault(color,cglRed);
+    obj:"color" = cglValOrDefault(color,"red");
     obj:"alpha" = cglValOrDefault(alpha,1);
     obj:"redraw" = lambda(self,dgs3dRenderPoint(self));
   ,if(type == "line",
     dgs3dLines:objId = obj;
-    obj:"color" = cglValOrDefault(color,cglBlack);
+    obj:"color" = cglValOrDefault(color,"black");
     obj:"alpha" = cglValOrDefault(alpha,1);
     obj:"redraw" = lambda(self,dgs3dRenderLine(self));
   ,if(type == "plane",
     dgs3dPlanes:objId = obj;
-    obj:"color" = cglValOrDefault(color,cglCyan);
+    obj:"color" = cglValOrDefault(color,"cyan");
     obj:"alpha" = cglValOrDefault(alpha,0.67);
     obj:"redraw" = lambda(self,dgs3dRenderPlane(self));
   ,if(type == "quadric",
@@ -699,13 +699,13 @@ dgs3dNewPoint(p):=(
   regional(obj);
   obj = dgs3dNewObject("point",[]);
   obj:"coords" = dgs3dPoint4(p);
-  obj:"size" = cglValOrDefault(size,cglDefaults:"sphereSize");
+  obj:"size" = cglValOrDefault(size,cgl3d.defaults:"sphereSize");
   dgs3dRenderPoint(obj);
   if(cglValOrDefault(pinned,false),
     obj:"movable" = false;
   ,
     obj:"movable" = true;
-    dgs3dMovablePoints.(obj:"id") = obj;
+    dgs3dMovablePoints:(obj:"id") = obj;
   );
   obj
 );
@@ -748,7 +748,7 @@ dgs3dJoin2(a,b):=(
 dgs3dJoin2P(p1,p2):=(
   regional(obj);
   obj = dgs3dNewObject("line",[p1,p2]);
-  obj:"size" = cglValOrDefault(size,cglDefaults:"cylinderSize");
+  obj:"size" = cglValOrDefault(size,cgl3d.defaults:"cylinderSize");
   obj:"recompute" = lambda(self,
     regional(a,b);
     a = (self:"parents"_1):"coords";
@@ -782,7 +782,7 @@ cglInterface(pointOnLine3d,dgs3dPointOnLine,(l,p0),(size,pinned,visible,color,al
 dgs3dPointOnLine(l,p0):=(
   regional(obj);
   obj = dgs3dNewObject("point",[l]);
-  obj:"size" = cglValOrDefault(size,cglDefaults:"sphereSize");
+  obj:"size" = cglValOrDefault(size,cgl3d.defaults:"sphereSize");
   obj:"coords" = dgs3dPoint4(p0);
   obj:"recompute" = lambda(self,
     regional(p,l,K);
@@ -801,7 +801,7 @@ dgs3dPointOnLine(l,p0):=(
     obj:"movable" = false;
   ,
     obj:"movable" = true;
-    dgs3dMovablePoints.(obj:"id") = obj;
+    dgs3dMovablePoints:(obj:"id") = obj;
   );
   obj
 );
@@ -853,7 +853,7 @@ cglInterface(pointOnPlane3d,dgs3dPointOnPlane,(s,p0),(size,pinned,visible,color,
 dgs3dPointOnPlane(s,p0):=(
   regional(obj);
   obj = dgs3dNewObject("point",[s]);
-  obj:"size" = cglValOrDefault(size,cglDefaults:"sphereSize");
+  obj:"size" = cglValOrDefault(size,cgl3d.defaults:"sphereSize");
   obj:"coords" = dgs3dPoint4(p0);
   obj:"recompute" = lambda(self,
     regional(p4,p,s,n);
@@ -872,7 +872,7 @@ dgs3dPointOnPlane(s,p0):=(
     obj:"movable" = false;
   ,
     obj:"movable" = true;
-    dgs3dMovablePoints.(obj:"id") = obj;
+    dgs3dMovablePoints:(obj:"id") = obj;
   );
   obj
 );
@@ -885,7 +885,7 @@ cglInterface(pointOnQuadric3d,dgs3dPointOnQuadric,(q,p0),(size,pinned,visible,co
 dgs3dPointOnQuadric(q,p0):=(
   regional(obj);
   obj = dgs3dNewObject("point",[q]);
-  obj:"size" = cglValOrDefault(size,cglDefaults:"sphereSize");
+  obj:"size" = cglValOrDefault(size,cgl3d.defaults:"sphereSize");
   obj:"coords" = dgs3dPoint4(p0);
   obj:"recompute" = lambda(self,
     regional(p,Q,n,l,AB,a,b,ab);
@@ -921,7 +921,7 @@ dgs3dPointOnQuadric(q,p0):=(
     obj:"movable" = false;
   ,
     obj:"movable" = true;
-    dgs3dMovablePoints.(obj:"id") = obj;
+    dgs3dMovablePoints:(obj:"id") = obj;
   );
   obj
 );
@@ -935,7 +935,7 @@ cglInterface(pointOnConic3d,dgs3dPointOnConic,(q,p0),(size,pinned,visible,color,
 dgs3dPointOnConic(q,p0):=(
   regional(obj);
   obj = dgs3dNewObject("point",[q]);
-  obj:"size" = cglValOrDefault(size,cglDefaults:"sphereSize");
+  obj:"size" = cglValOrDefault(size,cgl3d.defaults:"sphereSize");
   obj:"coords" = dgs3dPoint4(p0);
   obj:"recompute" = lambda(self,
     regional(P,P3,Qp,Q,p,np,nq);
@@ -982,7 +982,7 @@ dgs3dPointOnConic(q,p0):=(
     obj:"movable" = false;
   ,
     obj:"movable" = true;
-    dgs3dMovablePoints.(obj:"id") = obj;
+    dgs3dMovablePoints:(obj:"id") = obj;
   );
   obj
 );
@@ -1033,7 +1033,7 @@ dgs3dMeet2(a,b):=(
 dgs3dMeet2P(P1,P2):=(
   regional(obj);
   obj = dgs3dNewObject("line",[P1,P2]);
-  obj:"size" = cglValOrDefault(size,cglDefaults:"cylinderSize");
+  obj:"size" = cglValOrDefault(size,cgl3d.defaults:"cylinderSize");
   obj:"recompute" = lambda(self,
     regional(A,B);
     A = (self:"parents"_1):"coords";
@@ -1049,7 +1049,7 @@ dgs3dMeet2P(P1,P2):=(
 dgs3dMeetPL(P1,l1):=(
   regional(obj);
   obj = dgs3dNewObject("point",[P1,l1]);
-  obj:"size" = cglValOrDefault(size,cglDefaults:"sphereSize");
+  obj:"size" = cglValOrDefault(size,cgl3d.defaults:"sphereSize");
   obj:"recompute" = lambda(self,
     regional(p,l);
     p = self:"parents"_1;
@@ -1065,7 +1065,7 @@ dgs3dMeetPL(P1,l1):=(
 dgs3dMeet2L(l1,l2):=(
   regional(obj);
   obj = dgs3dNewObject("point",[l1,l2]);
-  obj:"size" = cglValOrDefault(size,cglDefaults:"sphereSize");
+  obj:"size" = cglValOrDefault(size,cgl3d.defaults:"sphereSize");
   obj:"recompute" = lambda(self,
     regional(l1,l2);
     l1 = dgs3dLineMatrix(dgs3dDualLine((self:"parents"_1):"coords"));
@@ -1126,7 +1126,7 @@ dgs3dFinishPointSet(obj):=(
   obj:"recompute".(obj);
   obj:"redraw".(obj);
   forall(obj:"children",child,
-    child:"size" = cglValOrDefault(size,cglDefaults:"sphereSize");
+    child:"size" = cglValOrDefault(size,cgl3d.defaults:"sphereSize");
     child:"recompute".(child);
     dgs3dRenderPoint(child);
   );
@@ -1172,7 +1172,7 @@ dgs3dMeet3(x,y,z):=(
 dgs3dMeet3P(P1,P2,P3):=(
   regional(obj);
   obj = dgs3dNewObject("point",[P1,P2,P3]);
-  obj:"size" = cglValOrDefault(size,cglDefaults:"sphereSize");
+  obj:"size" = cglValOrDefault(size,cgl3d.defaults:"sphereSize");
   obj:"recompute" = lambda(self,
     self:"coords" = dgs3dEpsilon444(self:"parents"_1:"coords",self:"parents"_2:"coords",self:"parents"_3:"coords");
     DGS3DmOVEoK
@@ -1537,7 +1537,7 @@ dgs3dPolar(Q,x):=(
 dgs3dPolarPlane(Q,p):=(
   regional(obj);
   obj = dgs3dNewObject("plane",[Q,p]);
-  obj:"size" = cglValOrDefault(size,cglDefaults:"sphereSize");
+  obj:"size" = cglValOrDefault(size,cgl3d.defaults:"sphereSize");
   obj:"recompute" = lambda(self,
     self:"coords" = self:"parents"_1:"coords" * self:"parents"_2:"coords";
     DGS3DmOVEoK
@@ -1550,7 +1550,7 @@ dgs3dPolarPlane(Q,p):=(
 dgs3dPolarLine(Q,l):=(
   regional(obj);
   obj = dgs3dNewObject("line",[Q,l]);
-  obj:"size" = cglValOrDefault(size,cglDefaults:"cylinderSize");
+  obj:"size" = cglValOrDefault(size,cgl3d.defaults:"cylinderSize");
   obj:"recompute" = lambda(self,
     regional(L,Q);
     Q = self:"parents"_1:"coords";
@@ -1566,7 +1566,7 @@ dgs3dPolarLine(Q,l):=(
 dgs3dPolarPoint(Q,P):=(
   regional(obj);
   obj = dgs3dNewObject("point",[Q,P]);
-  obj:"size" = cglValOrDefault(size,cglDefaults:"sphereSize");
+  obj:"size" = cglValOrDefault(size,cgl3d.defaults:"sphereSize");
   obj:"recompute" = lambda(self,
     self:"coords" = adjoint4(self:"parents"_1:"coords") * self:"parents"_2:"coords";
     DGS3DmOVEoK
@@ -1633,7 +1633,7 @@ dgs3dParallel(x,p):=(
 dgs3dParallelLine(l,p):=(
   regional(obj);
   obj = dgs3dNewObject("line",[l,p]);
-  obj:"size" = cglValOrDefault(size,cglDefaults:"cylinderSize");
+  obj:"size" = cglValOrDefault(size,cgl3d.defaults:"cylinderSize");
   obj:"recompute" = lambda(self,
     regional(l,p);
     l = self:"parents"_1:"coords";
@@ -1679,7 +1679,7 @@ dgs3dNormal(x,p):=(
 dgs3dOrthogonalLine(P,p):=(
   regional(obj);
   obj = dgs3dNewObject("line",[P,p]);
-  obj:"size" = cglValOrDefault(size,cglDefaults:"cylinderSize");
+  obj:"size" = cglValOrDefault(size,cgl3d.defaults:"cylinderSize");
   obj:"recompute" = lambda(self,
     regional(P,p);
     P = self:"parents"_1:"coords";
@@ -1713,7 +1713,7 @@ dgs3dOrthogonalPlane(l,p):=(
 dgs3dOrthogonal2L(l1,l2):=(
   regional(obj);
   obj = dgs3dNewObject("line",[l1,l2]);
-  obj:"size" = cglValOrDefault(size,cglDefaults:"cylinderSize");
+  obj:"size" = cglValOrDefault(size,cgl3d.defaults:"cylinderSize");
   obj:"recompute" = lambda(self,
     regional(l1,l2,K1,K2,p1,p2,n1,n2,n,sol,p);
     l1 = self:"parents"_1:"coords";
@@ -1794,7 +1794,7 @@ dgs3dDistanceQuadricQuadric(Q1,Q2,coords):=(
 dgs3dMeetQP(Q,p):=(
   regional(obj);
   obj = dgs3dNewObject("conic",[Q,p]);
-  obj:"size" = cglValOrDefault(size,cglDefaults:"cylinderSize");
+  obj:"size" = cglValOrDefault(size,cgl3d.defaults:"cylinderSize");
   obj:"recompute" = lambda(self,
     regional(Q,p);
     Q = self:"parents"_1:"coords";
@@ -1810,7 +1810,7 @@ dgs3dMeetQP(Q,p):=(
 dgs3dMeet2Q(Q1,Q2):=(
   regional(obj);
   obj = dgs3dNewObject("intersection2Q",[Q1,Q2]);
-  obj:"size" = cglValOrDefault(size,cglDefaults:"cylinderSize");
+  obj:"size" = cglValOrDefault(size,cgl3d.defaults:"cylinderSize");
   obj:"recompute" = lambda(self,
     regional(Q1,Q2);
     Q1 = self:"parents"_1:"coords";
@@ -1846,7 +1846,7 @@ dgs3dFind(x,y):=(
   dist = 1e400; // infinity
   forall(dgs3dMovablePoints,pt,
     bounds = cglGetBounds(pt:"drawId");
-    d = cglEvalOrDiscard(cglSphereDepths(root,dir,bounds_"center",bounds_"radius")_1);
+    d = cglEvalOrDiscard(cgl3d.compute.sphereDepths.(root,dir,bounds_"center",bounds_"radius")_1);
     if(!isUndefined(d),
       if(d < dist,
         dist = d;

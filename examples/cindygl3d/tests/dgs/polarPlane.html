@@ -24,8 +24,8 @@
                 zoom3d(zoom);
                 dgs3dHandleZoom(zoom);
             );
-            cglDefaults_"sphereSize" = 0.1;
-            cglDefaults_"cylinderSize" = 0.05;
+            cgl3d.defaults:"sphereSize" = 0.1;
+            cgl3d.defaults:"cylinderSize" = 0.05;
 
             A = point3d((1,0,0));
             B = point3d((0,1,0));
@@ -36,7 +36,7 @@
             G = point3d((0,-1,0));
             H = point3d((0,-1,1));
             I = point3d((1,1,1));
-            X = point3d((0,0,0),color->cglYellow);
+            X = point3d((0,0,0),color->"yellow");
             Q = quadricBy9Points((A,B,C,D,E,F,G,H,I));
             p = polar3d(Q,X);
         </script>

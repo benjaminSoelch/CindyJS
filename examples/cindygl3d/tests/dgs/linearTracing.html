@@ -24,8 +24,8 @@
                 zoom3d(zoom);
                 dgs3dHandleZoom(zoom);
             );
-            cglDefaults_"sphereSize" = 0.1;
-            cglDefaults_"cylinderSize" = 0.05;
+            cgl3d.defaults:"sphereSize" = 0.1;
+            cgl3d.defaults:"cylinderSize" = 0.05;
 
             A = point3d((0,0,0));
             B = point3d((1,0,0));
@@ -37,11 +37,11 @@
             l4 = join3d(B,C);
             l5 = join3d(B,D);
             l6 = join3d(C,D);
-            E = pointOnLine3d(l1,(0.5,0,0),color->cglYellow);
+            E = pointOnLine3d(l1,(0.5,0,0),color->"yellow");
             P1 = join3d(E,C,D);
             P2 = join3d(l2,B);
             l7 = meet3d(P1,P2);
-            F = pointOnPlane3d(P1,(0.5,0.5,0.5),color->cglYellow);
+            F = pointOnPlane3d(P1,(0.5,0.5,0.5),color->"yellow");
             G = point3d((1,1,1));
             P3 = join3d(A,F,G);
             l8 = join3d(F,D);

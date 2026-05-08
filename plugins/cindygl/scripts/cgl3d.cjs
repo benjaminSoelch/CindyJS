@@ -73,6 +73,7 @@ cgl3d.resetObjects = () => (
   self().objects.translucent = {};
 );
 reset3d() := cgl3d.resetObjects.();
+// TODO? make p0,p1, screenCorners, part of permanent coordinate system
 cgl3d.render = () => (
   // TODO set layers to 2 if there are translucent objects
   cgl3dStartRender(layers->0,image->image,screenCorners->screenCorners,p0->p0,p1->p1);
