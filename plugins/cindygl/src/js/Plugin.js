@@ -965,6 +965,7 @@ let CindyGL = function(api) {
         }
         let bounds = CindyGL.sceneRenderer.pixelBounds;
         finishRender3d(bounds[0],bounds[1],bounds[2],bounds[3],CindyGL.sceneRenderer.iw,CindyGL.sceneRenderer.ih,modifs);
+        return nada;
     });
     function finishRender3d(x0,y0,x1,y1,iw,ih,modifs){
         if(CindyGL.sceneRenderer.canvaswrapper!=null) {
