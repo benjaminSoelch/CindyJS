@@ -50,37 +50,16 @@ function evaluate(a) {
         } else {
             return nada;
         }
+    } else if (a.ctype === "invokelambda") {
+        const oldobject = Json._helper.self;
+        if (a.obj.ctype === "userdata" || a.obj.ctype === "field") {
+            Json._helper.self = evaluate(a.obj.obj);
+        }
+        const result = eval_helper.evalLambda(a.obj, a.args, a.modifs);
+        Json._helper.self = oldobject;
+        return result;
     } else if (a.ctype === "userdata") {
         const obj = evaluate(a.obj);
-        if (obj.ctype === "lambda" || obj.ctype === "functionreference") {
-            const oldobject = Json._helper.self;
-            if (a.obj.ctype === "userdata" || a.obj.ctype === "field") {
-                Json._helper.self = evaluate(a.obj.obj);
-            }
-            if (a.key.ctype === "list") {
-                const result = eval_helper.evalLambda(obj, a.key.value, {});
-                Json._helper.self = oldobject;
-                return result;
-            }
-            let modifs = {};
-            let args = [];
-            if (a.key.ctype === "function" && a.key.oper.toLowerCase() === "genlist") {
-                // TODO? resolve getList modifiers in parser to avoid duplicate work
-                args = a.key.args.filter((e) => e.ctype !== "infix" || e.oper !== "->");
-                a.key.args.forEach((e) => {
-                    if (e.ctype === "infix" && e.oper === "->" && e.args[0].ctype === "variable") {
-                        modifs[e.args[0].name] = e.args[1];
-                    }
-                });
-            } else if (a.key.ctype === "infix" && a.key.oper === "->" && a.key.args[0].ctype === "variable") {
-                modifs[a.key.args[0].name] = a.key.args[1];
-            } else {
-                args = [a.key];
-            }
-            const result = eval_helper.evalLambda(obj, args, modifs);
-            Json._helper.self = oldobject;
-            return result;
-        }
         let key = General.string(niceprint(evaluate(a.key)));
         if (key.value === "_?_") key = nada;
         if (obj.ctype === "geo") {
