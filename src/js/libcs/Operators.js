@@ -4830,7 +4830,7 @@ evaluator.invoke$2 = function (args, modifs) {
     } else {
         lambdaArgs = [lambdaArgs];
     }
-    eval_helper.evalLambda(lambda, lambdaArgs, modifs);
+    return eval_helper.evalLambda(lambda, lambdaArgs, modifs);
 };
 eval_helper.evalLambda = function (lambda, args, modifs) {
     lambda = evaluate(lambda);
