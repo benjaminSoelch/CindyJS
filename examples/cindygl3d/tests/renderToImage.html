@@ -40,12 +40,12 @@
         <script id="csdraw" type="text/x-cindyscript">
             if (dragging,
                 dx = 2 * (mouse().x -sx); dy = 2 * (mouse().y -sy);
-                rotate3d(dx,dy);
+                rotate3d(dx,-dy);
             );
             sx = mouse().x;
             sy = mouse().y;
 
-            cglRender3d("plot");
+            render3d(image->"plot",p0->(-2,-2),p1->(2,2));
             drawimage((-2,-2), (2,-2), "plot");
         </script>
 
