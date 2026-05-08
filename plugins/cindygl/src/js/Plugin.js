@@ -934,6 +934,7 @@ let CindyGL = function(api) {
         let zScale = modifs["zScale"] ===undefined ? 1 : coerce.toReal(api.evaluateAndVal(modifs["zScale"]));
         let z0 = modifs["z0"] ===undefined ? -defaultZ : zoom*coerce.toReal(api.evaluateAndVal(modifs["z0"]));
         let z1 = modifs["z1"] ===undefined ? defaultZ : zoom*coerce.toReal(api.evaluateAndVal(modifs["z1"]));
+        // TODO? move defintion of projection to CindyScript Code
         let projection = [
             [(x1-x0)/2,0,0,(x0+x1)/2],
             [0,(y1-y0)/2,0,(y0+y1)/2],
