@@ -1632,9 +1632,13 @@ cglColor(name):=(
     ,
       cglValOrDefault(CGLnAMEDcOLORS_name,(0.5,0.5,0.5))
     )
-  , // TODO? verify that name is a valid color
+  ,if(length(name)==1, // TODO? verify that name is a valid color
+    (name,name,name)
+  ,if(if(length(name)==4, name_4 == 1, false),
+    (name_1,name_2,name_3)
+  ,
     name
-  )
+  )))
 );
 cglInterface("cglColorExpr",cglColorExprImpl,(expr:(texturePos,spacePos,normal)),(hasAlpha));
 cglColorExprImpl(expr):=(
@@ -1733,7 +1737,7 @@ cglResolveColorExpr0(hasAlpha,colorsMode,isBack):=(
     )))
   );
   if(colorsMode != CglColorsIgnore & isundefined(pixelExpr) & !isundefined(colors),
-    colors = apply(colors,cglNormalColor(#));
+    colors = apply(colors,cglColor(#));
     usesAlpha = false;
     forall(colors,col,usesAlpha = usesAlpha % length(col)==4);
     if(usesAlpha, // ensure all colors have the same length
@@ -1782,7 +1786,7 @@ cglResolveColorExpr0(hasAlpha,colorsMode,isBack):=(
   if(isundefined(pixelExpr) & !isundefined(color),
     if(isString(color),color=cglColor(color));
     if(isList(color),
-      color = cglNormalColor(color);
+      color = cglColor(color);
       usesAlpha = length(color)==4;
       colorData = if(isBack,lambda((),cglColorBack),lambda((),cglColor));
       pixelExpr = if(hasAlpha,
@@ -1858,17 +1862,6 @@ cglResolveColorExpr(hasAlpha,colorsMode):=(
     ))
   );
   exprData
-);
-// bring color into standard from
-cglNormalColor(color):=( // code TODO better name
-  // TODO: handle color names
-  if(length(color)==1,
-    (color,color,color)
-  ,if(if(length(color)==4, color_4 == 1, false),
-    (color_1,color_2,color_3)
-  ,
-    color
-  ));
 );
 cglNormalizeRange(range):=(
   range = range/(2*pi); // scale: 0...2*pi -> 0..1
