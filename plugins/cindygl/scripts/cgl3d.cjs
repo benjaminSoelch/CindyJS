@@ -17,7 +17,7 @@ cglMod1plus(n,k):=(
 cglUndefinedVal():=(regional(nada);nada);
 
 cglValOrDefault(val,default):=(
-  if(isundefined(val),default,val)
+  if(isUndefined(val),default,val)
 );
 // add all entries in second dictionary to first dictionary
 cglMergeDicts(dict1,dict2):=(
@@ -75,6 +75,38 @@ cgl3d.resetObjects = () => (
 reset3d() := cgl3d.resetObjects.();
 // TODO? make p0,p1, screenCorners, part of permanent coordinate system
 cgl3d.render = () => (
+  regional(bounds,size,zoom);
+  if(isUndefined(image),
+    bounds = screenbounds();
+    bounds = [bounds_4.x,bounds_4.y,bounds_2.x,bounds_2.y];
+  ,
+    size = imagesize(image);
+    bounds = [0,0,size_1,size_2];
+  );
+  if(!isUndefined(screenCorners),
+    cglLogError("rendering to subregion of screen is not fully supported");
+    // TODO: which parts of coordinate system handling can be move to CindyScript
+    //  should CindyScript depend on size of GL render canvas or should trafo be handling by JS-code
+    // ? compute relative screen section
+    if(isUndefined(p0),p0 = screenCorners_1);
+    if(isUndefined(p1),p1 = screenCorners_2);
+  );
+  if(isUndefined(p0),p0 = (bounds_1,bounds_2));
+  if(isUndefined(p1),p1 = (bounds_3,bounds_3));
+  zoom = cgl3d.zoomFactor;
+  [x0,y0] = zoom*p0;
+  [x1,y1] = zoom*p1;
+  defaultZ = max(abs(x1-x0),abs(y1-y0));
+  z0 = if(isUndefined(z0),-defaultZ,zoom*z0);
+  z1 = if(isUndefined(z1),defaultZ,zoom*z1);
+  skewFactor = cglValOrDefault(skewFactor,0.5);
+  zScale = cglValOrDefault(zScale,1);
+  projection = [
+      [(x1-x0)/2,0,0,(x0+x1)/2],
+      [0,(y1-y0)/2,0,(y0+y1)/2],
+      [0,0,zScale*((z1*(1-skewFactor)-z0*(1+skewFactor))/2),zScale*(z1*(1-skewFactor)+z0*(1+skewFactor))/2],
+      [0,0,-skewFactor,1],
+  ];
   // TODO set layers to 2 if there are translucent objects
   cgl3dStartRender(layers->0,image->image,screenCorners->screenCorners,p0->p0,p1->p1);
   cgl3dSetRenderTransform(cgl3d.renderTransform,cgl3d.zoomFactor);
@@ -890,7 +922,7 @@ cgl3d.triangulate.center = (elts) => (
 cgl3d.compute.triangulationPolygon = (triangulator,vertices,vNormals,vModifiers,normalType) => (
   regional(triangles,n,vMap,vData);
   triangles = triangulator.(vertices);
-  if(isundefined(vNormals) & normalType != cgl3d.normalType.pixel,
+  if(isUndefined(vNormals) & normalType != cgl3d.normalType.pixel,
     vNormals = flatten(apply(1..(length(triangles)/3),i,
       n=normalize(cross(triangles_(3*i)-triangles_(3*i-1),triangles_(3*i-2)-triangles_(3*i-1)));
       [n,n,n];
@@ -1269,7 +1301,7 @@ cglSurfaceChebyshevNodes(N):=(
   regional(cache,val);
   cache=cglSurfaceRenderStateCache_"chebNodes";
   val = cache_N;
-  if(isundefined(val),
+  if(isUndefined(val),
     val = apply(1..(N+1), k, (cos((2 * k - 1) / (2 * (N+1)) * pi)+1)/2);
     cache_N=val;
     cglSurfaceRenderStateCache_"chebNodes" = cache;
@@ -1281,7 +1313,7 @@ cglSurfaceInterpolationMatrix(N):=(
   regional(cache,val,A);
   cache=cglSurfaceRenderStateCache_"interpMap";
   val = cache_N;
-  if(isundefined(val),
+  if(isUndefined(val),
     // A is the matrix of the linear map that evaluates a polynomial in bernstein-form at the Chebyshev nodes
     A = apply(cglSurfaceChebyshevNodes(N), node,
       // the i-th column contains the values of the (i,N) bernstein polynomial evaluated at the Chebyshev nodes
@@ -1719,7 +1751,7 @@ cglResolveColorExpr0(hasAlpha,colorsMode,isBack):=(
   modifiers = {};
   vModifiers = {};
   usesAlpha = false;
-  if(!isundefined(texture),
+  if(!isUndefined(texture),
     if(isString(texture),
       pixelExpr = cglPixelExprFromTexture(texture,hasAlpha,false,repeatTexture,interpolateTexture);
     ,if(texture:"type"=="texture",
@@ -1732,7 +1764,7 @@ cglResolveColorExpr0(hasAlpha,colorsMode,isBack):=(
       cglLogError("unexpected value for texture: "+texture);
     )))
   );
-  if(colorsMode != CglColorsIgnore & isundefined(pixelExpr) & !isundefined(colors),
+  if(colorsMode != CglColorsIgnore & isUndefined(pixelExpr) & !isUndefined(colors),
     colors = apply(colors,cglColor(#));
     usesAlpha = false;
     forall(colors,col,usesAlpha = usesAlpha % length(col)==4);
@@ -1779,7 +1811,7 @@ cglResolveColorExpr0(hasAlpha,colorsMode,isBack):=(
       modifiers_(if(isBack,"cglColorsBack","cglColors")) = colors;
     );
   );
-  if(isundefined(pixelExpr) & !isundefined(color),
+  if(isUndefined(pixelExpr) & !isUndefined(color),
     if(isString(color),color=cglColor(color));
     if(isList(color),
       color = cglColor(color);
@@ -1824,7 +1856,7 @@ cglResolveColorExpr(hasAlpha,colorsMode):=(
   regional(exprData,exprDataBack,usesAlphaFront,usesAlphaBack,defaultAlpha);
   exprData = cglResolveColorExpr0(hasAlpha,colorsMode,false);
   exprDataBack = cglResolveColorExprBack(hasAlpha,colorsMode);
-  if(!isundefined(exprDataBack_"pixelExpr"), // expression for back face is given
+  if(!isUndefined(exprDataBack_"pixelExpr"), // expression for back face is given
     usesAlphaFront = exprData_"usesAlpha";
     usesAlphaBack = exprDataBack_"usesAlpha";
     exprData_"usesAlpha" = usesAlphaFront % usesAlphaBack;
@@ -1881,7 +1913,7 @@ cglSphere3d(center,radius):=(
   light = cglValOrDefault(light,cgl3d.defaults.light);
   projection = cglValOrDefault(projection,cgl3d.defaults.sphereProjection);
   alpha = cglValOrDefault(alpha,cgl3d.defaults.sphereAlpha);
-  hasAlpha = ! isundefined(alpha);
+  hasAlpha = ! isUndefined(alpha);
   alpha = cglValOrDefault(alpha,1);
   modifiers = {"cglLight": light,"cglProjection":projection};
   modifiers = cglMergeDicts(modifiers,cglValOrDefault(plotModifiers,{}));
@@ -1923,20 +1955,20 @@ cglInterface("cylinder3d",cglCylinder3d,(center,orientation,radius),(color,color
 cglCylinder3d(center,orientation,radius):=(
   regional(overhang,needBackFace,modifiers,n,ids,topLayer,hasAlpha,usesAlpha,exprData,opacityExpr);
   color = cglValOrDefault(color,cgl3d.defaults.cylinderColor);
-  if(!isundefined(colors),
+  if(!isUndefined(colors),
     if(length(colors)!=2,
       cglLogWarning("wrong length for colors expected 2 got: "+text(length(colors)));
       if(length(colors)<2,
         colors = colors ++ (color,color);
       );
     );
-    if(!isundefined(color1),colors_1=color1);
-    if(!isundefined(color2),colors_2=color2);
+    if(!isUndefined(color1),colors_1=color1);
+    if(!isUndefined(color2),colors_2=color2);
     if(colors_1 == colors_2,
       color = colors_1;
       colors = cglUndefinedVal();
     );
-  ,if(!isundefined(color1) % !isundefined(color2),
+  ,if(!isUndefined(color1) % !isUndefined(color2),
     colors = [cglValOrDefault(color1,color),cglValOrDefault(color2,color)];
   ));
   light = cglValOrDefault(light,cgl3d.defaults.light);
@@ -1947,7 +1979,7 @@ cglCylinder3d(center,orientation,radius):=(
   projection = cglValOrDefault(projection,cgl3d.projection.cylinder);
   overhang = if(cap1_"name" == "Round" % cap2_"name" == "Round",radius,0);
   alpha = cglValOrDefault(alpha,cgl3d.defaults.cylinderAlpha);
-  hasAlpha = !isundefined(alpha);
+  hasAlpha = !isUndefined(alpha);
   alpha = cglValOrDefault(alpha,1);
   modifiers = {"cglLight": light,
     "cglCap1back": cap1:"shaderBack",
@@ -1966,7 +1998,7 @@ cglCylinder3d(center,orientation,radius):=(
   modifiers_"cglCap1front"=cap1_(if(needBackFace,"shaderFront","shaderNoBack"));
   modifiers_"cglCap2front"=cap2_(if(needBackFace,"shaderFront","shaderNoBack"));
   modifiers_"cglCylinderProjGetDirection1" = cglCylinderProjGetDirection1Default;
-  if(!isundefined(cap1_"cutDirection"),
+  if(!isUndefined(cap1_"cutDirection"),
     modifiers_"cglCut1" = if(cap1_"cutOrthogonal",cglCutBoth1,cglCutVector1);
     modifiers_"cglGetCutVector1" = cglGetCutVector1;
     n = cap1_"cutDirection";
@@ -1977,7 +2009,7 @@ cglCylinder3d(center,orientation,radius):=(
       cglDirection1);
     overhang = max(overhang,radius*tan(arccos(|normalize(n)*normalize(orientation)|)));
   );
-  if(!isundefined(cap2_"cutDirection"),
+  if(!isUndefined(cap2_"cutDirection"),
     modifiers_"cglCut2" = if(cap2_"cutOrthogonal",cglCutBoth2,cglCutVector2);
     modifiers_"cglGetCutVector2" = cglGetCutVector2;
     n = cap2_"cutDirection";
@@ -1988,7 +2020,7 @@ cglCylinder3d(center,orientation,radius):=(
       cglDirection1);
     overhang = max(overhang,radius*tan(arccos(|normalize(n)*normalize(orientation)|)));
   );
-  if(!isundefined(direction1),
+  if(!isUndefined(direction1),
     modifiers_"cglDirection1" = normalize(direction1);
     modifiers_"cglCylinderProjGetDirection1" = lambda((normal,height,orientation),
       cglDirection1);
@@ -2035,7 +2067,7 @@ cglConnect3d(points):=(
   jointStart = joints;
   alpha0 = alpha;
   // remove all points before last point that are equal to last point
-  if(!isundefined(colors),
+  if(!isUndefined(colors),
     // feature TODO? sync up colors with used vertices
     // a:col1 b:col2 b:col3 b:col4 c:col5 -> a:col1 b:col2 ; b:col4 c:col5
     colors = remove(apply(1..length(points),i,if(if(i>1,points_(i-1)==points_i,false),-1,colors_i)),-1);
@@ -2044,7 +2076,7 @@ cglConnect3d(points):=(
   points = remove(apply(points,p,if(p == prev,-1,prev=p;p)),-1);
   if(length(points)>=3,
     // update projection if color is computed per pixel
-    if(!isundefined(texture) % !isundefined(color:"type"),
+    if(!isUndefined(texture) % !isUndefined(color:"type"),
       projection = lambda((normal,height,orientation),
         regional(pos0);
         pos0=cgl3d.projection.cylinder.(normal,height,orientation);
@@ -2061,9 +2093,9 @@ cglConnect3d(points):=(
       next = points_1;
       direction1 = normalize(next-current2)+normalize(current2-current1);
       direction1 = normalize(direction1 - (normalize(current2-current1)*direction1)*normalize(current2-current1));
-      color1 = if(isundefined(colors),color,colors_(length(points)-1));
-      color2 = if(isundefined(colors),color,colors_(length(points)));
-      nextColor = if(isundefined(colors),color,colors_1);
+      color1 = if(isUndefined(colors),color,colors_(length(points)-1));
+      color2 = if(isUndefined(colors),color,colors_(length(points)));
+      nextColor = if(isUndefined(colors),color,colors_1);
       ids = [];
     ,
       current1 = points_1;
@@ -2071,9 +2103,9 @@ cglConnect3d(points):=(
       next = points_3;
       direction1 = normalize(next-current2)+normalize(current2-current1);
       direction1 = normalize(direction1 - (normalize(current2-current1)*direction1)*normalize(current2-current1));
-      color1 = if(isundefined(colors),color,colors_1);
-      color2 = if(isundefined(colors),color,colors_2);
-      nextColor = if(isundefined(colors),color,colors_3);
+      color1 = if(isUndefined(colors),color,colors_1);
+      color2 = if(isUndefined(colors),color,colors_2);
+      nextColor = if(isUndefined(colors),color,colors_3);
       a = b;b = a + |current1-current2|/totalLength;
       plotModifiers_"cglSegmentStart"=a;
       plotModifiers_"cglSegmentEnd"=b;
@@ -2090,7 +2122,7 @@ cglConnect3d(points):=(
       direction1 = direction1-2*(direction1*cutDir)*cutDir; // mirror direction at cut-plane
       color1 = color2;
       color2 = nextColor;
-      nextColor = if(isundefined(colors),color,colors_i);
+      nextColor = if(isUndefined(colors),color,colors_i);
       a = b;b = a + |current1-current2|/totalLength;
       plotModifiers_"cglSegmentStart"=a;
       plotModifiers_"cglSegmentEnd"=b;
@@ -2110,11 +2142,11 @@ cglConnect3d(points):=(
         cap1->cglJoint(current1,current2,next,jointStart),
         cap2->if(closed,cglJoint(current2,next,points_1,jointEnd),cap2))));
   ,if(length(points)==2,
-    color1 = if(isundefined(colors),color,colors_1);
-    color2 = if(isundefined(colors),color,colors_2);
+    color1 = if(isUndefined(colors),color,colors_1);
+    color2 = if(isUndefined(colors),color,colors_2);
     cglCylinder3d((points_1+points_2)/2,(points_2-points_1)/2,size);
   ,if(length(points)==1,
-    if(!isundefined(colors),
+    if(!isUndefined(colors),
       color = colors_1
     );
     cglSphere3d(points_1,size);
@@ -2144,7 +2176,7 @@ cglTorus3d(center,orientation,radius1,radius2):=(
   color = cglValOrDefault(color,cgl3d.defaults.torusColor);
   light = cglValOrDefault(light,cgl3d.defaults.light);
   alpha = cglValOrDefault(alpha,cgl3d.defaults.torusAlpha);
-  hasAlpha = !isundefined(alpha);
+  hasAlpha = !isUndefined(alpha);
   alpha = cglValOrDefault(alpha,1);
   modifiers = {
     "cglLight": light,
@@ -2159,7 +2191,7 @@ cglTorus3d(center,orientation,radius1,radius2):=(
   needBackFace = hasAlpha % usesAlpha;
   // use arcRange if angle1range is not given
   angle1range = cglValOrDefault(angle1range,arcRange);
-  if(!isundefined(angle1range),
+  if(!isUndefined(angle1range),
     needBackFace = true;
     angle1range = cglNormalizeRange(angle1range);
     modifiers_"cglAngle1Range" = angle1range;
@@ -2177,7 +2209,7 @@ cglTorus3d(center,orientation,radius1,radius2):=(
   ,
     modifiers_"cglCheckAngle1" = lambda(texturePos,);
   );
-  if(!isundefined(angle2range),
+  if(!isUndefined(angle2range),
     needBackFace = true;
     angle2range = cglNormalizeRange(angle2range);
     modifiers_"cglAngle2Range" = angle2range;
@@ -2197,7 +2229,7 @@ cglTorus3d(center,orientation,radius1,radius2):=(
   );
 
   modifiers_"cglTorusProjGetDirection1" = cglTorusProjGetDirection1Default;
-  if(!isundefined(direction1),
+  if(!isUndefined(direction1),
     modifiers_"cglDirection1" = normalize(direction1);
     modifiers_"cglTorusProjGetDirection1" = lambda((normal,height,orientation),cglDirection1);
   );
@@ -2264,7 +2296,7 @@ cglTriangle3d(p1,p2,p3):=(
   light = cglValOrDefault(light,cgl3d.defaults.light);
   uv = cglValOrDefault(uv,[(0,0),(1,0),(0,1)]);
   alpha = cglValOrDefault(alpha,cgl3d.defaults.triangleAlpha);
-  hasAlpha = !isundefined(alpha);
+  hasAlpha = !isUndefined(alpha);
   alpha = cglValOrDefault(alpha,1);
   modifiers = {
     "cglLight": light
@@ -2272,8 +2304,8 @@ cglTriangle3d(p1,p2,p3):=(
   modifiers = cglMergeDicts(modifiers,cglValOrDefault(plotModifiers,{}));
   vModifiers = cglValOrDefault(vertexModifiers,{});
   defNormal = cglValOrDefault(normal,normalize(cross(p2-p1,p3-p1)));
-  if(!isundefined(normals),
-    if(isundefined(normalExpr),
+  if(!isUndefined(normals),
+    if(isUndefined(normalExpr),
       normals = cglCheckSize(normals,3,"wrong length for normals",defNormal);
       vModifiers_"cglNormal" = normals;
       normalExpr = lambda((spacePos,texturePos),normalize(cglNormal));
@@ -2281,22 +2313,22 @@ cglTriangle3d(p1,p2,p3):=(
       cglLogWarning(" modifier `normals` is ignored if `normalExpr` is given");
     );
   );
-  if(!isundefined(normal),
-    if(isundefined(normalExpr),
+  if(!isUndefined(normal),
+    if(isUndefined(normalExpr),
       modifiers_"cglNormal" = normal;
       normalExpr = lambda((spacePos,texturePos),cglNormal);
     ,
       cglLogWarning("modifier `normal` is ignored if `normals` or `normalExpr` is given");
     );
   );
-  if(isundefined(normalExpr),
+  if(isUndefined(normalExpr),
     modifiers_"cglNormal" = defNormal;
     normalExpr = lambda((spacePos,texturePos),cglNormal);
   );
   modifiers_"cglNormalExpr" = normalExpr;
   modifiers_"cglTextureMapping" = lambda((pos3d,direction),cglTexCoords);
   vModifiers_"cglTexCoords" = uv;
-  if(!isundefined(colors),
+  if(!isUndefined(colors),
     colors = cglCheckSize(colors,3,"wrong length for colors",color);
   );
   exprData = cglResolveColorExpr(hasAlpha,CglColorsVertex);
@@ -2330,7 +2362,7 @@ cglTriangles3d(triangles):=(
   );
   triangleCount = length(vertices)/3;
   // feature TODO? allow giving normals/uv per vertex
-  uv = if(isundefined(uv),
+  uv = if(isUndefined(uv),
     apply(1..length(vertices),i,
       tri = mod(i,3);
       if(tri==1,
@@ -2366,15 +2398,15 @@ cglTriangles3d(triangles):=(
     )
   );
   alpha = cglValOrDefault(alpha,cgl3d.defaults.triangleAlpha);
-  hasAlpha = !isundefined(alpha);
+  hasAlpha = !isUndefined(alpha);
   alpha = cglValOrDefault(alpha,1);
   modifiers = {
     "cglLight": light
   };
   modifiers = cglMergeDicts(modifiers,cglValOrDefault(plotModifiers,{}));
   vModifiers = cglValOrDefault(vertexModifiers,{});
-  if(isundefined(normalExpr),
-    if(isundefined(normals),
+  if(isUndefined(normalExpr),
+    if(isUndefined(normals),
       normals = [];
     ,
       cglCheckSize(normals,triangleCount,"normals should contain one element for each triangle");
@@ -2398,7 +2430,7 @@ cglTriangles3d(triangles):=(
     vModifiers_"cglNormal" = normals;
     normalExpr = lambda((spacePos,texturePos),normalize(cglNormal));
   ,
-    if(!isundefined(normals),
+    if(!isUndefined(normals),
       cglLogWarning(" modifier `normals` is ignored if `normalExpr` is given");
     );
     modifiers_"cglNormal" = defNormal;
@@ -2407,7 +2439,7 @@ cglTriangles3d(triangles):=(
   modifiers_"cglNormalExpr" = normalExpr;
   modifiers_"cglTextureMapping" = lambda((pos3d,direction),cglTexCoords);
   vModifiers_"cglTexCoords" = uv;
-  if(!isundefined(colors),
+  if(!isUndefined(colors),
     if(length(colors)!=length(vertices),
       cglCheckSize(colors,triangleCount,"colors should contain one element pre vertex or one element per triangle");
       colors = flatten(apply(1..triangleCount,i,
@@ -2445,37 +2477,37 @@ cglPolygon3d(vertices):=(
   light = cglValOrDefault(light,cgl3d.defaults.light);
   triangulation = cglValOrDefault(triangulation,cgl3d.triangulate.default);
   alpha = cglValOrDefault(alpha,cgl3d.defaults.triangleAlpha);
-  hasAlpha = !isundefined(alpha);
+  hasAlpha = !isUndefined(alpha);
   alpha = cglValOrDefault(alpha,1);
   modifiers = {
     "cglLight": light
   };
   modifiers = cglMergeDicts(modifiers,cglValOrDefault(plotModifiers,{}));
   vModifiers = cglValOrDefault(vertexModifiers,{});
-  if(isundefined(normalType),
-    if(!isundefined(normalExpr),
+  if(isUndefined(normalType),
+    if(!isUndefined(normalExpr),
       normalType = cgl3d.normalType.pixel;
     );
-    if(!isundefined(normals),
-      if(isundefined(normalType),
+    if(!isUndefined(normals),
+      if(isUndefined(normalType),
         normalType = cgl3d.normalType.vertex;
       ,
         cglLogWarning("modifier `normals` is ignored if `normalExpr` is given");
       )
     );
-    if(!isundefined(normal),
-      if(isundefined(normalType),
+    if(!isUndefined(normal),
+      if(isUndefined(normalType),
         normalType = cgl3d.normalType.face;
       ,
         cglLogWarning("modifier `normal` is ignored if `normalExpr` or `normals` is given");
       )
     );
-    if(isundefined(normalType),
+    if(isUndefined(normalType),
       normalType = cgl3d.normalType.triangle;
     );
   );
   if(normalType == cgl3d.normalType.pixel,
-    if(isundefined(normalExpr),
+    if(isUndefined(normalExpr),
       cglLogWarning("modifier `normalExpr` has to be set when using per-pixel normals");
       normals = cglUndefinedVal();
       normalExpr = lambda((spacePos,texturePos),normalize(cglNormal));
@@ -2483,7 +2515,7 @@ cglPolygon3d(vertices):=(
     );
   ,if(normalType == cgl3d.normalType.vertex,
     normalExpr = lambda((spacePos,texturePos),normalize(cglNormal));
-    if(!isundefined(normals),
+    if(!isUndefined(normals),
       normals = cglCheckSize(normals,length(vertices),"wrong length for normals");
     );
   ,if(normalType == cgl3d.normalType.triangle,
@@ -2496,7 +2528,7 @@ cglPolygon3d(vertices):=(
     cglLogError("unknown normal-type: "+text(normalType));
   ))));
   modifiers_"cglNormalExpr" = normalExpr;
-  if(isundefined(uv),
+  if(isUndefined(uv),
     regional(n,x,y,xmin,xmax,ymin,ymax,p);
     n = length(vertices);
     xmin=1;ymin=1;xmax=0;ymax=0;
@@ -2518,7 +2550,7 @@ cglPolygon3d(vertices):=(
   );
   modifiers_"cglTextureMapping" = lambda((pos3d,direction),cglTexCoords);
   vModifiers_"cglTexCoords" = uv;
-  if(!isundefined(colors),
+  if(!isUndefined(colors),
     colors = cglCheckSize(colors,length(vertices),"wrong length for colors",color);
   );
   exprData = cglResolveColorExpr(hasAlpha,CglColorsVertex);
@@ -2549,28 +2581,28 @@ cglMesh3d(grid):=(
   color = cglValOrDefault(color,cgl3d.defaults.triangleColor);
   light = cglValOrDefault(light,cgl3d.defaults.light);
   alpha = cglValOrDefault(alpha,cgl3d.defaults.triangleAlpha);
-  hasAlpha = !isundefined(alpha);
+  hasAlpha = !isUndefined(alpha);
   alpha = cglValOrDefault(alpha,1);
   topology = cglValOrDefault(topology,cgl3d.mesh.topologyOpen);
   Ny = length(grid);
   Nx = length(grid_1);
   triangles = cgl3d.mesh.samplesToTriangles.(grid,Nx,Ny,topology,cgl3d.mesh.sampleVertex);
-  if(isundefined(normalType),
-    if(!isundefined(normalExpr),
+  if(isUndefined(normalType),
+    if(!isUndefined(normalExpr),
       normalType = cgl3d.normalType.pixel;
     );
-    if(!isundefined(normals),
-      if(isundefined(normalType),
+    if(!isUndefined(normals),
+      if(isUndefined(normalType),
         normalType = cgl3d.normalType.vertex;
       ,
         cglLogWarning("modifier `normals` is ignored if `normalExpr` is given");
       )
     );
-    if(isundefined(normalType),
+    if(isUndefined(normalType),
       normalType = cgl3d.normalType.triangle;
     );
   );
-  if(normalType == cgl3d.normalType.pixel & isundefined(normalExpr),
+  if(normalType == cgl3d.normalType.pixel & isUndefined(normalExpr),
       cglLogWarning("modifier `normalExpr` has to be set when using per-pixel normals");
       normals = cglUndefinedVal();
       normalType = cgl3d.normalType.vertex;
@@ -2582,7 +2614,7 @@ cglMesh3d(grid):=(
     ,
       normalExpr = lambda((spacePos,texturePos),cglNormal);
     );
-    if(isundefined(normals),
+    if(isUndefined(normals),
       normals = cgl3d.mesh.guessNormals.(grid,Nx,Ny,normalType,topology);
     ,if(normalType == cgl3d.normalType.face,
       normals = cgl3d.mesh.samplesToTriangles.(normals,Nx,Ny,topology,cgl3d.mesh.sampleFace);
@@ -2600,7 +2632,7 @@ cglMesh3d(grid):=(
   };
   modifiers = cglMergeDicts(modifiers,cglValOrDefault(plotModifiers,{}));
   vModifiers = cglValOrDefault(vertexModifiers,{});
-  if(isundefined(uv),
+  if(isUndefined(uv),
     // map grid-positions to unit-square
     regional(nx,ny);
     ny = if(topology.y=="open",Ny-1,Ny);
@@ -2611,8 +2643,8 @@ cglMesh3d(grid):=(
   vModifiers_"cglTexCoords" = uv;
   vModifiers=apply(vModifiers,samples,cgl3d.mesh.samplesToTriangles.(samples,Nx,Ny,topology,cgl3d.mesh.sampleVertex));
   // bring vertex colors in correct format (one color per vertex)
-  if(!isundefined(colors),colors = cgl3d.mesh.samplesToTriangles.(colors,Nx,Ny,topology,cgl3d.mesh.sampleVertex));
-  if(!isundefined(colorsBack),colorsBack = cgl3d.mesh.samplesToTriangles.(colorsBack,Nx,Ny,topology,cgl3d.mesh.sampleVertex));
+  if(!isUndefined(colors),colors = cgl3d.mesh.samplesToTriangles.(colors,Nx,Ny,topology,cgl3d.mesh.sampleVertex));
+  if(!isUndefined(colorsBack),colorsBack = cgl3d.mesh.samplesToTriangles.(colorsBack,Nx,Ny,topology,cgl3d.mesh.sampleVertex));
   exprData = cglResolveColorExpr(hasAlpha,CglColorsVertex);
   usesAlpha = exprData_"usesAlpha";
   modifiers = cglMergeDicts(modifiers,exprData_"modifiers");
@@ -2649,10 +2681,10 @@ cglSurface3d(fun) := (
     layers = cglValOrDefault(layers,0);
     // convert function to form taking vector insteads of 3 arguments
     F = lambda(p,fun.( p.x, p.y, p.z),fun->fun);
-    normalExpr = if(isundefined(dF),cgl3d.compute.guessDerivative.(F),lambda(p,dF.(p_1,p_2,p_3),dF->dF));
-    if(isundefined(degree),
+    normalExpr = if(isUndefined(dF),cgl3d.compute.guessDerivative.(F),lambda(p,dF.(p_1,p_2,p_3),dF->dF));
+    if(isUndefined(degree),
       N = min(cglTryDetermineDegree(fun),cglMaxAutoDeg);
-      if(isundefined(N),
+      if(isUndefined(N),
         N = min(cgl3d.compute.guessDegree.(F),cglMaxAutoDeg);
       ,if(N<0,
         N=cglMaxAutoDeg
@@ -2723,7 +2755,7 @@ cglSurface3d(fun) := (
 cglInterface("plot3d",cglPlot3d,(f:(x,y)),(color,texture,colorBack,textureBack,
   alpha,light,texture,uv,df:(x,y),cutoffRegion,degree,layers,plotModifiers,tags,onUpdate));
 cglPlot3d(f/*f(x,y)*/):=(
-  if(isundefined(degree),
+  if(isUndefined(degree),
       degree = min(cglTryDetermineDegree(f),cglMaxAutoDeg);
   );
   cglSurface3d(lambda((x,y,z),f.(x,y)-z,f->f),degree->degree);
@@ -2735,7 +2767,7 @@ cglInterface("cplot3d",cglCPlot3d,(f:(z)),(color,texture,colorBack,
   textureBack,alpha,light,texture,uv,df:(z),
   cutoffRegion,degree,layers,plotModifiers,tags,onUpdate));
 cglCPlot3d(f/*f(z)*/):=(
-  if(isundefined(color) & isundefined(texture), // TODO find better condition for choosing phase-coloring
+  if(isUndefined(color) & isUndefined(texture), // TODO find better condition for choosing phase-coloring
     color = {
       "type": "expr",
       "expr": lambda((texturePos,spacePos,normal),

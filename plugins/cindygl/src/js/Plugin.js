@@ -902,10 +902,10 @@ let CindyGL = function(api) {
         let z1 = modifs["z1"] === undefined ? defaultZ : coerce.toReal(api.evaluateAndVal(modifs["z1"]));
         let zoom = modifs["zoom"] === undefined ? 1 : coerce.toReal(api.evaluateAndVal(modifs["zoom"]));
         let transform = [
-            [zoom*(p1.x-p0.x)/2,0,0,zoom*(p1.x+p0.x)/2],
-            [0,zoom*(p1.y-p0.y)/2,0,zoom*(p1.y+p0.y)/2],
-            [0,0,zoom*zScale*((z1-z0)/2)*(1-skewFactor),zoom*zScale*(z0+z1)/2],
-            [0,0,-zoom*skewFactor,zoom],
+            [zoom*(x1-x0)/2,0,0,zoom*(x0+x1)/2],
+            [0,zoom*(y1-y0)/2,0,zoom*(y0+y1)/2],
+            [0,0,zoom*zScale*((z1*(1-skewFactor)-z0*(1+skewFactor))/2),zoom*zScale*(z1*(1-skewFactor)+z0*(1+skewFactor))/2],
+            [0,0,-skewFactor,1],
         ];
         if (CindyGL.sceneRenderer !== null) cglLogWarning("once one rendering pass can be active at a given type, call `cgl3dFinishRender` before calling `cgl3dStartRender` a second time");
         CindyGL.sceneRenderer = (layerCount != 0) ?
