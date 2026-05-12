@@ -654,6 +654,7 @@ function Parser(expr) {
 
 function isLambdaArg(arg) {
     if (arg.ctype !== "function" && arg.ctype !== "invokelambda") return false;
+    if (arg.ctype === "invokelambda" && arg.obj.ctype !== "variable") return false;
     for (let param of arg.args) {
         if (param.ctype !== "variable") return false;
     }
@@ -670,6 +671,9 @@ Parser.prototype.postprocess = function (expr) {
                 if (fun.ctype === "function") {
                     fun.args.forEach(function (arg) {
                         if (isLambdaArg(arg)) {
+                            if (arg.ctype === "invokelambda") {
+                                arg.name = arg.obj.name;
+                            }
                             arg.ctype = "lambdaarg";
                             return;
                         }
