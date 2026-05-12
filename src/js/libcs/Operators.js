@@ -4826,15 +4826,9 @@ evaluator.lambda$2 = function (args, modifs) {
 };
 evaluator.islambda$1 = function (args, modifs) {
     const v0 = evaluate(args[0]);
-    if (v0.ctype === "lambda") {
-        return {
-            ctype: "boolean",
-            value: true,
-        };
-    }
     return {
         ctype: "boolean",
-        value: false,
+        value: v0.ctype === "lambda" || v0.ctype === "functionreference",
     };
 };
 evaluator.eval$2 = function (args, modifs) {
