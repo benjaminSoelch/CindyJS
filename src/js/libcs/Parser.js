@@ -653,7 +653,7 @@ function Parser(expr) {
 }
 
 function isLambdaArg(arg) {
-    if (arg.ctype !== "function") return false;
+    if (arg.ctype !== "function" && arg.ctype !== "invokelambda") return false;
     for (let param of arg.args) {
         if (param.ctype !== "variable") return false;
     }
