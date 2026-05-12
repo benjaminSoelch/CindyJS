@@ -901,6 +901,10 @@ let CindyGL = function(api) {
         let z0 = modifs["z0"] === undefined ? -defaultZ : coerce.toReal(api.evaluateAndVal(modifs["z0"]));
         let z1 = modifs["z1"] === undefined ? defaultZ : coerce.toReal(api.evaluateAndVal(modifs["z1"]));
         let zoom = modifs["zoom"] === undefined ? 1 : coerce.toReal(api.evaluateAndVal(modifs["zoom"]));
+        let x0=p0.x;
+        let y0=p0.y;
+        let x1=p1.x;
+        let y1=p1.y;
         let transform = [
             [zoom*(x1-x0)/2,0,0,zoom*(x0+x1)/2],
             [0,zoom*(y1-y0)/2,0,zoom*(y0+y1)/2],
