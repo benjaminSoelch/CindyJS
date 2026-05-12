@@ -28,7 +28,7 @@ import { Json } from "libcs/Json";
 import { Dict } from "libcs/Dict";
 import { General } from "libcs/General";
 import { evaluator, niceprint, eval_helper, myfunctions, evalfunction } from "libcs/Essentials";
-import { namespace, nameWithArity } from "libcs/Namespace";
+import { namespace } from "libcs/Namespace";
 import { Accessor } from "libcs/Accessors";
 import {
     textRendererCanvas,
@@ -610,33 +610,6 @@ evaluator.regional = function (args, modifs) {
     return nada;
 };
 
-evaluator.protect = function (args, modifs) {
-    //VARIADIC!
-
-    for (let i = 0; i < args.length; i++) {
-        if (args[i].ctype === "variable") {
-            const v = args[i].name;
-            namespace.protect(v);
-        } else if (args[i].ctype === "functionreference") {
-            namespace.protect(args[i].name, args[i].arity);
-        }
-    }
-    return nada;
-};
-evaluator.unprotect = function (args, modifs) {
-    //VARIADIC!
-
-    for (let i = 0; i < args.length; i++) {
-        if (args[i].ctype === "variable") {
-            const v = args[i].name;
-            namespace.unprotect(v);
-        } else if (args[i].ctype === "functionreference") {
-            namespace.unprotect(args[i].name, args[i].arity);
-        }
-    }
-    return nada;
-};
-
 evaluator.genList = function (args, modifs) {
     //VARIADIC!
     return List.turnIntoCSList(args.map(evaluate));
@@ -908,10 +881,6 @@ function infix_define(args, modifs, self) {
     if (args[0].ctype === "function") {
         const fname = args[0].oper;
         const ar = args[0].args;
-        if (namespace.isprotected(fname, ar.length)) {
-            console.warn("cannot redefine protected function " + nameWithArity(fname, ar.length));
-            return nada;
-        }
         const body = args[1];
         let generation = 1;
         if (myfunctions.hasOwnProperty(fname)) {
@@ -945,10 +914,6 @@ function postfix_undefine(args, modifs) {
         return nada;
     }
     if (args[0].ctype === "function") {
-        if (namespace.isprotected(args[0].oper, args[0].args.length)) {
-            console.warn("cannot undefine protected function " + nameWithArity(args[0].oper, args[0].args.length));
-            return nada;
-        }
         delete myfunctions[args[0].oper];
     }
     return nada;
@@ -4862,7 +4827,7 @@ function infix_lambda(args, modifs) {
         modifs: modValues,
         declarationScope: namespace.scopeId,
     };
-};
+}
 evaluator.islambda$1 = function (args, modifs) {
     const v0 = evaluate(args[0]);
     if (v0.ctype === "lambda") {
@@ -4876,7 +4841,7 @@ evaluator.islambda$1 = function (args, modifs) {
         value: false,
     };
 };
-evaluator.invoke$2 = function (args, modifs) {
+evaluator.eval$2 = function (args, modifs) {
     let lambda = args[0];
     let lambdaArgs = evaluate(args[1]);
     if (lambdaArgs.ctype === "list") {
