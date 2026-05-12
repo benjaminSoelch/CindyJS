@@ -4822,7 +4822,7 @@ function infix_lambda(args, modifs) {
         modifs: modValues,
     };
 }
-evaluator.invoke$2 = function (args, modifs) {
+evaluator.eval$2 = function (args, modifs) {
     let lambda = args[0];
     let lambdaArgs = evaluate(args[1]);
     if (lambdaArgs.ctype === "list") {
