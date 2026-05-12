@@ -28,10 +28,6 @@ namespace.vars = (function () {
     for (const name in preset) vars[name] = [preset[name]];
     return vars;
 })();
-namespace.protected = {
-    true: true,
-    false: true,
-};
 
 namespace.isVariable = function (name) {
     return this.vars.hasOwnProperty(name);
@@ -46,8 +42,7 @@ namespace.create = function (name) {
 
 namespace.newvar = function (name) {
     const v = this.create(name);
-    if (this.isprotected(name)) console.warn("cannot shadow protected variable " + name);
-    else v.push(nada); // nada not null for deeper levels
+    v.push(nada); // nada not null for deeper levels
     return v;
 };
 
@@ -59,10 +54,6 @@ namespace.removevar = function (name) {
 };
 
 namespace.setvar = function (name, val) {
-    if (this.isprotected(name)) {
-        console.warn("cannot modify protected variable " + name);
-        return;
-    }
     const stack = this.vars[name];
     if (stack.length === 0) console.error("Setting non-existing variable " + name);
     if (val === undefined) {
@@ -76,29 +67,6 @@ namespace.setvar = function (name, val) {
     let erg = val;
     if (erg === null) erg = nada; // explicit setting does lift unset state
     stack[stack.length - 1] = erg;
-};
-namespace.isprotected = function (name) {
-    return !!this.protected[name];
-};
-namespace.protect = function (name) {
-    this.protected[name] = true;
-};
-namespace.unprotect = function (name) {
-    delete this.protected[name];
-};
-function nameWithArity(name, arity) {
-    let i = name.indexOf("$");
-    if (i >= 0) name = name.substring(0, i);
-    return name + "$" + arity;
-}
-namespace.isprotected = function (name, arity) {
-    return !!this.protected[nameWithArity(name, arity)];
-};
-namespace.protect = function (name, arity) {
-    this.protected[nameWithArity(name, arity)] = true;
-};
-namespace.unprotect = function (name, arity) {
-    delete this.protected[nameWithArity(name, arity)];
 };
 
 namespace.undefinedWarning = {};
