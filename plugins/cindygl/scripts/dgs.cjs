@@ -1839,14 +1839,16 @@ dgs3dMeet2Q(Q1,Q2):=(
 // * delete
 
 dgs3dFind(x,y):=(
-  regional(root,dir,res,dist);
+  regional(root,dir,res,dist,center,radius);
   root = cglSpacePoint(x,y);
   dir = normalize(cglDirection(x,y));
   res = cglUndefinedVal();
   dist = 1e400; // infinity
   forall(dgs3dMovablePoints,pt,
-    bounds = cglGetBounds(pt:"drawId");
-    d = cglEvalOrDiscard(cgl3d.compute.sphereDepths.(root,dir,bounds_"center",bounds_"radius")_1);
+    center = cgl3dObjectGet(cgl3d.getObject.(pt:"drawId"),"center");
+    radius = cgl3dObjectGet(cgl3d.getObject.(pt:"drawId"),"radius");
+    print((center,radius,root,dir));
+    d = cglEvalOrDiscard(cgl3d.compute.sphereDepths.(root,dir,center,radius)_1);
     if(!isUndefined(d),
       if(d < dist,
         dist = d;

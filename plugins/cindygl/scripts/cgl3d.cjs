@@ -129,8 +129,20 @@ cgl3d.addObject = (obj) => (
   self().objects.opaque:id = obj;
   id
 );
+cgl3d.getObject = (objId) => (
+  regional(ojb);
+  if(isList(objId),objId=objId_1);
+  obj = self().objects.opaque:objId;
+  if(isundefined(obj),
+    obj = self().translucent.opaque:objId;
+  );
+  obj
+);
 cglSpacePoint(x,y):=(
-  cgl3d.renderTransform*(x,y,0,1);
+  regional(p4);
+  // TODO: renderTransform uses (-1,1)^2 as screen coordinates
+  p4 = cgl3d.renderTransform*(x,y,0,1);
+  (p4_1,p4_2,p4_3)/p4_4;
 );
 cglDirection(x,y):=(
   regional(p0,p1,p);
