@@ -36,7 +36,7 @@ cgl3d.shader = {};
 cgl3d.light = {};
 cgl3d.draw = {};
 
-cgl3d.renderTransform = ((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1));
+cgl3d.spaceTransform = ((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1));
 cgl3d.zoomFactor = 1;
 cgl3d.rotate = (alpha,beta) => (
   rotZ=[
@@ -51,7 +51,7 @@ cgl3d.rotate = (alpha,beta) => (
     [-sin(alpha),0,cos(alpha),0],
     [0,0,0,1]
   ];
-  self().renderTransform = self().renderTransform * rotY * rotZ;
+  self().spaceTransform = self().spaceTransform * rotY * rotZ;
 );
 rotate3d(alpha,beta) := cgl3d.rotate.(alpha,beta);
 cgl3d.zoom = (newScale) => (
@@ -108,8 +108,9 @@ cgl3d.prepareRender = () => (
       [0,0,zScale*((z1*(1-skewFactor)-z0*(1+skewFactor))/2),zScale*(z1*(1-skewFactor)+z0*(1+skewFactor))/2],
       [0,0,-skewFactor,1]
   ];
+  cgl3d.renderTransform = cgl3d.spaceTransform*projection;
   // TODO set layers to 2 if there are translucent objects
-  cgl3dStartRender(layers->0,image->image,bounds->bounds,transform->cgl3d.renderTransform*projection);
+  cgl3dStartRender(layers->0,image->image,bounds->bounds,transform->cgl3d.renderTransform);
   z0 = z1 = p0 = p1 = nada; // ensure "modifiers" do not leak into globals
 );
 cgl3d.render = () => (
@@ -127,6 +128,16 @@ cgl3d.addObject = (obj) => (
   // TODO determine if object is opaque or translucent
   self().objects.opaque:id = obj;
   id
+);
+cglSpacePoint(x,y):=(
+  cgl3d.renderTransform*(x,y,0,1);
+);
+cglDirection(x,y):=(
+  regional(p0,p1,p);
+  p0 = cgl3d.renderTransform*(x,y,0,1);
+  p1 = cgl3d.renderTransform*(x,y,1,1);
+  p = p1 - p0;
+  (p_1,p_2,p_3)/p_4
 );
 
 cgl3d.compute.pixelDepth = (rawDepth,direction) => (
@@ -2786,32 +2797,6 @@ cglCPlot3d(f/*f(z)*/):=(
 );
 
 /* TODO: port coordinate system controlls and object management
-    function getSpacePoint(x,y) {
-        // FIXME use correct coord-system for x,y position
-        let zoom = CindyGL.coordinateSystem.zoom;
-        let screenPoint=[zoom*x,zoom*y,zoom*CindyGL.coordinateSystem.z1,1];
-        return mvmult4(CindyGL.invTrafoMatrix,screenPoint).slice(0,3);
-    }
-    /**
-     * Returns the position on the view-plane for the pixel (args[0],args[1])
-     */
-    api.defineFunction("cglSpacePoint", 2, (args, modifs) => {
-        let x = api.evaluateAndVal(args[0])["value"]["real"];
-        let y = api.evaluateAndVal(args[1])["value"]["real"];
-        return toCjs(getSpacePoint(x,y));
-    });
-    /**
-     * Returns the current viewDirection for the pixel (args[0],args[1])
-     */
-    api.defineFunction("cglDirection", 2, (args, modifs) => {
-        let x = api.evaluateAndVal(args[0])["value"]["real"];
-        let y = api.evaluateAndVal(args[1])["value"]["real"];
-        let spacePoint = getSpacePoint(x,y);
-        // TODO support orthogonal projection
-        let viewPos = CindyGL.coordinateSystem.transformedViewPos;
-        let direction = subv3(spacePoint,viewPos);
-        return toCjs(direction);
-    });
     /**
      * List all currently visible objects
      * modifiers can be used to filter objects depending on their tags
