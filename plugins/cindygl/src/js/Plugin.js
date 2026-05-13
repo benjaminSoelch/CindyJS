@@ -841,53 +841,30 @@ let CindyGL = function(api) {
                 image = null;
             }
         }
-        let p0 = getDefinedValueOrNull(modifs["p0"]);
-        if (p0 !== null) p0 = api.extractPoint(p0);
-        let p1 = getDefinedValueOrNull(modifs["p1"]);
-        if (p1 !== null) p1 = api.extractPoint(p1);
-        let screenCorners = getDefinedValueOrNull(modifs["screenCorners"]);
-        if (screenCorners !== null) {
-            if (screenCorners['ctype'] === "list" || screenCorners['value'].length !== 2) {
-                screenCorners = screenCorners['value'].map(api.extractPoint);
-            } else {
-                cglLogWarning("expected list of two points got: ",screenCorners);
-                screenCorners = null;
-            }
-        }
-        let cul,clr;
+        let transform = getDefinedValueOrNull(modifs["transform"]);
+        if (transform !== null) transform = coerce.toList(transform).map((val)=>coerce.toList(val).map(coerce.toReal));
+        let bounds = getDefinedValueOrNull(modifs["bounds"]);
+        if (bounds !== null) bounds = coerce.toList(bounds).map(coerce.toReal);
         let pixelBounds = [];
         let canvaswrapper;
         if (image !== null) {
             canvaswrapper = generateCanvasWrapperIfRequired(image, api, false);
-            cul = {x:0,y:0};
-            clr = {x:image.width,y:image.height};
-            pixelBounds = [0,0,image.width,image.height];
+            pixelBounds = bounds;
         } else {
             canvaswrapper = null;
-            cul = computeUpperLeftCorner(api);
-            clr = computeLowerRightCorner(api);
-            // internal measures. might be multiple of api.instance['canvas']['clientWidth'] on HiDPI-Displays
-            pixelBounds = [0,0,api.instance['canvas']['width'],api.instance['canvas']['height']];
-        }
-        if (screenCorners !== null) {
-            let a = screenCorners[0];
-            let b = screenCorners[1];
-            let ciw = pixelBounds[2];
-            let cih = pixelBounds[3];
-            let ul = {
-                x: Math.min(a.x, b.x),
-                y: Math.max(a.y, b.y)
-            }; //upper left pt
-            let fx = Math.abs((a.x - b.x) / (clr.x - cul.x)); //x-ratio of screen that is used
-            let fy = Math.abs((a.y - b.y) / (clr.y - cul.y)); //y-ratio of screen that is used
-            let xx = ciw * (ul.x - cul.x) / (clr.x - cul.x);
-            let yy = cih * (ul.y - cul.y) / (clr.y - cul.y);
-            if (p0 === null) p0 = a;
-            if (p1 === null) p1 = b;
-            pixelBounds = [xx, yy, ciw*fx, cih*fy];
-        } else {
-            if (p0 === null) p0 = cul;
-            if (p1 === null) p1 = clr;
+            if(bounds === null) {
+                pixelBounds = [0,0,api.instance['canvas']['width'],api.instance['canvas']['height']];
+            } else {
+                let cul = computeUpperLeftCorner(api);
+                let clr = computeLowerRightCorner(api);
+                let [x0,y0,w,h] = bounds;
+                let fx = api.instance['canvas']['width'] * Math.abs(w / (clr.x - cul.x)); //x-ratio of screen that is used
+                let fy = api.instance['canvas']['height'] * Math.abs(h / (clr.y - cul.y)); //y-ratio of screen that is used
+                let xx = api.instance['canvas']['width'] * (x0 - cul.x) / (clr.x - cul.x);
+                let yy = api.instance['canvas']['height'] * ((y0+h) - cul.y) / (clr.y - cul.y);
+                // internal measures. might be multiple of api.instance['canvas']['clientWidth'] on HiDPI-Displays
+                pixelBounds = [xx,yy,fx,fy];
+            }
         }
         let iw = pixelBounds[2];
         let ih = pixelBounds[3];
@@ -895,60 +872,13 @@ let CindyGL = function(api) {
         let layerCount = getRealModifier(modifs,"layers",0);
         Renderer.resetCachedState();
         gl.clear(gl.DEPTH_BUFFER_BIT|gl.COLOR_BUFFER_BIT);
-        let defaultZ = Math.max(p1.x-p0.x,p1.y-p0.y)/2;
-        let skewFactor = modifs["skewFactor"] === undefined ? 0.5 : coerce.toReal(api.evaluateAndVal(modifs["skewFactor"]));
-        let zScale = modifs["zScale"] === undefined ? 1 : coerce.toReal(api.evaluateAndVal(modifs["zScale"]));
-        let z0 = modifs["z0"] === undefined ? -defaultZ : coerce.toReal(api.evaluateAndVal(modifs["z0"]));
-        let z1 = modifs["z1"] === undefined ? defaultZ : coerce.toReal(api.evaluateAndVal(modifs["z1"]));
-        let zoom = modifs["zoom"] === undefined ? 1 : coerce.toReal(api.evaluateAndVal(modifs["zoom"]));
-        let x0=p0.x;
-        let y0=p0.y;
-        let x1=p1.x;
-        let y1=p1.y;
-        let transform = [
-            [zoom*(x1-x0)/2,0,0,zoom*(x0+x1)/2],
-            [0,zoom*(y1-y0)/2,0,zoom*(y0+y1)/2],
-            [0,0,zoom*zScale*((z1*(1-skewFactor)-z0*(1+skewFactor))/2),zoom*zScale*(z1*(1-skewFactor)+z0*(1+skewFactor))/2],
-            [0,0,-skewFactor,1],
-        ];
         if (CindyGL.sceneRenderer !== null) cglLogWarning("once one rendering pass can be active at a given type, call `cgl3dFinishRender` before calling `cgl3dStartRender` a second time");
         CindyGL.sceneRenderer = (layerCount != 0) ?
              new Cgl3dLayeredSceneRenderer(iw,ih,canvaswrapper,layerCount) :
             new Cgl3dSimpleSceneRenderer(iw,ih,canvaswrapper);
         CindyGL.sceneRenderer.pixelBounds = pixelBounds;
-        CindyGL.sceneRenderer.viewBounds = [p0,p1];
         CindyGL.sceneRenderer.transform =  m4FlatTranspose(transform);
         CindyGL.sceneRenderer.inverseTrafo = m4InverseFlatTranspose(transform);
-        return nada;
-    });
-    api.defineFunction("cgl3dSetRenderTransform", 2, (args, modifs) => {
-        if (CindyGL.sceneRenderer === null){
-            cglLogError("no active rendering pass, call `cgl3dStartRender` before calling `cgl3dSetRenderTransform`");
-            return nada;
-        }
-        let viewBounds = CindyGL.sceneRenderer.viewBounds;
-        let zoom = coerce.toReal(api.evaluateAndVal(args[1]));
-        let x0=zoom*viewBounds[0].x;
-        let y0=zoom*viewBounds[0].y;
-        let x1=zoom*viewBounds[1].x;
-        let y1=zoom*viewBounds[1].y;
-        let defaultZ = Math.max(x1-x0,y1-y0)/2;
-        let transform = coerce.toList(api.evaluateAndVal(args[0])).map(e=>coerce.toList(e).map(coerce.toReal));
-        let skewFactor = modifs["skewFactor"] === undefined ? 0.5 : coerce.toReal(api.evaluateAndVal(modifs["skewFactor"]));
-        let zScale = modifs["zScale"] ===undefined ? 1 : coerce.toReal(api.evaluateAndVal(modifs["zScale"]));
-        let z0 = modifs["z0"] ===undefined ? -defaultZ : zoom*coerce.toReal(api.evaluateAndVal(modifs["z0"]));
-        let z1 = modifs["z1"] ===undefined ? defaultZ : zoom*coerce.toReal(api.evaluateAndVal(modifs["z1"]));
-        // TODO? move defintion of projection to CindyScript Code
-        let projection = [
-            [(x1-x0)/2,0,0,(x0+x1)/2],
-            [0,(y1-y0)/2,0,(y0+y1)/2],
-            [0,0,zScale*((z1*(1-skewFactor)-z0*(1+skewFactor))/2),zScale*(z1*(1-skewFactor)+z0*(1+skewFactor))/2],
-            [0,0,-skewFactor,1],
-        ];
-        let trafo = m4Mul(transform,projection);
-        CindyGL.sceneRenderer.transform = m4FlatTranspose(trafo);
-        CindyGL.sceneRenderer.inverseTrafo = m4InverseFlatTranspose(trafo);
-        Renderer.prevShader = null;
         return nada;
     });
     function getRenderObjects(arg) {

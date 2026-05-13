@@ -74,25 +74,27 @@ cgl3d.resetObjects = () => (
 );
 reset3d() := cgl3d.resetObjects.();
 // TODO? make p0,p1, screenCorners, part of permanent coordinate system
-cgl3d.render = () => (
-  regional(bounds,size,zoom);
+// TODO? should p0,p1 be upper-left/lower right in cindy coord-system or ul/lr in gl-coordinate system
+cgl3d.prepareRender = () => (
+  regional(bounds,size,zoom,x0,y0,x1,y1,a,b,nada);
   if(isUndefined(image),
     bounds = screenbounds();
-    bounds = [bounds_4.x,bounds_4.y,bounds_2.x,bounds_2.y];
+    a = bounds_1; b = bounds_3;
+    bounds = [min(a.x,b.x),min(a.y,b.y),abs(a.x-b.x),abs(a.y-b.y)];
+    if(isUndefined(p0),p0 = a);
+    if(isUndefined(p1),p1 = b);
   ,
     size = imagesize(image);
     bounds = [0,0,size_1,size_2];
+    if(isUndefined(p0),p0 = (0,0));
+    if(isUndefined(p1),p1 = size);
   );
   if(!isUndefined(screenCorners),
-    cglLogError("rendering to subregion of screen is not fully supported");
-    // TODO: which parts of coordinate system handling can be move to CindyScript
-    //  should CindyScript depend on size of GL render canvas or should trafo be handling by JS-code
-    // ? compute relative screen section
-    if(isUndefined(p0),p0 = screenCorners_1);
-    if(isUndefined(p1),p1 = screenCorners_2);
+    a = screenCorners_1; b = screenCorners_2;
+    bounds = [min(a_1,b_1),min(a_2,b_2),abs(a_1-b_1),abs(a_2-b_2)];
+    if(isUndefined(p0),p0 = a);
+    if(isUndefined(p1),p1 = b);
   );
-  if(isUndefined(p0),p0 = (bounds_1,bounds_2));
-  if(isUndefined(p1),p1 = (bounds_3,bounds_3));
   zoom = cgl3d.zoomFactor;
   [x0,y0] = zoom*p0;
   [x1,y1] = zoom*p1;
@@ -105,11 +107,14 @@ cgl3d.render = () => (
       [(x1-x0)/2,0,0,(x0+x1)/2],
       [0,(y1-y0)/2,0,(y0+y1)/2],
       [0,0,zScale*((z1*(1-skewFactor)-z0*(1+skewFactor))/2),zScale*(z1*(1-skewFactor)+z0*(1+skewFactor))/2],
-      [0,0,-skewFactor,1],
+      [0,0,-skewFactor,1]
   ];
   // TODO set layers to 2 if there are translucent objects
-  cgl3dStartRender(layers->0,image->image,screenCorners->screenCorners,p0->p0,p1->p1);
-  cgl3dSetRenderTransform(cgl3d.renderTransform,cgl3d.zoomFactor);
+  cgl3dStartRender(layers->0,image->image,bounds->bounds,transform->cgl3d.renderTransform*projection);
+  z0 = z1 = p0 = p1 = nada; // ensure "modifiers" do not leak into globals
+);
+cgl3d.render = () => (
+  self().prepareRender.(); // extract preparation to separate function, any local variables interfere with rendering 
   cgl3dRenderOpaque(self().objects.opaque);
   cgl3dRenderTranslucent(self().objects.translucent);
   cgl3dFinishRender();
