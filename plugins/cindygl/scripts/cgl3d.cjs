@@ -139,17 +139,21 @@ cgl3d.getObject = (objId) => (
   obj
 );
 cglSpacePoint(x,y):=(
-  regional(p4);
-  // TODO: renderTransform uses (-1,1)^2 as screen coordinates
-  p4 = cgl3d.renderTransform*(x,y,0,1);
-  (p4_1,p4_2,p4_3)/p4_4;
+  regional(p4,bounds,a,b);
+  bounds = screenbounds();
+  a = bounds_1; b = bounds_3;
+  // TODO: coordinates are still a bit off
+  //  ? does initial depth matter
+  p4 = cgl3d.renderTransform*(2*(x-a_1)/(b_1-a_1)-1,2*(y-a_2)/(b_2-a_2)-1,0,1);
+  (p4_(1..3))/p4_4;
 );
 cglDirection(x,y):=(
-  regional(p0,p1,p);
-  p0 = cgl3d.renderTransform*(x,y,0,1);
-  p1 = cgl3d.renderTransform*(x,y,1,1);
-  p = p1 - p0;
-  (p_1,p_2,p_3)/p_4
+  regional(p0,p1,bounds,a,b);
+  bounds = screenbounds();
+  a = bounds_1; b = bounds_3;
+  p0 = cgl3d.renderTransform*(2*(x-a_1)/(b_1-a_1)-1,2*(y-a_2)/(b_2-a_2)-1,0,1);
+  p1 = cgl3d.renderTransform*(2*(x-a_1)/(b_1-a_1)-1,2*(y-a_2)/(b_2-a_2)-1,1,1);
+  (p1_(1..3))/p1_4 - (p0_(1..3))/p0_4
 );
 
 cgl3d.compute.pixelDepth = (rawDepth,direction) => (
