@@ -130,13 +130,20 @@ cgl3d.addObject = (obj) => (
   id
 );
 cgl3d.getObject = (objId) => (
-  regional(ojb);
-  if(isList(objId),objId=objId_1);
+  regional(obj);
+  if(isList(objId),objId=objId_(length(objId)));
   obj = self().objects.opaque:objId;
   if(isundefined(obj),
     obj = self().translucent.opaque:objId;
   );
   obj
+);
+cgl3d.getObjects = (objId) => (
+  if(isList(objId),
+    apply(objId,cgl3d.getObject.(#))
+  ,
+    cgl3d.getObject.(objId)
+  );
 );
 cglSpacePoint(x,y):=(
   regional(p4,bounds,a,b);
@@ -2811,144 +2818,3 @@ cglCPlot3d(f/*f(z)*/):=(
   );
   cglSurface3d(lambda((x,y,z),abs(f.(x+i*y))-z,f->f),degree->cglValOrDefault(degree,-1));
 );
-
-/* TODO: port coordinate system controlls and object management
-    /**
-     * List all currently visible objects
-     * modifiers can be used to filter objects depending on their tags
-     * - if a modifier is set to `true` all returned objects will have the corresponging tag
-     * - if a modifier is set to `false` no returned object will have the corresponding tag
-     */
-    api.defineFunction("cglListObjects", 0, (args, modifs) => {
-        let modValues = {};
-        Object.keys(modifs).forEach(key=>{
-            let val = coerce.toBool(api.evaluateAndVal(modifs[key]),null);
-            if(val===null)return;
-            modValues[key] = val;
-        });
-        let res = [];
-        let searchObject = (obj3d)=>{
-            if(Object.keys(modValues).some(key=>(modValues[key] != obj3d.tags.has(key))))
-                return;
-            res.push(obj3d.id);
-        };
-        CindyGL.objectBuffer.opaque.forEach(searchObject);
-        // TODO? parameter to select if translucent objects should be checked
-        CindyGL.objectBuffer.translucent.forEach(searchObject);
-        return toCjs(res);
-    });
-    /**
-     * Finds the 3D object on the view-ray through the screen position (args[0],args[1]) that is closest to the camera.
-     * If the `tags` modifier is set only objects that have at least one of the specified tags are considered
-     */
-    api.defineFunction("cglFindObject", 2, (args, modifs) => {
-        let x = api.evaluateAndVal(args[0])["value"]["real"];
-        let y = api.evaluateAndVal(args[1])["value"]["real"];
-        let spacePoint = getSpacePoint(x,y);
-        // TODO support orthogonal projection
-        let tags = get3DPlotTags(modifs);
-        let viewPos = CindyGL.coordinateSystem.transformedViewPos;
-        let direction = subv3(spacePoint,viewPos);
-        let minDst = Infinity;
-        let pickedId = -1;
-        let searchObject = (obj3d)=>{
-            // TODO use Set.intersection once suppported
-            let sharesTag = tags.size==0;
-            for(const tag of tags){
-                if(obj3d.tags.has(tag)){
-                    sharesTag=true;
-                    break;
-                }
-            };
-            if(!sharesTag)
-                return;
-            // TODO? execute shader code to get correct z-coordinate
-            if(obj3d.boundingBox['type'] == BoundingBoxType.sphere) {
-                let center = obj3d.boundingBox['center'];
-                // TODO? also detect positions sligthly outside sphere
-                let radius = obj3d.boundingBox['radius'];
-                // |v+l*d -c|=r
-                let vc = subv3(viewPos,center);
-                let a = dot3(direction,direction);
-                let b = dot3(vc,direction);
-                let c = dot3(vc,vc) - radius*radius;
-                let D = b*b-a*c;
-                if(D<0){ return; } // ray does not hit sphere
-                let dst = (-b - Math.sqrt(D))/a;
-                if (dst>=0 && dst<=minDst) {
-                    minDst = dst;
-                    pickedId = obj3d.id;
-                }
-            } else if(obj3d.boundingBox['type'] == BoundingBoxType.cylinder) {
-                let radius = obj3d.boundingBox['radius'];
-                let center = obj3d.boundingBox['center'];
-                let orientation = obj3d.boundingBox['direction'];
-                let direction0 = scalev3(1/Math.sqrt(dot3(direction,direction)),direction);
-                let p1 = subv3(viewPos,center);
-                let w = Math.sqrt(dot3(p1,p1));
-                let W = addv3(viewPos,scalev3(w,direction0));
-                let BA = orientation; // scaled by 2
-                let U = scalev3(1/dot3(BA,BA),BA);
-                let VA = subv3(W,center);
-                let S = subv3(VA,scalev3(dot3(VA,BA),U));
-                let T = subv3(direction0,scalev3(dot3(direction0,BA),U));
-                let a = dot3(T,T);
-                let b = dot3(S,T);
-                let c = dot3(S,S) -radius*radius;
-                let D= b*b-a*c;
-                if(D<0){ return; } // ray does not hit cylinder
-                let l1 = -(b + Math.sqrt(D))/a;
-                let dst = w+l1;
-                let v1 = subv3(addv3(W,scalev3(l1,direction0)),center);
-                let delta = dot3(v1,U);
-                if ( delta < -1 || delta > 1 ) {
-                    let l2 = -(b - Math.sqrt(D))/a;
-                    dst = w+l2;
-                    let v2 = subv3(addv3(W,scalev3(l2,direction0)),center);
-                    delta = dot3(v2,U);
-                    if ( delta < -1 || delta > 1 ) {
-                        return;
-                    }
-                }
-                if (dst>=0 && dst<=minDst) {
-                    minDst = dst;
-                    pickedId = obj3d.id;
-                }
-            }
-            // TODO? checks different bouning box types
-            // TODO? make pixel depth dependent on actual shader code
-        };
-        CindyGL.objectBuffer.opaque.forEach(searchObject);
-        // TODO? parameter to select if translucent objects should be checked
-        CindyGL.objectBuffer.translucent.forEach(searchObject);
-        // TODO? convert picked 3D-object to CindyJS object
-        // TODO? add a way to group objects
-        //   make name,position, readable, ? writable
-        return toCjsNumber(pickedId);
-    });
-    function objectsById(idVal) {
-        idVal = api.evaluateAndVal(idVal);
-        let ids;
-        if(idVal['ctype'] === 'number') {
-            let objId = coerce.toInt(idVal,-1);
-            if(objId<0)
-                return [];
-            ids = [objId];
-        } else if(idVal['ctype'] === 'list') {
-            ids = idVal['value'].map(id=>coerce.toInt(id,-1)).filter(id=>id>=0);
-        }
-        return ids.map(objId=>{
-            let obj3d = CindyGL.objectBuffer.opaque.get(objId);
-            let wasOpaque = true;
-            if(obj3d === undefined){
-                obj3d = CindyGL.objectBuffer.translucent.get(objId);
-                wasOpaque = false;
-                if(obj3d === undefined){
-                    cglLogWarning(`could not find object with id ${objId}`);
-                    return null;
-                }
-            }
-            return [obj3d,objId,wasOpaque];
-        }).filter(val=>val!==null);
-    }
-*/

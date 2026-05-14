@@ -239,7 +239,7 @@ let CindyGL = function(api) {
                 value: value.map(toCjs)
             };
         }
-        console.log("unknown CindySCript value: ",value);
+        console.log("unknown CindyScript value: ",value);
         return nada;
     }
 
@@ -950,7 +950,57 @@ let CindyGL = function(api) {
     });
     api.defineFunction("cgl3dObjectSet", 3, (args, modifs) => {
         // TODO: set field of object
+        cglLogError("unimplemented: cgl3dObjectSet");
         return nada;
+    });
+    api.defineFunction("cgl3dObjectGetModifier", 2, (args, modifs) => {
+        let obj = api.evaluate(args[0]);
+        if(obj['ctype'] !== "cgl3dObject") return nada;
+        let key = api.evaluate(args[1]);
+        if(key['ctype'] === "list") {
+            return toCjs(key['value'].map((eltKey)=>{
+                if(eltKey["ctype"] !== "string") return nada;
+                return obj["value"].plotModifiers.get(eltKey["value"]);
+            }));
+        }
+        if(key['ctype'] !== "string") return nada;
+        return obj["value"].plotModifiers.get(key["value"]); 
+    });
+    function setObjectModifier(obj,key,value) {
+        if(obj['ctype'] === "list") {
+            obj["value"].forEach(o=>setObjectModifier(o,key,value));
+            return nada;
+        }
+        if(obj['ctype'] !== "cgl3dObject") return nada;
+        const objVal = obj["value"]
+        if(key['ctype'] === "list") {
+            if (value["ctype"] !== "list" || value["value"].length !== key["value"].length)
+                return nada; // TODO? warning
+            key['value'].forEach((eltKey,index)=>{
+                if(eltKey["ctype"] !== "string") return;
+                let eltValue = value[index];
+                if (eltValue["ctype"] === "undefined") {
+                    objVal.plotModifiers.delete(eltKey["value"]);
+                } else {
+                    objVal.plotModifiers.set(eltKey["value"],eltValue);
+                }
+            });
+            return nada;
+        } else if(key['ctype'] === "string") {
+            if (value["ctype"] === "undefined") {
+                objVal.plotModifiers.delete(key["value"]);
+            } else {
+                objVal.plotModifiers.set(key["value"],value);
+            }
+        } else {return nada;}
+        // TODO: update modifier-types if neccessary
+        return nada;
+    }
+    api.defineFunction("cgl3dObjectSetModifier", 3, (args, modifs) => {
+        const obj = api.evaluate(args[0]);
+        const key = api.evaluate(args[1]);
+        const value = api.evaluate(args[2]);
+        setObjectModifier(obj,key,value);
     });
     // custom error class for errors produced by calling cglDiscard
     class CglDiscardError extends Error {

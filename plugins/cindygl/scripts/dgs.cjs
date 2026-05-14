@@ -41,7 +41,7 @@ dgs3dHandleZoom(zoom):=(
 dgs3dUpdateCutoff();
 
 // TODO make focus color customizable, ? set color depending on color of point
-dgs3dFocusColor = "green";
+dgs3dFocusColor = cglColor("green");
 dgs3dMovementAxes(point):=(
   regional(normal,l,PQ);
   if(length(point:"parents")>0,
@@ -124,10 +124,10 @@ dgs3dPreFrame():=(
       target = dgs3dFind(mx,my);
       if(target!=oldTarget,
         if(!isUndefined(oldTarget),
-          cglUpdate(oldTarget:"drawId",UcglColor->oldTarget:"color");
+          cgl3dObjectSetModifier(cgl3d.getObjects.(oldTarget:"drawId"),"cglColor",oldTarget:"color");
         );
         if(!isUndefined(target),
-          cglUpdate(target:"drawId",UcglColor->dgs3dFocusColor);
+          cgl3dObjectSetModifier(cgl3d.getObjects.(target:"drawId"),"cglColor",dgs3dFocusColor);
         );
         oldTarget = target;
       );
@@ -517,32 +517,32 @@ dgs3dNewObject(type,parents):=(
   dgs3dObjects:objId = obj;
   if(type == "point",
     dgs3dPoints:objId = obj;
-    obj:"color" = cglValOrDefault(color,"red");
+    obj:"color" = cglColor(cglValOrDefault(color,"red"));
     obj:"alpha" = cglValOrDefault(alpha,1);
     obj:"redraw" = lambda(self,dgs3dRenderPoint(self));
   ,if(type == "line",
     dgs3dLines:objId = obj;
-    obj:"color" = cglValOrDefault(color,"black");
+    obj:"color" = cglColor(cglValOrDefault(color,"black"));
     obj:"alpha" = cglValOrDefault(alpha,1);
     obj:"redraw" = lambda(self,dgs3dRenderLine(self));
   ,if(type == "plane",
     dgs3dPlanes:objId = obj;
-    obj:"color" = cglValOrDefault(color,"cyan");
+    obj:"color" = cglColor(cglValOrDefault(color,"cyan"));
     obj:"alpha" = cglValOrDefault(alpha,0.67);
     obj:"redraw" = lambda(self,dgs3dRenderPlane(self));
   ,if(type == "quadric",
     dgs3dQuadrics:objId = obj;
-    obj:"color" = cglValOrDefault(color,(0.5,0,1));
+    obj:"color" = cglColor(cglValOrDefault(color,(0.5,0,1)));
     obj:"alpha" = cglValOrDefault(alpha,0.67);
     obj:"redraw" = lambda(self,dgs3dRenderQuadric(self));
   ,if(type == "conic",
     dgs3dQuadrics:objId = obj;
-    obj:"color" = cglValOrDefault(color,(0.25,1,0));
+    obj:"color" = cglColor(cglValOrDefault(color,(0.25,1,0)));
     obj:"alpha" = cglValOrDefault(alpha,1);
     obj:"redraw" = lambda(self,dgs3dRenderConic(self));
   ,if(type == "intersection2Q",
     dgs3dQuadrics:objId = obj;
-    obj:"color" = cglValOrDefault(color,(0.25,1,0));
+    obj:"color" = cglColor(cglValOrDefault(color,(0.25,1,0)));
     obj:"alpha" = cglValOrDefault(alpha,1);
     obj:"redraw" = lambda(self,dgs3dRenderIntersection2Q(self));
   ,if(type == "pointSet",
@@ -559,7 +559,7 @@ dgs3dNewObject(type,parents):=(
 // TODO? better name
 cglInterface(color3d,dgs3dUpdateColor,(obj),(visible,color,alpha));
 dgs3dUpdateColor(obj):=(
-  obj:"color" = cglValOrDefault(color,obj:"color");
+  obj:"color" = cglColor(cglValOrDefault(color,obj:"color"));
   obj:"alpha" = cglValOrDefault(alpha,obj:"alpha");
   obj:"visible" = cglValOrDefault(alpha,obj:"visible");
   obj:"redraw".(obj);
@@ -567,6 +567,7 @@ dgs3dUpdateColor(obj):=(
 
 // TODO do not render objects with complex coordinates
 // TODO? only render points within drawing region
+// TODO: only update bounds when object changed
 dgs3dRenderPoint(self):=(
   regional(p,ptColor);
   p = self:"coords";
@@ -575,8 +576,8 @@ dgs3dRenderPoint(self):=(
     if(self:"drawId"==-1,
       self:"drawId" = draw3d(p_(1..3)/p_4,size->self:"size",color->ptColor,alpha->self:"alpha");
     ,
-      cglUpdate(self:"drawId",UcglColor->ptColor,UcglAlpha->self:"alpha");
-      cglUpdateBounds(self:"drawId",p_(1..3)/p_4,self:"size");
+      cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["cglColor","cglAlpha"],[ptColor,self:"alpha"]);
+      cgl3dObjectSet(cgl3d.getObjects.(self:"drawId"),"center",p_(1..3)/p_4);
       cglSetVisible(self:"drawId",true);
     );
   ,if(self:"drawId"!=-1,
@@ -585,7 +586,7 @@ dgs3dRenderPoint(self):=(
 );
 // TODO? line segments: use definition-points instead of sphere intersections if they are closer to center of clipping sphere
 dgs3dRenderLine(self):=(
-  regional(PQ);
+  regional(PQ,P,Q);
   if(self:"visible" == true, // treat undefined as falsy
     // compute intersections of line with clipping sphere
     PQ = dgs3dIntersectLineQuadric(dgs3dDualLine(self:"coords"),((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,-dgs3dCutoffRadius*dgs3dCutoffRadius)));
@@ -593,8 +594,11 @@ dgs3dRenderLine(self):=(
       if(self:"drawId"==-1,
         self:"drawId" = draw3d((PQ_1_(1..3))/PQ_1_4,(PQ_2_(1..3))/PQ_2_4,size->self:"size",color->self:"color",alpha->self:"alpha")
       ,
-        cglUpdate(self:"drawId",UcglColor->self:"color",UcglAlpha->self:"alpha");
-        cglUpdateBounds(self:"drawId",(PQ_1_(1..3))/PQ_1_4,(PQ_2_(1..3))/PQ_2_4,self:"size");
+        cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["cglColor","cglAlpha"],[self:"color",self:"alpha"]);
+        P = (PQ_1_(1..3))/PQ_1_4;
+        Q = (PQ_2_(1..3))/PQ_2_4;
+        cgl3dObjectSet(cgl3d.getObjects.(self:"drawId"),"center",(P+Q)/2);
+        cgl3dObjectSet(cgl3d.getObjects.(self:"drawId"),"orientation",(Q-P)/2);
         cglSetVisible(self:"drawId",true);
       );
     ,if(self:"drawId"!=-1,
@@ -613,7 +617,7 @@ dgs3dRenderPlane(self):=(
       // TODO? use custom cutoff-region instead of default
       self:"drawId" = surface3d(x*n_1+y*n_2+z*n_3+n_4,plotModifiers->{"n":self:"coords"},color->self:"color",alpha->self:"alpha");
     ,
-      cglUpdate(self:"drawId",Un->self:"coords",UcglColor->self:"color",UcglAlpha->self:"alpha");
+      cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["n","cglColor","cglAlpha"],[self:"coords",self:"color",self:"alpha"]);
       cglSetVisible(self:"drawId",true);
     );
   ,if(self:"drawId"!=-1,
@@ -628,7 +632,7 @@ dgs3dRenderQuadric(self):=(
       // TODO? use custom cutoff-region instead of default
       self:"drawId" = surface3d((x,y,z,1)*M*(x,y,z,1),plotModifiers->{"M":self:"coords"},alpha->self:"alpha",color->self:"color");
     ,
-      cglUpdate(self:"drawId",UM->self:"coords",UcglColor->self:"color",UcglAlpha->self:"alpha");
+      cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["M","cglColor","cglAlpha"],[self:"coords",self:"color",self:"alpha"]);
       cglSetVisible(self:"drawId",true);
     );
   ,if(self:"drawId"!=-1,
@@ -645,8 +649,7 @@ dgs3dRenderConic(self):=(
         plotModifiers->{"Q":self:"coords"_1,"p":self:"coords"_2,"r":self:"size"},
         alpha->self:"alpha",color->self:"color");
     ,
-      cglUpdate(self:"drawId",UQ->self:"coords"_1,Up->self:"coords"_2,Ur->self:"size",
-        UcglColor->self:"color",UcglAlpha->self:"alpha");
+      cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["Q","p","r","cglColor","cglAlpha"],[self:"coords"_1,self:"coords"_2,self:"size",self:"color",self:"alpha"]);
       cglSetVisible(self:"drawId",true);
     );
   ,if(self:"drawId"!=-1,
@@ -663,8 +666,8 @@ dgs3dRenderIntersection2Q(self):=(
         plotModifiers->{"Q1":self:"coords"_1,"Q2":self:"coords"_2,"r":self:"size"},
         alpha->self:"alpha",color->self:"color");
     ,
-      cglUpdate(self:"drawId",UQ1->self:"coords"_1,UQ2->self:"coords"_2,Ur->self:"size",
-        UcglColor->self:"color",UcglAlpha->self:"alpha");
+      cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["Q1","Q2","r","cglColor","cglAlpha"],
+        [self:"coords"_1,self:"coords"_2,self:"size",self:"color",self:"alpha"]);
       cglSetVisible(self:"drawId",true);
     );
   ,if(self:"drawId"!=-1,
@@ -1701,7 +1704,6 @@ dgs3dOrthogonalPlane(l,p):=(
     p = self:"parents"_2:"coords";
     K = transpose(kernel(dgs3dLineMatrix(l)));
     n = (K_1 * K_2_4 - K_2*K_1_4)_(1..3);
-    print(n);
     self:"coords" = (n_1*p_4,n_2*p_4,n_3*p_4,-(p_1,p_2,p_3)*n);
     DGS3DmOVEoK
   );
@@ -1847,7 +1849,6 @@ dgs3dFind(x,y):=(
   forall(dgs3dMovablePoints,pt,
     center = cgl3dObjectGet(cgl3d.getObject.(pt:"drawId"),"center");
     radius = cgl3dObjectGet(cgl3d.getObject.(pt:"drawId"),"radius");
-    print((center,radius,root,dir));
     d = cglEvalOrDiscard(cgl3d.compute.sphereDepths.(root,dir,center,radius)_1);
     if(!isUndefined(d),
       if(d < dist,
