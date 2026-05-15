@@ -37,6 +37,7 @@ cgl3d.light = {};
 cgl3d.draw = {};
 
 cgl3d.spaceTransform = ((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1));
+cgl3d.renderTransform = ((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1));
 cgl3d.zoomFactor = 1;
 cgl3d.rotate = (alpha,beta) => (
   rotZ=[
@@ -145,21 +146,24 @@ cgl3d.getObjects = (objId) => (
     cgl3d.getObject.(objId)
   );
 );
+cgl3d.setVisible = (id,val) => (
+  cglLogError("unimplemented: setVisible");
+);
 cglSpacePoint(x,y):=(
   regional(p4,bounds,a,b);
   bounds = screenbounds();
   a = bounds_1; b = bounds_3;
   // TODO: coordinates are still a bit off
   //  ? does initial depth matter
-  p4 = cgl3d.renderTransform*(2*(x-a_1)/(b_1-a_1)-1,2*(y-a_2)/(b_2-a_2)-1,0,1);
+  p4 = cgl3d.renderTransform*(2*(x-a_1)/(b_1-a_1)-1,1-2*(y-a_2)/(b_2-a_2),0,1);
   (p4_(1..3))/p4_4;
 );
 cglDirection(x,y):=(
   regional(p0,p1,bounds,a,b);
   bounds = screenbounds();
   a = bounds_1; b = bounds_3;
-  p0 = cgl3d.renderTransform*(2*(x-a_1)/(b_1-a_1)-1,2*(y-a_2)/(b_2-a_2)-1,0,1);
-  p1 = cgl3d.renderTransform*(2*(x-a_1)/(b_1-a_1)-1,2*(y-a_2)/(b_2-a_2)-1,1,1);
+  p0 = cgl3d.renderTransform*(2*(x-a_1)/(b_1-a_1)-1,1-2*(y-a_2)/(b_2-a_2),0,1);
+  p1 = cgl3d.renderTransform*(2*(x-a_1)/(b_1-a_1)-1,1-2*(y-a_2)/(b_2-a_2),1,1);
   (p1_(1..3))/p1_4 - (p0_(1..3))/p0_4
 );
 

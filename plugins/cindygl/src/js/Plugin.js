@@ -242,6 +242,17 @@ let CindyGL = function(api) {
         console.log("unknown CindyScript value: ",value);
         return nada;
     }
+    function toJsVal(value) {
+        if(value["ctype"] == "list") {
+            return value["value"].map(toJsVal)
+        } else if(value["ctype"] == "number") {
+            return coerce.toReal(value,0);
+        } else if(value["ctype"] == "boolean" || value["ctype"] == "string") {
+            return value["value"]
+        }
+        console.log("cannot convert CindyScript value ",value," to Javascript");
+        return undefined;
+    }
 
     /**
      * @param {CindyJS.anyval} paramArg
@@ -948,9 +959,29 @@ let CindyGL = function(api) {
         if(key['ctype'] !== "string") return nada;
         return toCjs(obj["value"].boundingBox[key["value"]]);
     });
+    const ALLOWED_OBJECT_KEYS = ["center","radius","orientation"];
+    function setObjectKey(obj,key,value) {
+        if(obj['ctype'] === "list") {
+            obj["value"].forEach(o=>setObjectKey(o,key,value));
+            return;
+        }
+        if(obj['ctype'] !== "cgl3dObject") return;
+        const objVal = obj["value"]
+        if(key['ctype'] === "string") {
+            const keyVal = key["value"];
+            if(!objVal.boundingBox.hasOwnProperty(keyVal) || ! ALLOWED_OBJECT_KEYS.includes(keyVal))
+                return;
+            const jsVal = toJsVal(value);
+            if (jsVal !== undefined && jsVal !== null) {
+                objVal.boundingBox[keyVal] = jsVal;
+            }
+        }
+    }
     api.defineFunction("cgl3dObjectSet", 3, (args, modifs) => {
-        // TODO: set field of object
-        cglLogError("unimplemented: cgl3dObjectSet");
+        const obj = api.evaluate(args[0]);
+        const key = api.evaluate(args[1]);
+        const value = api.evaluate(args[2]);
+        setObjectKey(obj,key,value);
         return nada;
     });
     api.defineFunction("cgl3dObjectGetModifier", 2, (args, modifs) => {
@@ -969,13 +1000,14 @@ let CindyGL = function(api) {
     function setObjectModifier(obj,key,value) {
         if(obj['ctype'] === "list") {
             obj["value"].forEach(o=>setObjectModifier(o,key,value));
-            return nada;
+            return;
         }
-        if(obj['ctype'] !== "cgl3dObject") return nada;
+        if(obj['ctype'] !== "cgl3dObject") return;
         const objVal = obj["value"]
         if(key['ctype'] === "list") {
             if (value["ctype"] !== "list" || value["value"].length !== key["value"].length)
-                return nada; // TODO? warning
+                return; // TODO? warning
+            value = value["value"];
             key['value'].forEach((eltKey,index)=>{
                 if(eltKey["ctype"] !== "string") return;
                 let eltValue = value[index];
@@ -985,22 +1017,22 @@ let CindyGL = function(api) {
                     objVal.plotModifiers.set(eltKey["value"],eltValue);
                 }
             });
-            return nada;
         } else if(key['ctype'] === "string") {
             if (value["ctype"] === "undefined") {
                 objVal.plotModifiers.delete(key["value"]);
             } else {
                 objVal.plotModifiers.set(key["value"],value);
             }
-        } else {return nada;}
+        } else {return;}
         // TODO: update modifier-types if neccessary
-        return nada;
+        return;
     }
     api.defineFunction("cgl3dObjectSetModifier", 3, (args, modifs) => {
         const obj = api.evaluate(args[0]);
         const key = api.evaluate(args[1]);
         const value = api.evaluate(args[2]);
         setObjectModifier(obj,key,value);
+        return nada;
     });
     // custom error class for errors produced by calling cglDiscard
     class CglDiscardError extends Error {

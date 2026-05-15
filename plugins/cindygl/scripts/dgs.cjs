@@ -65,20 +65,21 @@ dgs3dMovementAxes(point):=(
     )
   ,
     // move free points parallel to view-plane
-    normal = cglViewNormal();
-    {"type":"normal","n":normal}
+    normal = cgl3d.spaceTransform*(0,0,1,0);
+    {"type":"normal","n":normal_(1..3)}
   );
 );
 // TODO? limit maximum movement distance (moving along nearly orthogonal plane leads to points getting lost)
 dgs3dPreFrame():=(
-    regional(mx,my,dx,dy,target,newCoords,oldTarget,axes,viewPos,center,movePlaneOffset,movePlaneNormal,d2,oldDirection,newDirection,oldT,newT,oldPos,newPos,truePos,oldRadius,updateQueue);
+    regional(mx,my,dx,dy,target,newCoords,oldTarget,axes,oldSpacePos,newSpacePos,center,movePlaneOffset,movePlaneNormal,d2,oldDirection,newDirection,oldT,newT,oldPos,newPos,truePos,oldRadius,updateQueue);
     mx = mouse().x;
     my = mouse().y;
     oldTarget = dgs3dMouseState:"oldTarget";
     if(dgs3dMouseState:"dragging",
       target = oldTarget;
       axes = dgs3dMovementAxes(target);
-      viewPos = cglViewPos();
+      oldSpacePos = cglSpacePoint(dgs3dMouseState:"sx",dgs3dMouseState:"sy");
+      newSpacePos = cglSpacePoint(mx,my);
       // view direction for given screen pixel
       oldDirection = cglDirection(dgs3dMouseState:"sx",dgs3dMouseState:"sy");
       newDirection = cglDirection(mx,my);
@@ -87,10 +88,10 @@ dgs3dPreFrame():=(
         movePlaneNormal = axes:"n";
         center = target:"coords"_(1..3)/target:"coords"_4;
         movePlaneOffset = movePlaneNormal * center;
-        oldT = (movePlaneOffset - movePlaneNormal * viewPos) / (movePlaneNormal * oldDirection);
-        newT = (movePlaneOffset - movePlaneNormal * viewPos) / (movePlaneNormal * newDirection);
-        oldPos = viewPos + oldT*oldDirection;
-        newPos = viewPos + newT*newDirection;
+        oldT = (movePlaneOffset - movePlaneNormal * oldSpacePos) / (movePlaneNormal * oldDirection);
+        newT = (movePlaneOffset - movePlaneNormal * newSpacePos) / (movePlaneNormal * newDirection);
+        oldPos = oldSpacePos + oldT*oldDirection;
+        newPos = newSpacePos + newT*newDirection;
         // keep movement relative to click position (instead of center)
         truePos = center;
         newPos = newPos+(truePos-oldPos);
@@ -102,10 +103,10 @@ dgs3dPreFrame():=(
         movePlaneNormal = cross(axes:"v",d2);
         center = target:"coords"_(1..3);
         movePlaneOffset = movePlaneNormal * center;
-        oldT = (movePlaneOffset - movePlaneNormal * viewPos) / (movePlaneNormal * oldDirection);
-        newT = (movePlaneOffset - movePlaneNormal * viewPos) / (movePlaneNormal * newDirection);
-        oldPos = viewPos + oldT*oldDirection;
-        newPos = viewPos + newT*newDirection;
+        oldT = (movePlaneOffset - movePlaneNormal * oldSpacePos) / (movePlaneNormal * oldDirection);
+        newT = (movePlaneOffset - movePlaneNormal * newSpacePos) / (movePlaneNormal * newDirection);
+        oldPos = oldSpacePos + oldT*oldDirection;
+        newPos = newSpacePos + newT*newDirection;
         // remove movement component orthogonal to axis
         newPos = newPos - ((newPos-oldPos)*d2)/(d2*d2) * d2;
         // keep movement relative to click position (instead of center)
@@ -578,10 +579,10 @@ dgs3dRenderPoint(self):=(
     ,
       cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["cglColor","cglAlpha"],[ptColor,self:"alpha"]);
       cgl3dObjectSet(cgl3d.getObjects.(self:"drawId"),"center",p_(1..3)/p_4);
-      cglSetVisible(self:"drawId",true);
+      cgl3d.setVisible.(self:"drawId",true);
     );
   ,if(self:"drawId"!=-1,
-    cglSetVisible(self:"drawId",false);
+    cgl3d.setVisible.(self:"drawId",false);
   ));
 );
 // TODO? line segments: use definition-points instead of sphere intersections if they are closer to center of clipping sphere
@@ -599,13 +600,13 @@ dgs3dRenderLine(self):=(
         Q = (PQ_2_(1..3))/PQ_2_4;
         cgl3dObjectSet(cgl3d.getObjects.(self:"drawId"),"center",(P+Q)/2);
         cgl3dObjectSet(cgl3d.getObjects.(self:"drawId"),"orientation",(Q-P)/2);
-        cglSetVisible(self:"drawId",true);
+        cgl3d.setVisible.(self:"drawId",true);
       );
     ,if(self:"drawId"!=-1,
-      cglSetVisible(self:"drawId",false);
+      cgl3d.setVisible.(self:"drawId",false);
     ));
   ,if(self:"drawId"!=-1,
-      cglSetVisible(self:"drawId",false);
+      cgl3d.setVisible.(self:"drawId",false);
   ));
 );
 // TODO? polygons: render only region bounded by set of (potentially infinite) points
@@ -618,10 +619,10 @@ dgs3dRenderPlane(self):=(
       self:"drawId" = surface3d(x*n_1+y*n_2+z*n_3+n_4,plotModifiers->{"n":self:"coords"},color->self:"color",alpha->self:"alpha");
     ,
       cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["n","cglColor","cglAlpha"],[self:"coords",self:"color",self:"alpha"]);
-      cglSetVisible(self:"drawId",true);
+      cgl3d.setVisible.(self:"drawId",true);
     );
   ,if(self:"drawId"!=-1,
-      cglSetVisible(self:"drawId",false);
+      cgl3d.setVisible.(self:"drawId",false);
   ));
 );
 dgs3dRenderQuadric(self):=(
@@ -633,10 +634,10 @@ dgs3dRenderQuadric(self):=(
       self:"drawId" = surface3d((x,y,z,1)*M*(x,y,z,1),plotModifiers->{"M":self:"coords"},alpha->self:"alpha",color->self:"color");
     ,
       cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["M","cglColor","cglAlpha"],[self:"coords",self:"color",self:"alpha"]);
-      cglSetVisible(self:"drawId",true);
+      cgl3d.setVisible.(self:"drawId",true);
     );
   ,if(self:"drawId"!=-1,
-      cglSetVisible(self:"drawId",false);
+      cgl3d.setVisible.(self:"drawId",false);
   ));
 );
 dgs3dRenderConic(self):=(
@@ -650,10 +651,10 @@ dgs3dRenderConic(self):=(
         alpha->self:"alpha",color->self:"color");
     ,
       cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["Q","p","r","cglColor","cglAlpha"],[self:"coords"_1,self:"coords"_2,self:"size",self:"color",self:"alpha"]);
-      cglSetVisible(self:"drawId",true);
+      cgl3d.setVisible.(self:"drawId",true);
     );
   ,if(self:"drawId"!=-1,
-      cglSetVisible(self:"drawId",false);
+      cgl3d.setVisible.(self:"drawId",false);
   ));
 );
 dgs3dRenderIntersection2Q(self):=(
@@ -668,10 +669,10 @@ dgs3dRenderIntersection2Q(self):=(
     ,
       cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["Q1","Q2","r","cglColor","cglAlpha"],
         [self:"coords"_1,self:"coords"_2,self:"size",self:"color",self:"alpha"]);
-      cglSetVisible(self:"drawId",true);
+      cgl3d.setVisible.(self:"drawId",true);
     );
   ,if(self:"drawId"!=-1,
-      cglSetVisible(self:"drawId",false);
+      cgl3d.setVisible.(self:"drawId",false);
   ));
 );
 

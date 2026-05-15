@@ -18,10 +18,10 @@ Renderer.boundingSphere = function(center,radius){
         'type': BoundingBoxType.sphere,'center': center, 'radius': radius
     };
 }
-Renderer.boundingCylinder = function(center,direction,radius,overhang){
-    let length=Math.sqrt(dot3(direction,direction));
+Renderer.boundingCylinder = function(center,orientation,radius,overhang){
+    let length=Math.sqrt(dot3(orientation,orientation));
     return {
-        'type': BoundingBoxType.cylinder,'center': center,'direction': direction, 'radius': radius,
+        'type': BoundingBoxType.cylinder,'center': center,'orientation': orientation, 'radius': radius,
         'boxLengthScale': (length+overhang)/length
     };
 }
@@ -469,7 +469,7 @@ Renderer.prototype.setBoundingBoxUniforms = function() {
     if (this.shaderProgram.uniform.hasOwnProperty('uOrientation')){
         if(this.boundingBox['type']==BoundingBoxType.cylinder) {
             this.shaderProgram.uniform["uOrientation"]
-                (this.boundingBox['direction']);
+                (this.boundingBox['orientation']);
         }else{
             cglLogError("uOrientation is not supported for current bounding box type");
         }
