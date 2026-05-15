@@ -844,27 +844,34 @@ let CindyGL = function(api) {
         return null;
     }
     api.defineFunction("cgl3dStartRender", 0, (args, modifs) => {
-        let image;
+        let image = null;
         if (modifs["image"] !== undefined) {
-            image = api.evaluateAndVal(modifs["image"]);
-            if (image['ctype'] === "string") {
-                image = api.getImage(image['value'], true);
+            let imageVal = api.evaluateAndVal(modifs["image"]);
+            if (imageVal['ctype'] === "string") {
+                image = api.getImage(imageVal['value'], true);
             } else {
-                if (image['ctype'] !== "undefined") {
-                    cglLogWarning("expected image name got: ",image);
+                if (imageVal['ctype'] !== "undefined") {
+                    cglLogWarning("expected image name got: ",imageVal);
                 }
-                image = null;
             }
         }
         let transform = getDefinedValueOrNull(modifs["transform"]);
-        if (transform !== null) transform = coerce.toList(transform).map((val)=>coerce.toList(val).map(coerce.toReal));
+        if (transform !== null) {
+            transform = coerce.toList(transform).map((val)=>coerce.toList(val).map(coerce.toReal));
+        } else {
+            transform = [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]];
+        }
         let bounds = getDefinedValueOrNull(modifs["bounds"]);
         if (bounds !== null) bounds = coerce.toList(bounds).map(coerce.toReal);
         let pixelBounds = [];
         let canvaswrapper;
         if (image !== null) {
             canvaswrapper = generateCanvasWrapperIfRequired(image, api, false);
-            pixelBounds = bounds;
+            if(bounds === null) {
+                pixelBounds = [0,0,image.width,image.height];
+            } else {
+                pixelBounds = bounds;
+            }
         } else {
             canvaswrapper = null;
             if(bounds === null) {

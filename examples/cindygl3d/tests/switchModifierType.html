@@ -21,7 +21,7 @@
               color
             );
             // color will be compiled as int[3]
-            colorplot3d(test(),Ucolor->[1,0,0]);
+            o = cgl3dNewObject(test(),plotModifiers->{"color":[1,0,0]});
         </script>
         <script id="csdraw" type="text/x-cindyscript">
             if (dragging,
@@ -33,9 +33,12 @@
             t = seconds()-t0;
 
             // update value of color with float array
-            cglUpdate(0,Ucolor->[sin(t),cos(t),0]);
+            cgl3dObjectSetModifier(o,"color",[sin(t),cos(t),0]);
 
-            render3d();
+            cgl3dStartRender(layers->0);
+            cgl3dRenderOpaque(o);
+            cgl3dRenderTranslucent([]);
+            cgl3dFinishRender();
         </script>
 
         <div id="CSCanvas" style="border: 0px"></div>
