@@ -229,7 +229,7 @@ function evalfunction(params, body, args, modifs) {
             erg.modifs[key] = namespace.getvar(key);
         }
     };
-    if (erg.ctype === "lambda" && erg.declarationScope === namespace.scopeId) {
+    if (erg !== undefined && erg.ctype === "lambda" && erg.declarationScope === namespace.scopeId) {
         namespace.forEachLocal(captureVar);
     }
     namespace.cleanVstack();
@@ -240,7 +240,8 @@ function evalfunction(params, body, args, modifs) {
     });
 
     for (i = 0; i < params.length; i++) {
-        if (erg.ctype === "lambda" && erg.declarationScope === namespace.scopeId) captureVar(params[i].name);
+        if (erg !== undefined && erg.ctype === "lambda" && erg.declarationScope === namespace.scopeId)
+            captureVar(params[i].name);
         namespace.removevar(params[i].name);
     }
     namespace.scopeId = oldScope;
