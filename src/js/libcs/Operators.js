@@ -917,7 +917,7 @@ function postfix_undefine(args, modifs) {
         delete myfunctions[args[0].oper];
     } else if (args[0].ctype === "userdata") {
         const base = evaluate(args[0].obj);
-        const key = args[0].key.value;
+        const key = niceprint(evaluate(args[0].key.value));
         console.log(base, key);
         if (base.ctype == "JSON") Json.removeField(base, key);
     }
@@ -4802,6 +4802,31 @@ evaluator.eval$1 = function (args, modifs) {
     });
     return erg;
     //                    return tt(args,modifs);
+};
+
+evaluator.delete$1 = function (args, modifs) {
+    let base, key;
+    if (args[0].ctype === "field") {
+        base = evaluate(args[0].obj);
+        key = args[0].key;
+    } else if (args[0].ctype === "userdata") {
+        base = evaluate(args[0].obj);
+        const keyVal = evaluate(args[0].key);
+        key = niceprint(keyVal);
+    } else if (args[0].ctype === "infix" && args[0].oper === "_") {
+        base = evaluate(args[0].args[0]);
+        const keyVal = evaluate(args[0].args[1]);
+        if (keyVal.ctype !== "string") return nada;
+        key = keyVal.value;
+    } else {
+        return nada;
+    }
+    if (base.ctype === "JSON") {
+        Json.removeField(base, key);
+    } else if (base.ctype === "list") {
+        delete base.userData[key];
+    }
+    return nada;
 };
 
 ///////////////////////////////
