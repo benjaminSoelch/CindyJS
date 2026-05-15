@@ -4828,6 +4828,14 @@ evaluator.delete$1 = function (args, modifs) {
     }
     return nada;
 };
+evaluator.merge$2 = function (args, modifs) {
+    let a = evaluate(args[0]);
+    if (a.ctype !== "JSON") return nada;
+    let b = evaluate(args[1]);
+    if (b.ctype !== "JSON") return nada;
+    let merged = Object.assign({}, a.value, b.value);
+    return { ctype: "JSON", value: merged };
+};
 
 ///////////////////////////////
 //   Calling external code   //
