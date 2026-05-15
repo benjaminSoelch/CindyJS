@@ -158,7 +158,7 @@ let CindyGL = function(api) {
             modifierTypes.set(key, {type: value.eltType,isuniform: false,used: false});
             mergedTypes.set(key, {type: value.eltType,isuniform: false,used: false});
         });
-        if (typeof(prog.renderers)=="undefined") prog.renderers = [];
+        if (typeof(prog.renderers)==="undefined") prog.renderers = [];
         /**@type {Renderer} */
         let renderer;
         let foundMatch = false;
@@ -213,6 +213,10 @@ let CindyGL = function(api) {
             });
         }
         return renderer;
+    }
+    /** ensure all plot-modifiers have correct data-type */
+    function updateModifierTypes(obj3d) {
+        obj3d.renderer = compile(obj3d.renderer.expression,obj3d.boundingBox,obj3d.plotModifiers,new Map(),true)
     }
     function toCjsNumber(x) {
         return {
@@ -1003,7 +1007,7 @@ let CindyGL = function(api) {
             return;
         }
         if(obj['ctype'] !== "cgl3dObject") return;
-        const objVal = obj["value"]
+        const objVal = obj["value"];
         if(key['ctype'] === "list") {
             if (value["ctype"] !== "list" || value["value"].length !== key["value"].length)
                 return; // TODO? warning
@@ -1024,6 +1028,7 @@ let CindyGL = function(api) {
                 objVal.plotModifiers.set(key["value"],value);
             }
         } else {return;}
+        updateModifierTypes(objVal);
         // TODO: update modifier-types if neccessary
         return;
     }

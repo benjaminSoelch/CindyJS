@@ -99,7 +99,7 @@ dgs3dPreFrame():=(
         newCoords = (newPos_1,newPos_2,newPos_3,1);
       ,if(axes:"type" == "parallel",
         // move point in plane spanned by axis and line normal to axis
-        d2 = cross(axes:"v",cglViewNormal());
+        d2 = cross(axes:"v",(cgl3d.spaceTransform*(0,0,1,0))_(1..3));
         movePlaneNormal = cross(axes:"v",d2);
         center = target:"coords"_(1..3);
         movePlaneOffset = movePlaneNormal * center;
@@ -616,7 +616,7 @@ dgs3dRenderPlane(self):=(
     if(self:"drawId"==-1,
       n = self:"coords";
       // TODO? use custom cutoff-region instead of default
-      self:"drawId" = surface3d(x*n_1+y*n_2+z*n_3+n_4,plotModifiers->{"n":self:"coords"},color->self:"color",alpha->self:"alpha");
+      self:"drawId" = surface3d((x,y,z,1)*n,plotModifiers->{"n":self:"coords"},color->self:"color",alpha->self:"alpha");
     ,
       cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["n","cglColor","cglAlpha"],[self:"coords",self:"color",self:"alpha"]);
       cgl3d.setVisible.(self:"drawId",true);
