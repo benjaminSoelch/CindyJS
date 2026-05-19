@@ -154,6 +154,15 @@ cgl3d.getObjects = (objId) => (
     cgl3d.getObject.(objId)
   );
 );
+cgl3d.removeObject = (id) => (
+  if(isList(id),
+    apply(id,self().removeObject.(#))
+  ,
+    delete(self().objects.opaque:id);
+    delete(self().objects.translucent:id);
+  );
+);
+delete3d(id) := cgl3d.removeObject.(id);
 cgl3d.setVisible = (id,val) => (
   cglLogError("unimplemented: setVisible");
 );
