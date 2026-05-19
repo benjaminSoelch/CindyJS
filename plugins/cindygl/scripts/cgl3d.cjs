@@ -128,7 +128,7 @@ cgl3d.addObject = (obj) => (
   id = cgl3dObjectId(obj);
   opaqueIf = cgl3dObjectGet(obj,"opaqueIf");
   if(isLambda(opaqueIf),
-    // TODO? allow other modifiers in alpha
+    // TODO pass whole map of plot-modifiers into opaque-expr
     opaqueIf = eval(opaqueIf,(),cglAlpha->cgl3dObjectGetModifier(obj,"cglAlpha"));
   );
   if (if(isUndefined(opaqueIf),true,opaqueIf),
@@ -143,7 +143,7 @@ cgl3d.getObject = (objId) => (
   if(isList(objId),objId=objId_(length(objId)));
   obj = self().objects.opaque:objId;
   if(isundefined(obj),
-    obj = self().translucent.opaque:objId;
+    obj = self().objects.translucent:objId;
   );
   obj
 );
@@ -164,14 +164,12 @@ cgl3d.removeObject = (id) => (
 );
 delete3d(id) := cgl3d.removeObject.(id);
 cgl3d.setVisible = (id,val) => (
-  cglLogError("unimplemented: setVisible");
+  apply(self().getObjects.(id),cgl3dObjectSet(#,"visible",val));
 );
 cglSpacePoint(x,y):=(
   regional(p4,bounds,a,b);
   bounds = screenbounds();
   a = bounds_1; b = bounds_3;
-  // TODO: coordinates are still a bit off
-  //  ? does initial depth matter
   p4 = cgl3d.renderTransform*(2*(x-a_1)/(b_1-a_1)-1,1-2*(y-a_2)/(b_2-a_2),0,1);
   (p4_(1..3))/p4_4;
 );
