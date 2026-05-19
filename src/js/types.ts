@@ -152,6 +152,7 @@ export interface CSJson {
     turnIntoCSJson(a: CSType): CSJsonValue;
     getField(obj: CSJsonValue, key: string): CSType;
     setField(where: Record<string, CSType>, field: string, what: CSJsonValue): void;
+    removeField(where: CSJsonValue, field: string): void;
     GenFromUserDataEl(el: {
         key: CSJsonValue;
         value: CSJsonValue;
