@@ -59,7 +59,7 @@ cgl3d.zoom = (newScale) => (
   self().zoomFactor = newScale;
 );
 zoom3d(newScale) := cgl3d.zoom.(newScale);
-// TODO: return actual view-rectangle (? move to plugin level)
+// TODO? make relative to internal coordinate system
 cglViewRect():=(
   regional(bounds,p0,p1);
   bounds = screenbounds();
@@ -166,6 +166,8 @@ delete3d(id) := cgl3d.removeObject.(id);
 cgl3d.setVisible = (id,val) => (
   apply(self().getObjects.(id),cgl3dObjectSet(#,"visible",val));
 );
+hide3d(id) := cgl3d.setVisible.(id,false);
+show3d(id) := cgl3d.setVisible.(id,true);
 cglSpacePoint(x,y):=(
   regional(p4,bounds,a,b);
   bounds = screenbounds();
@@ -353,7 +355,6 @@ cgl3d.projection.sphereEquirect = (normal) => (
   theta = arctan2(|(normal_1,normal_3)|,normal_2); // (-pi, pi]
   (1/(2*pi))*(phi+pi,2*theta+pi);
 );
-// feature TODO? add projection for non-axis aligned coordinate system
 
 cgl3d.shader.sphere = (direction,isBack) => (
   regional(normal,texturePos,color);
@@ -602,8 +603,7 @@ cgl3d.connect = {};
 
 cgl3d.connect.open = -1;
 cgl3d.connect.round = 0;
-cgl3d.connect.flat = 1; // feature TODO? better name
-
+cgl3d.connect.flat = 1;
 
 // feature TODO? separate projection for end-caps
 cgl3d.shader.cylinder = (direction) => (
@@ -859,7 +859,6 @@ cgl3d.projection.torus = (normal,radiusDirection,orientation) => (
   phi2 = arctan2(normal*radiusDirection,normal*orientation)+pi;
   (phi1,phi2)/(2*pi);
 );
-// opt TODO? separate bounding box-type for torus
 cgl3d.shader.torus = (direction,layer) => (
   regional(center,radius1,radius2,v,V,vc,b0,c0,D0,x0,x1,
     orientation,b1,c1,E,W,a2,b2,c2,p3,p2,p1,p0,dst,pos3d,pc,
@@ -920,7 +919,7 @@ cgl3d.shader.torus = (direction,layer) => (
   arcCenter = center+radius1*arcDirection;
   normal = normalize(pos3d - arcCenter);
   cgl3d.compute.pixelDepth.(v+dst,direction);
-  texturePos = cgl3d.projection.torus.(normal,arcDirection,orientation); // TODO? customize through modifier
+  texturePos = cgl3d.projection.torus.(normal,arcDirection,orientation);
   cglCheckAngle1.(texturePos);
   cglCheckAngle2.(texturePos);
   color = cglPixelExpr.(texturePos,cglSpacePos + cglRawDepth*direction,normal);
@@ -1406,7 +1405,7 @@ cgl3d.compute.guessDegree = (F) => max(apply(1 .. 2, // take the best result of 
 ));
 
 // use central difference to approximate dF
-cgl3d.compute.guessDerivative = (F) => ( // opt TODO? avoid code duplication for repeated lambda eval
+cgl3d.compute.guessDerivative = (F) => (
   lambda(p,((
       (F.(p + [eps, 0, 0]) - F.(p - [eps, 0, 0])),
       (F.(p + [0, eps, 0]) - F.(p - [0, eps, 0])),
@@ -1454,7 +1453,6 @@ cgl3d.compute.cuboidDepths = (rayStart,direction,center,up,left,front) => (
   [l1,l2];
 );
 
-// bug TODO update to work with new coordinate system
 cgl3d.cutoff = {};
 cgl3d.cutoff.screenSphere = {"expr": lambda((rayStart,direction),
   regional(viewRect,x0,y0,x1,y1);
@@ -1597,17 +1595,13 @@ cgl3d.resetDefaults.(); // initialisation of code complete -> can initialize def
 
 // feature TODO:
 
-// TODO? object groups
-//  * cglGroupStart(); // -> start new group, returns groupId
-//  * cglGroupEnd(); // -> end current group, returns groupId
-// TODO? intersection of surfaces as primitive operation
+// TODO? render intersection of surfaces as primitive operation
 // TODO? global clipping region
 // TODO? better lighting system
 // TODO function for updating/resetting defaults
 // ? use internal global variables (-> document names of default values)
 // ? always use cglAlpha even if explicitly not specified
 
-// TODO? replace uses of `tags` with a "moveable" object-tag
 // TODO? make bounding box parameters modifiers
 
 // TODO? cglLogLevel(...) built-in for setting log-level
@@ -1615,7 +1609,6 @@ cgl3d.resetDefaults.(); // initialisation of code complete -> can initialize def
 // bug TODO:
 // FIXME better error message for dynamic array access
 // ? does opengl support dynamic indexing
-// TODO! lambda-modifiers can be undefined when evaluating texture code
 // TODO rendering of mesh with overlapping transparent textures is partially broken
 //    (when multiple transparent triangles are rendered in single call WebGL ignores lower ones)
 //    ? add texture mode to automatically ignore pixels belows certain alpha value
@@ -1634,10 +1627,10 @@ cgl3d.resetDefaults.(); // initialisation of code complete -> can initialize def
 // TODO curve3d is nummerically unstable if number of sample points gets large
 //  ? special case: use round cylinder-caps if all elements are opaque and curve is closed or ends are round
 // TODO? connect3d: angled caps might cut into next segment
-// TODO spheres&surfaces break if view distance is moved far out (? use trick of "moving view closer to object" from cylinder/torus also for spheres/surfaces)
 // TODO connect3d -> textures do not match for closed curves in connect3d (is this even possible if angle direction is constant along cylinders?)
 
 // opt TODO:
+// TODO speed up mesh3d for large meshes
 // TODO? store texture-name in plotModifier instead of lambda-modifier
 // TODO is there a way to avoid recompilation when texture changes
 // TODO? prevent recompilation when lambda modifier changes
@@ -1745,7 +1738,6 @@ cglTextureImpl(name):=(
 );
 // helper functions for resolving of colorExpression/textures
 // pick the first defined color expression return undefined if there is none
-// code TODO? to which extend can this function be shortened by extracting code
 cglPixelExprFromTexture(texture,hasAlpha,textureAlpha,repeatTexture,interpolateTexture):=(
     if(textureAlpha,
       pixelExpr = if(hasAlpha,
@@ -2717,10 +2709,6 @@ cglMesh3d(grid):=(
     plotModifiers->modifiers,vModifiers->vModifiers,tags->["polygon"]++tags,opaqueIf->opacityExpr));
 );
 
-// feature TODO? plane3d
-// feature TODO? quadric3d
-// feature TODO? cubic3d
-
 // TODO using modifiers in plotted expression leads to errors
 //  * evaluate plot-expr with all given plot-modifiers?
 
@@ -2808,7 +2796,6 @@ cglSurface3d(fun) := (
 );
 
 // feature TODO! compute surface dF from function df
-// feature TODO? add ability to scale axes independently from CindyJS coordinate system
 cglInterface("plot3d",cglPlot3d,(f:(x,y)),(color,texture,colorBack,textureBack,
   alpha,light,texture,uv,df:(x,y),cutoffRegion,degree,layers,plotModifiers,tags,onUpdate));
 cglPlot3d(f/*f(x,y)*/):=(

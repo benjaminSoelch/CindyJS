@@ -713,7 +713,6 @@ dgs3dNewPoint(p):=(
   );
   obj
 );
-// TODO? line3d collides with line3d in CindyGL3D
 
 // p: vec4 = (x,y,z,w) , visible: bool = should object be drawn
 cglInterface(plane3d,dgs3dNewPlane,(p),(visible,color,alpha));
@@ -1834,7 +1833,7 @@ dgs3dMeet2Q(Q1,Q2):=(
 
 // TODO? more intuitive names for functions
 // TODO: ? support redefining objects
-// TODO: ? failure to trace child should not prevent movement of parent
+// TODO: ? should failure to trace child prevent movement of parent
 
 // TODO: test-cases for:
 // * quadric by 9 planes
