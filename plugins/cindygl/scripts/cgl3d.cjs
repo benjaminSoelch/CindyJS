@@ -110,8 +110,8 @@ cgl3d.prepareRender = () => (
       [0,0,-skewFactor,1]
   ];
   cgl3d.renderTransform = cgl3d.spaceTransform*projection;
-  // TODO set layers to 2 if there are translucent objects
-  cgl3dStartRender(layers->0,image->image,bounds->bounds,transform->cgl3d.renderTransform);
+  layers = cglValOrDefault(layers,if(length(keys(cgl3d.objects.translucent)) > 0,2,0));
+  cgl3dStartRender(layers->layers,image->image,bounds->bounds,transform->cgl3d.renderTransform);
   z0 = z1 = p0 = p1 = nada; // ensure "modifiers" do not leak into globals
 );
 cgl3d.render = () => (
@@ -124,10 +124,18 @@ cgl3d.render = () => (
 cglInterface("render3d",cglRender3d,(),(layers,image,screenCorners,p0,p1));
 cglRender3d() := cgl3d.render.();
 cgl3d.addObject = (obj) => (
-  regional(id);
+  regional(id,opaqueIf);
   id = cgl3dObjectId(obj);
-  // TODO determine if object is opaque or translucent
-  self().objects.opaque:id = obj;
+  opaqueIf = cgl3dObjectGet(obj,"opaqueIf");
+  if(isLambda(opaqueIf),
+    // TODO? allow other modifiers in alpha
+    opaqueIf = eval(opaqueIf,(),cglAlpha->cgl3dObjectGetModifier(obj,"cglAlpha"));
+  );
+  if (if(isUndefined(opaqueIf),true,opaqueIf),
+    self().objects.opaque:id = obj;
+  ,
+    self().objects.translucent:id = obj;
+  );
   id
 );
 cgl3d.getObject = (objId) => (

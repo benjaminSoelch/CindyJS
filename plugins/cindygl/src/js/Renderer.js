@@ -923,7 +923,7 @@ Cgl3dSimpleSceneRenderer.prototype.renderOpaque = function(objects) {
         if(!obj3d) return; // skip non-objects
         if(!obj3d.visible) return;// skip invisible objects
         obj3d.renderer.render3d(this.iw, this.ih,obj3d.boundingBox,obj3d.plotModifiers,null, null,this.imageCanvas);
-        if(obj3d.opaque !== undefined ? !obj3d.opaque : !obj3d.renderer.opaque){
+        if(!obj3d.renderer.opaque){
             this.wrongOpacity.add(obj3d);
         }
     });
@@ -938,7 +938,7 @@ Cgl3dSimpleSceneRenderer.prototype.renderTranslucent = function(objects) {
         if(!obj3d.visible)
             return;// skip invisible objects
         obj3d.renderer.render3d(this.iw, this.ih,obj3d.boundingBox,obj3d.plotModifiers,null, null,this.imageCanvas);
-        if(obj3d.opaque !== undefined ? obj3d.opaque : obj3d.renderer.opaque){
+        if(obj3d.renderer.opaque){
             this.wrongOpacity.add(obj3d);
         }
     });
@@ -1118,7 +1118,7 @@ Cgl3dLayeredSceneRenderer.prototype.renderOpaque = function(objects) {
         if(!obj3d.visible)
             return;// skip invisible objects
         obj3d.renderer.render3d(this.iw, this.ih,obj3d.boundingBox,obj3d.plotModifiers, null, this.renderBuffer, this.canvaswrapper != null);
-        if(obj3d.opaque !== undefined ? !obj3d.opaque : !obj3d.renderer.opaque){
+        if(!obj3d.renderer.opaque){
             this.wrongOpacity.add(obj3d);
         }
     });
@@ -1137,7 +1137,7 @@ Cgl3dLayeredSceneRenderer.prototype.renderTranslucent = function(objects) {
             if(!obj3d) return; // skip non-objects
             if(!obj3d.visible)
                 return;// skip invisible objects
-            if(obj3d.opaque !== undefined ? obj3d.opaque : obj3d.renderer.opaque) {
+            if(obj3d.renderer.opaque) {
                 this.wrongOpacity.add(obj3d);
             }
             // cannot read and write to same texture in one shader call
@@ -1185,7 +1185,7 @@ Cgl3dLayeredSceneRenderer.prototype.renderTranslucent = function(objects) {
             gl.drawBuffers([gl.COLOR_ATTACHMENT0,gl.COLOR_ATTACHMENT1]);// removed unused drawBuffers
             sortLayers(this.layers[layerCount-1],this.renderLayer,true); // merge textures depending on relative depth
             this.layers[layerCount-1]=this.swapTmpLayer(0,this.layers[layerCount-1]);
-            if(obj3d.opaque !== undefined ? obj3d.opaque : obj3d.renderer.opaque){
+            if(obj3d.renderer.opaque){
                 this.wrongOpacity.add(obj3d);
             }
         });

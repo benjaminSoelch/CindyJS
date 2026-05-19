@@ -76,7 +76,7 @@ function CindyGL3DObject(renderer,boundingBox,plotModifiers,tags) {
     this.renderer = renderer;
     this.boundingBox = boundingBox;
     this.plotModifiers = plotModifiers;
-    this.tags = tags;
+    this.data = new Map();
     this.visible = true;
 }
 CindyGL3DObject.NEXT_ID=0;
@@ -623,31 +623,6 @@ let CindyGL = function(api) {
         return val;
     }
 
-    // TODO? currently the opacity is only updated when a modifier changes
-    // ? detect expressions that depend on global variables and update the opacity of those objects every frame
-    function computeOpacity(obj3d,api){
-        let expr = obj3d.opaqueIfExpr;
-        if(expr === undefined) {
-            delete obj3d.opaque;
-            return;
-        }
-        expr = tryEvaluate(expr,api,expr);
-        if(expr['ctype']==='lambda'){
-            if(expr['params'].length>0) {
-                cglLogWarning("opacity expression should not have any parameters");
-            }
-            expr = expr['body'];
-        } else {
-            expr = obj3d.opaqueIfExpr;
-        }
-        expr = replaceVariables(expr,obj3d.plotModifiers); // TODO: is there a better way to update plot-modifiers while parsing
-        const value = tryEvaluate(expr,api,nada);
-        if(value['ctype']!=='boolean'){
-            delete obj3d.opaque;
-            return;
-        }
-        obj3d.opaque = value['value'];
-    }
     /**
      * plots colorplot on whole main canvas in CindyJS coordinates
      * uses the z-coordinate for the nearest pixel as depth information
@@ -658,13 +633,8 @@ let CindyGL = function(api) {
         let plotModifiers=get3DPlotModifiers(modifs);
         let compiledProg=compile(prog,Renderer.noBounds(),plotModifiers,new Map(),true);
         let obj3d=new CindyGL3DObject(compiledProg,Renderer.noBounds(),plotModifiers,get3DPlotTags(modifs));
-        if(modifs.hasOwnProperty('opaqueIf')) {
-            obj3d.opaqueIfExpr = tryEvaluate(modifs['opaqueIf'],api,modifs['opaqueIf']);
-            computeOpacity(obj3d,api);
-        }
-        if(modifs.hasOwnProperty('onUpdate')) {
-            obj3d.onUpdate = tryResolveLambda(modifs['onUpdate']);
-        }
+        obj3d.data.set("opaqueIf",api.evaluate(modifs['opaqueIf'] || nada));
+        obj3d.data.set("onUpdate",api.evaluate(modifs['onUpdate'] || nada));
         return {"ctype":"cgl3dObject","value":obj3d};
     });
     function verticesFromCJS(vertices){
@@ -745,13 +715,8 @@ let CindyGL = function(api) {
         let boundingBox = Renderer.boundingTriangles(vertices,vModifiers);
         let compiledProg = compile(prog,boundingBox,plotModifiers,vModifiers,true);
         let obj3d=new CindyGL3DObject(compiledProg,boundingBox,plotModifiers,get3DPlotTags(modifs));
-        if(modifs.hasOwnProperty('opaqueIf')) {
-            obj3d.opaqueIfExpr = tryEvaluate(modifs['opaqueIf'],api,modifs['opaqueIf']);
-            computeOpacity(obj3d,api);
-        }
-        if(modifs.hasOwnProperty('onUpdate')) {
-            obj3d.onUpdate = tryResolveLambda(modifs['onUpdate']);
-        }
+        obj3d.data.set("opaqueIf",api.evaluate(modifs['opaqueIf'] || nada));
+        obj3d.data.set("onUpdate",api.evaluate(modifs['onUpdate'] || nada));
         return {"ctype":"cgl3dObject","value":obj3d};
     });
     /**
@@ -768,13 +733,8 @@ let CindyGL = function(api) {
         let boundingBox = Renderer.boundingSphere(center,radius);
         let compiledProg=compile(prog,boundingBox,plotModifiers,new Map(),true);
         let obj3d=new CindyGL3DObject(compiledProg,boundingBox,plotModifiers,get3DPlotTags(modifs));
-        if(modifs.hasOwnProperty('opaqueIf')) {
-            obj3d.opaqueIfExpr = tryEvaluate(modifs['opaqueIf'],api,modifs['opaqueIf']);
-            computeOpacity(obj3d,api);
-        }
-        if(modifs.hasOwnProperty('onUpdate')) {
-            obj3d.onUpdate = tryResolveLambda(modifs['onUpdate']);
-        }
+        obj3d.data.set("opaqueIf",api.evaluate(modifs['opaqueIf'] || nada));
+        obj3d.data.set("onUpdate",api.evaluate(modifs['onUpdate'] || nada));
         return {"ctype":"cgl3dObject","value":obj3d};
     });
     /**
@@ -799,13 +759,8 @@ let CindyGL = function(api) {
         let boundingBox = Renderer.boundingCylinder(center,delta,radius,overhang);
         let compiledProg=compile(prog,boundingBox,plotModifiers,new Map(),true);
         let obj3d=new CindyGL3DObject(compiledProg,boundingBox,plotModifiers,get3DPlotTags(modifs));
-        if(modifs.hasOwnProperty('opaqueIf')) {
-            obj3d.opaqueIfExpr = tryEvaluate(modifs['opaqueIf'],api,modifs['opaqueIf']);
-            computeOpacity(obj3d,api);
-        }
-        if(modifs.hasOwnProperty('onUpdate')) {
-            obj3d.onUpdate = tryResolveLambda(modifs['onUpdate']);
-        }
+        obj3d.data.set("opaqueIf",api.evaluate(modifs['opaqueIf'] || nada));
+        obj3d.data.set("onUpdate",api.evaluate(modifs['onUpdate'] || nada));
         return {"ctype":"cgl3dObject","value":obj3d};
     });
     /**
@@ -825,13 +780,8 @@ let CindyGL = function(api) {
         let boundingBox = Renderer.boundingCuboid(center,v1,v2,v3);
         let compiledProg=compile(prog,boundingBox,plotModifiers,new Map(),true);
         let obj3d=new CindyGL3DObject(compiledProg,boundingBox,plotModifiers,get3DPlotTags(modifs));
-        if(modifs.hasOwnProperty('opaqueIf')) {
-            obj3d.opaqueIfExpr = tryEvaluate(modifs['opaqueIf'],api,modifs['opaqueIf']);
-            computeOpacity(obj3d,api);
-        }
-        if(modifs.hasOwnProperty('onUpdate')) {
-            obj3d.onUpdate = tryResolveLambda(modifs['onUpdate']);
-        }
+        obj3d.data.set("opaqueIf",api.evaluate(modifs['opaqueIf'] || nada));
+        obj3d.data.set("onUpdate",api.evaluate(modifs['onUpdate'] || nada));
         return {"ctype":"cgl3dObject","value":obj3d};
     });
 
@@ -929,6 +879,7 @@ let CindyGL = function(api) {
             cglLogError("no active rendering pass, call `cgl3dStartRender` before calling `cgl3dRenderOpaque`");
             return nada;
         }
+        // TODO: reintroduce depth-sorting for mesh-triangles
         CindyGL.sceneRenderer.renderTranslucent(getRenderObjects(args[0]));
         return nada;
     });
@@ -958,6 +909,7 @@ let CindyGL = function(api) {
         CindyGL.sceneRenderer = null;
     };
 
+    const OBJECT_BOUND_KEYS = ["center","radius","orientation"];
     api.defineFunction("cgl3dObjectId", 1, (args, modifs) => {
         let arg = api.evaluate(args[0]);
         if(arg['ctype'] !== "cgl3dObject") return nada;
@@ -968,9 +920,13 @@ let CindyGL = function(api) {
         if(obj['ctype'] !== "cgl3dObject") return nada;
         let key = api.evaluate(args[1]);
         if(key['ctype'] !== "string") return nada;
-        return toCjs(obj["value"].boundingBox[key["value"]]);
+        const keyVal = key["value"];
+        if (OBJECT_BOUND_KEYS.includes(keyVal))
+            return toCjs(obj["value"].boundingBox[keyVal]);
+        if (keyVal === "visible")
+            return toCjs(obj["value"].visible);
+        return obj["value"].data.get(key["value"]) || nada;
     });
-    const ALLOWED_OBJECT_KEYS = ["center","radius","orientation"];
     function setObjectKey(obj,key,value) {
         if(obj['ctype'] === "list") {
             obj["value"].forEach(o=>setObjectKey(o,key,value));
@@ -980,12 +936,21 @@ let CindyGL = function(api) {
         const objVal = obj["value"]
         if(key['ctype'] === "string") {
             const keyVal = key["value"];
-            if(!objVal.boundingBox.hasOwnProperty(keyVal) || ! ALLOWED_OBJECT_KEYS.includes(keyVal))
-                return;
-            const jsVal = toJsVal(value);
-            if (jsVal !== undefined && jsVal !== null) {
-                objVal.boundingBox[keyVal] = jsVal;
+            if(objVal.boundingBox.hasOwnProperty(keyVal) && OBJECT_BOUND_KEYS.includes(keyVal)) {
+                const jsVal = toJsVal(value);
+                if (jsVal !== undefined && jsVal !== null) {
+                    objVal.boundingBox[keyVal] = jsVal;
+                }
             }
+            if (keyVal === "visible") {
+                if (value["ctype"] !== "boolean") {
+                    cglLogError("expected boolean got: "+value["ctype"]);
+                    return nada;
+                }
+                obj["value"].visible = value["value"];
+            }
+            obj["value"].data.set(key["value"],value);
+            return nada;
         }
     }
     api.defineFunction("cgl3dObjectSet", 3, (args, modifs) => {
