@@ -13,9 +13,11 @@
             x0 = mouse().x;
             y0 = mouse().y;
             dragging = x0 < 2;
+            dgs3dHandleMouseDown();
         </script>
         <script id="csmouseup" type="text/x-cindyscript">
             dragging = false;
+            dgs3dHandleMouseUp()
         </script>
         <script id="csinit" type="text/x-cindyscript">
             use("CindyGL");
@@ -106,8 +108,7 @@ mesh3d(samples,topology->TopologyCloseX+TopologyCloseY);
                     },
                 ],
                 import: {
-                    "init": ["../../plugins/cindygl/scripts/cgl3d.cjs",
-                    //"../../plugins/cindygl/scripts/dgs.cjs","../../plugins/cindygl/scripts/surfaceInterpolate.cjs","../../plugins/cindygl/scripts/marchingCubes.cjs"
+                    "init": ["../../plugins/cindygl/scripts/cgl3d.cjs","../../plugins/cindygl/scripts/dgs.cjs","../../plugins/cindygl/scripts/surfaceInterpolate.cjs","../../plugins/cindygl/scripts/marchingCubes.cjs"
                     ]
                 },
                 images: { earthCylinder: "./images/Lambert.jpg", earth: "./images/Equirectangular.jpg"},
