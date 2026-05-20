@@ -552,7 +552,9 @@ dgs3dNewObject(type,parents):=(
     cglLogWarning("unknown object type");
   )))))));
   forall(parents,parent,
-    parent:"children" = append(parent:"children",obj);
+    if(isJSON(parent),
+      parent:"children" = append(parent:"children",obj);
+    );
   );
   obj;
 );
@@ -1741,6 +1743,53 @@ dgs3dOrthogonal2L(l1,l2):=(
     p = sol_(1..3);
     self:"coords" = dgs3dEpsilon44((p_1,p_2,p_3,1),(p_1+n_1,p_2+n_2,p_3+n_3,1));
     DGS3DmOVEoK
+  );
+  obj:"recompute".(obj);
+  obj:"redraw".(obj);
+  obj
+);
+// p1,p2: point => point; size:real = radius, visible: bool = should object be drawn, delta: real -> distance at which point should be draw, default is 0.5
+dgs3dMidpoint(p1,p2):=(
+  regional(obj);
+  obj = if(isUndefined(delta),
+    dgs3dNewObject("point",[p1,p2])
+  ,
+    dgs3dNewObject("point",[p1,p2,delta])
+  );
+  obj:"size" = cglValOrDefault(size,cgl3d.defaults:"sphereSize");
+  if(isUndefined(delta),
+    obj:"recompute" = lambda(self,
+      regional(p1,p2);
+      p1 = self:"parents"_1:"coords";
+      p2 = self:"parents"_2:"coords";
+      if(p1_4 != 0 % p2_4 != 0,
+        self:"coords" = p1*p2_4+p2*p1_4;
+      ,if(p1_3 != 0 % p2_3 != 0,
+        self:"coords" = p1*p2_3+p2*p1_3;
+      ,if(p1_2 != 0 % p2_2 != 0,
+        self:"coords" = p1*p2_2+p2*p1_2;
+      ,
+        self:"coords" = p1+p2;
+      )));
+      DGS3DmOVEoK
+    );
+  ,
+    obj:"recompute" = lambda(self,
+      regional(p1,p2,delta);
+      p1 = self:"parents"_1:"coords";
+      p2 = self:"parents"_2:"coords";
+      delta = self:"parents"_3;
+      if(p1_4 != 0 % p2_4 != 0,
+        self:"coords" = (1-delta)*p1*p2_4+delta*p2*p1_4;
+      ,if(p1_3 != 0 % p2_3 != 0,
+        self:"coords" = (1-delta)*p1*p2_3+delta*p2*p1_3;
+      ,if(p1_2 != 0 % p2_2 != 0,
+        self:"coords" = (1-delta)*p1*p2_2+delta*p2*p1_2;
+      ,
+        self:"coords" = (1-delta)*p1+delta*p2;
+      )));
+      DGS3DmOVEoK
+    );
   );
   obj:"recompute".(obj);
   obj:"redraw".(obj);
