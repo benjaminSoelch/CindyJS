@@ -1795,6 +1795,25 @@ dgs3dMidpoint(p1,p2):=(
   obj:"redraw".(obj);
   obj
 );
+// p: point, P:plane => point; size:real = radius, visible: bool = should object be drawn, delta: real -> distance at which point should be draw, default is 0.5
+dgs3dMirrorPtPl(p,P):=(
+  regional(obj);
+  obj = dgs3dNewObject("point",[p,P]);
+  obj:"size" = cglValOrDefault(size,cgl3d.defaults:"sphereSize");
+  obj:"recompute" = lambda(self,
+    regional(p,P,p0,n,p1);
+    p = self:"parents"_1:"coords";
+    P = self:"parents"_2:"coords";
+    p0 = p_(1..3);
+    n = P_(1..3);
+    p1 = p0 - 2*((P_4+(p0*n))/(n*n))*n;
+    self:"coords" = (p1_1,p1_2,p1_3,p_4);
+    DGS3DmOVEoK
+  );
+  obj:"recompute".(obj);
+  obj:"redraw".(obj);
+  obj
+);
 
 // approximate distance to intersection curve using distance to polar plane(s)
 // TODO? find better heuristics for level-set of intersection
