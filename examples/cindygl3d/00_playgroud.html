@@ -31,15 +31,11 @@
               if(zoom>5,zoom=5);
               if(zoom<0.2,zoom=0.2);
               zoom3d(zoom);
+              dgs3dHandleZoom(zoom);
             );
         </script>
         <script id="csdraw" type="text/x-cindyscript">
-            if (dragging,
-                dx = 0.5*(mouse().x -sx); dy = 0.5*(mouse().y -sy);
-                rotate3d(dx,dy);
-            );
-            sx = mouse().x;
-            sy = mouse().y;
+            dgs3dPreFrame();
 
             frameUpdate();
         </script>
