@@ -110,17 +110,74 @@ Modifiers:
 * `triangle3d(p1,p2,p3)` -> draw a single triangle
 * `polygon3d(vertices)` -> draw a polygon given as a sequence of points
 
-<!--TODO: collect modifiers-->
+Modifiers:
+* `colors` `colorsBack` -> colors of the vertices, the surface color will be interpolated between vertices
+* `uv` -> texture coordinates of vertices
+* `normal` -> normal vector of surface (ignored if `normals` is given)
+* `normals` -> vertex normals, either an array containing one normal vector per vertex or the result of calling `cglNormalExpr`
+* `normalType` -> how normal vectors should be computed, will be ignored if it does not fit the normal-vector data passed through the `normal` and `normals` modifiers:
+  - `cgl3d.normalType.flat` a single normal for the whole polygon
+  - `cgl3d.normalType.triangle` one normal per triangle
+  - `cgl3d.normalType.vertex` one normal per vertex
+  - `cgl3d.normalType.pixel` normals are computed on a per-pixel basis
+* `triangulation` triangulation method used for polygon (only for `polygon3d`) supported values include:
+  - `cgl3d.triangulate.corner` connect every vertex to the first given vertex
+  - `cgl3d.triangulate.spiral` create a triangle from each sequence of three consecutive vertices cutting out the middle vertex until no more vertices are left 
+  - `cgl3d.triangulate.center` connect every vertex to an additional vertex at the center of the polygon
+* `vertexModifiers` -> values attached to each vertex, the value at a given point will be interpolated between vertices
 
-#### Meshes
+#### Triangular-Mesh
 * `triangles3d(triangles)` -> draw a collection of triangles either given as a list of vertices or as a list of vertex-triples
+
+<!--TODO: API: improve normals handling for triangles/mesh/polygon-->
+Modifiers:
+* `colors` `colorsBack` -> colors of the vertices, the surface color will be interpolated between vertices
+* `uv` -> texture coordinates of vertices
+* `normals` -> triangle normals
+* `vertexModifiers` -> values attached to each vertex, the value at a given point will be interpolated between vertices
+
+#### Rectangular Mesh
 * `mesh3d(gridPoints)` -> draw a square mesh given as a 2D-array of grid-points
+
+Modifiers:
+* `colors` `colorsBack` -> colors of the vertices, the surface color will be interpolated between vertices
+* `uv` -> texture coordinates of vertices
+* `normals` -> normal vector data, interpreted according to normalType.
+ For vertex and triangle for face normal the normal vector of the top-left vertex will be used, for triangle normals the top-left and bottom right
+* `normalType` -> how normal vectors should be computed:
+  - `cgl3d.normalType.face` one normal for each rectangular face
+  - `cgl3d.normalType.triangle` one normal per triangle
+  - `cgl3d.normalType.vertex` one normal per vertex
+  - `cgl3d.normalType.pixel` normals are computed on a per-pixel basis
+topology
+* `vertexModifiers` -> values attached to each vertex, the value at a given point will be interpolated between vertices
 
 #### Surfaces
 
 * `surface3d(expr:(x,y,z))` -> draw an implicit surface given by the solution set of the equation `expr==0`
 
+Modifiers:
+* `dF:(x,y,z)` normal-vector at given (x,y,z)-coordinates
+* `cutoffRegion` region where the surface should be rendered, possible values include:
+  - `cgl3d.cutoff.screenSphere` largest centered sphere fitting in screen, updates with zoom
+  - `cgl3d.cutoff.screenCylinder` largest centered cylinder fitting in screen, updates with zoom
+  - `cgl3d.cutoff.screenCylinder.(orientation)` largest centered cylinder rotated in given `orientation` fitting in screen, updates with zoom
+  - `cgl3d.cutoff.screenCube` largest axis-aligned centered cube fitting in screen, updates with zoom
+
+  - `cgl3d.cutoff.sphere.(center,radius)` render within sphere with given `center` and radius
+  - `cgl3d.cutoff.cylinder.(center,orientation,radius)` render within cylinder with given `center`, `orientation` and `radius`
+  - `cgl3d.cutoff.cube.(center,sideLength)` render within axis-aligned cube with given `center` and `side-length`
+  - `cgl3d.cutoff.cube.(center,sideLength,up,front)` render within cube with given `center` and `side-length` aligned in directions `up` and `front`
+  - `cgl3d.cutoff.cuboid.(center,v1,v2,v3)` render within cuboid with given `center` and axes given by `v1`, `v2` and `v3`
+
+* `degree` which algebraic degree should be used to approximate the surface, when `degree` is negative the maximum stable degree will be used
+* `layers` how many independent layers of the object should be rendered
+
 #### Plotting
 * `plot3d(f:(x,y))` -> plot the 2D-function `(x,y) -> f(x,y)`
 * `complexplot3d(f:(z))` / `cplot3d(f:(z))` -> plot the Complex function `z -> f(z)`
     The rendered surface if the magnitude of the function while the default surface-texture is the phase value of the function
+
+Modifiers:
+* `df:(x,y)` / `df:(z)` optional derivative of rendered function, can be used to get better normal vectors (by default the derivative is approximated numerically)
+* `cutoffRegion` `degree` `layers` same modifiers as for `surface3d`

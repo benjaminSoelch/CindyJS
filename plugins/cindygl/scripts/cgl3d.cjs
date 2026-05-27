@@ -1416,7 +1416,7 @@ cgl3d.compute.guessDerivative = (F) => (
 cgl3d.bounds = {};
 cgl3d.bounds.unbounded = {"type":"unbounded"};
 cgl3d.bounds.sphere = (center,radius) => {"type":"sphere","center":center,"radius":radius};
-cgl3d.bounds.cylinder = (point1,point2,radius) => {"type":"cylinder","point1":point1,"point2":point2,"radius":radius};
+cgl3d.bounds.cylinder = (center,orientation,radius) => {"type":"cylinder","center":center,"orientation":orientation,"radius":radius};
 cgl3d.bounds.cuboid = (center,v1,v2,v3) => {"type":"cuboid","center":center,"v1":v1,"v2":v2,"v3":v3};
 
 // bug TODO bounding box computation is broken (lower bound always returns 0?)
@@ -1497,9 +1497,9 @@ cgl3d.cutoff.screenCube = {"expr": lambda((rayStart,direction),
 cgl3d.cutoff.sphere = (center,radius) => {"expr":lambda((rayStart,direction),
   cgl3d.compute.sphereDepths.(rayStart,direction,cglCenter,cglRadius)
 ),"bounds":cgl3d.bounds.sphere.(center,radius),"modifs":{}};
-cgl3d.cutoff.cylinder = (point1,point2,radius) => {"expr":lambda((rayStart,direction),
+cgl3d.cutoff.cylinder = (center,orientation,radius) => {"expr":lambda((rayStart,direction),
   cgl3d.compute.cappedCylinderDepths.(rayStart,direction,cglCenter,cglOrientation,cglRadius)
-),"bounds":cgl3d.bounds.cylinder.(point1,point2,radius),"modifs":{}};
+),"bounds":cgl3d.bounds.cylinder.(center,orientation,radius),"modifs":{}};
 cgl3d.cutoff.cube = (center,sideLength) => {"expr":lambda((rayStart,direction),
   cgl3d.compute.cuboidDepths.(rayStart,direction,cglCenter,cglCubeAxes_1,cglCubeAxes_2,cglCubeAxes_3)
 ),"bounds":cgl3d.bounds.cuboid.(center,[sideLength,0,0],[0,sideLength,0],[0,0,sideLength]),"modifs":{}};
@@ -2325,16 +2325,16 @@ cglCheckSize(vData,vCount,msg) := (
 // code TODO? consistent order of spacePos and texture pos
 cglInterface("cglNormalExpr",cglNormalExprImpl,(expr:(spacePos,texturePos)),());
 cglNormalExprImpl(expr):=expr;
-// feature TODO? normalTexture modifier (texture of normal vectors)
+// feature TODO? normalTexture to be plugged into normals (texture of normal vectors)
 // API TODO? merge normalExpr and normalTexture into normals modifier and use type to distinguish arguments
 cglInterface("draw3d",cglTriangle3d,(p1,p2,p3),(color,colors,texture,colorBack,colorsBack,
   textureBack,alpha,light,uv,normal,normals,
-  normalExpr,plotModifiers,vertexModifiers));
+  plotModifiers,vertexModifiers));
 cglInterface("triangle3d",cglTriangle3d,(p1,p2,p3),(color,colors,texture,colorBack,colorsBack,
   textureBack,alpha,light,uv,normal,normals,
-  normalExpr,plotModifiers,vertexModifiers));
+  plotModifiers,vertexModifiers));
 cglTriangle3d(p1,p2,p3):=(
-  regional(modifiers,vModifiers,defNormal,hasAlpha,usesAlpha,exprData,pixelExpr,colLen,opacityExpr);
+  regional(normalExpr,modifiers,vModifiers,defNormal,hasAlpha,usesAlpha,exprData,pixelExpr,colLen,opacityExpr);
   color = cglValOrDefault(color,cgl3d.defaults.triangleColor);
   light = cglValOrDefault(light,cgl3d.defaults.light);
   uv = cglValOrDefault(uv,[(0,0),(1,0),(0,1)]);
@@ -2348,12 +2348,12 @@ cglTriangle3d(p1,p2,p3):=(
   vModifiers = cglValOrDefault(vertexModifiers,{});
   defNormal = cglValOrDefault(normal,normalize(cross(p2-p1,p3-p1)));
   if(!isUndefined(normals),
-    if(isUndefined(normalExpr),
+    if(isLambda(normals),
+      normalExpr = normals;
+    ,
       normals = cglCheckSize(normals,3,"wrong length for normals",defNormal);
       vModifiers_"cglNormal" = normals;
       normalExpr = lambda((spacePos,texturePos),normalize(cglNormal));
-    ,
-      cglLogWarning(" modifier `normals` is ignored if `normalExpr` is given");
     );
   );
   if(!isUndefined(normal),
@@ -2361,7 +2361,7 @@ cglTriangle3d(p1,p2,p3):=(
       modifiers_"cglNormal" = normal;
       normalExpr = lambda((spacePos,texturePos),cglNormal);
     ,
-      cglLogWarning("modifier `normal` is ignored if `normals` or `normalExpr` is given");
+      cglLogWarning("modifier `normal` is ignored if `normals` is given");
     );
   );
   if(isUndefined(normalExpr),
@@ -2389,6 +2389,7 @@ cglTriangle3d(p1,p2,p3):=(
 // TODO? support rendering multiple polygons in single call (should be possible with minimal extension of the triangles function)
 // TODO? auto-merge rendered triangles with similar parameters into single render-call
 
+// TODO! better handling for normals
 // render multiple triangles in a single call
 cglInterface("triangles3d",cglTriangles3d,(triangles),(color,colors,texture,colorBack,colorsBack,
   textureBack,alpha,light,uv,normals,
@@ -2702,11 +2703,9 @@ cglMesh3d(grid):=(
 // TODO using modifiers in plotted expression leads to errors
 //  * evaluate plot-expr with all given plot-modifiers?
 
-// feature TODO? allow equation as expression: transform `f == g` to  `f-g` in last top-level expression
 // feature TODO custom projection/uv-mapping from surface to 2D space
 cglInterface("surface3d",cglSurface3d,(expr:(x,y,z)),(color,texture,colorBack,
-  textureBack,alpha,light,
-  texture,uv,dF:(x,y,z),cutoffRegion,degree,layers,plotModifiers));
+  textureBack,alpha,light,dF:(x,y,z),cutoffRegion,degree,layers,plotModifiers));
 cglSurface3d(fun) := (
     regional(N,nodes,F,normalExpr,N,B,modifiers,viewRect,bounds,usesAlpha,opacityExpr,exprData,pixelExpr);
     color = cglValOrDefault(color,cgl3d.defaults.surfaceColor);
@@ -2760,7 +2759,7 @@ cglSurface3d(fun) := (
       ,if(bounds_"type" == "sphere",
         cgl3d.addObject.(cgl3dNewSphere(cgl3d.shader.surface.(#),bounds_"center",bounds_"radius",plotModifiers->modifiers,opaqueIf->opacityExpr))
       ,if(bounds_"type" == "cylinder",
-        cgl3d.addObject.(cgl3dNewCylinder(cgl3d.shader.surface.(#),bounds_"point1",bounds_"point2",bounds_"radius",plotModifiers->modifiers,opaqueIf->opacityExpr))
+        cgl3d.addObject.(cgl3dNewCylinder(cgl3d.shader.surface.(#),bounds_"center",bounds_"orientation",bounds_"radius",plotModifiers->modifiers,opaqueIf->opacityExpr))
       ,if(bounds_"type" == "cuboid",
         cgl3d.addObject.(cgl3dNewCuboid(cgl3d.shader.surface.(#),bounds_"center",bounds_"v1",bounds_"v2",bounds_"v3",plotModifiers->modifiers,opaqueIf->opacityExpr))
       ,
@@ -2788,7 +2787,7 @@ cglSurface3d(fun) := (
 // feature TODO: allow using function value in color-expression (? accessible through special modifier)
 // feature TODO! compute surface dF from function df
 cglInterface("plot3d",cglPlot3d,(f:(x,y)),(color,texture,colorBack,textureBack,
-  alpha,light,uv,df:(x,y),cutoffRegion,degree,layers,plotModifiers));
+  alpha,light,df:(x,y),cutoffRegion,degree,layers,plotModifiers));
 cglPlot3d(f/*f(x,y)*/):=(
   if(isUndefined(degree),
       degree = min(cglTryDetermineDegree(f),cglMaxAutoDeg);
@@ -2796,10 +2795,10 @@ cglPlot3d(f/*f(x,y)*/):=(
   cglSurface3d(lambda((x,y,z),f.(x,y)-z,f->f),degree->degree);
 );
 cglInterface("complexplot3d",cglCPlot3d,(f:(z)),(color,texture,colorBack,
-  textureBack,alpha,light,uv,df:(z),
+  textureBack,alpha,light,df:(z),
   cutoffRegion,degree,layers,plotModifiers));
 cglInterface("cplot3d",cglCPlot3d,(f:(z)),(color,texture,colorBack,
-  textureBack,alpha,light,uv,df:(z),
+  textureBack,alpha,light,df:(z),
   cutoffRegion,degree,layers,plotModifiers));
 cglCPlot3d(f/*f(z)*/):=(
   if(isUndefined(color) & isUndefined(texture), // TODO find better condition for choosing phase-coloring
