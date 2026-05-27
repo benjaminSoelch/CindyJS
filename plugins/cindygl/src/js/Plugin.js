@@ -616,7 +616,6 @@ let CindyGL = function(api) {
         let compiledProg=compile(prog,Renderer.noBounds(),plotModifiers,new Map(),true);
         let obj3d=new CindyGL3DObject(compiledProg,Renderer.noBounds(),plotModifiers,get3DPlotTags(modifs));
         obj3d.data.set("opaqueIf",api.evaluate(modifs['opaqueIf'] || nada));
-        obj3d.data.set("onUpdate",api.evaluate(modifs['onUpdate'] || nada));
         return {"ctype":"cgl3dObject","value":obj3d};
     });
     function verticesFromCJS(vertices){
@@ -698,7 +697,6 @@ let CindyGL = function(api) {
         let compiledProg = compile(prog,boundingBox,plotModifiers,vModifiers,true);
         let obj3d=new CindyGL3DObject(compiledProg,boundingBox,plotModifiers,get3DPlotTags(modifs));
         obj3d.data.set("opaqueIf",api.evaluate(modifs['opaqueIf'] || nada));
-        obj3d.data.set("onUpdate",api.evaluate(modifs['onUpdate'] || nada));
         return {"ctype":"cgl3dObject","value":obj3d};
     });
     /**
@@ -716,7 +714,6 @@ let CindyGL = function(api) {
         let compiledProg=compile(prog,boundingBox,plotModifiers,new Map(),true);
         let obj3d=new CindyGL3DObject(compiledProg,boundingBox,plotModifiers,get3DPlotTags(modifs));
         obj3d.data.set("opaqueIf",api.evaluate(modifs['opaqueIf'] || nada));
-        obj3d.data.set("onUpdate",api.evaluate(modifs['onUpdate'] || nada));
         return {"ctype":"cgl3dObject","value":obj3d};
     });
     /**
@@ -742,7 +739,6 @@ let CindyGL = function(api) {
         let compiledProg=compile(prog,boundingBox,plotModifiers,new Map(),true);
         let obj3d=new CindyGL3DObject(compiledProg,boundingBox,plotModifiers,get3DPlotTags(modifs));
         obj3d.data.set("opaqueIf",api.evaluate(modifs['opaqueIf'] || nada));
-        obj3d.data.set("onUpdate",api.evaluate(modifs['onUpdate'] || nada));
         return {"ctype":"cgl3dObject","value":obj3d};
     });
     /**
@@ -763,7 +759,6 @@ let CindyGL = function(api) {
         let compiledProg=compile(prog,boundingBox,plotModifiers,new Map(),true);
         let obj3d=new CindyGL3DObject(compiledProg,boundingBox,plotModifiers,get3DPlotTags(modifs));
         obj3d.data.set("opaqueIf",api.evaluate(modifs['opaqueIf'] || nada));
-        obj3d.data.set("onUpdate",api.evaluate(modifs['onUpdate'] || nada));
         return {"ctype":"cgl3dObject","value":obj3d};
     });
 

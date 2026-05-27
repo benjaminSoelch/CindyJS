@@ -1946,16 +1946,16 @@ cglNormalizeRange(range):=(
 );
 
 cglInterface("draw3d",cglDraw3d,(pos3d),(color,texture,colorBack,textureBack,size,alpha,
-  light,projection,plotModifiers,tags,onUpdate));
+  light,projection,plotModifiers));
 cglInterface("sphere3d",cglDraw3d,(pos3d),(color,texture,colorBack,textureBack,size,alpha,
-  light,projection,plotModifiers,tags,onUpdate));
+  light,projection,plotModifiers));
 cglDraw3d(pos3d):=(
   size = cglValOrDefault(size,cgl3d.defaults.sphereSize);
   cglSphere3d(pos3d,size);
 );
 
 cglInterface("sphere3d",cglSphere3d,(center,radius),(color,texture,colorBack,textureBack,alpha,
-  light,projection,plotModifiers,tags,onUpdate));
+  light,projection,plotModifiers));
 cglSphere3d(center,radius):=(
   regional(needBackFace,modifiers,ids,topLayer,hasAlpha,usesAlpha,exprData,opacityExpr);
   color = cglValOrDefault(color,cgl3d.defaults.sphereColor);
@@ -1975,17 +1975,17 @@ cglSphere3d(center,radius):=(
   needBackFace = hasAlpha % usesAlpha;
   if(needBackFace,
     ids = [cgl3d.addObject.(cgl3dNewSphere(cgl3d.shader.sphere.(#,true),center,radius,
-      plotModifiers->modifiers,opaqueIf->opacityExpr,onUpdate->onUpdate))];
+      plotModifiers->modifiers,opaqueIf->opacityExpr))];
   );
   topLayer = cgl3d.addObject.(cgl3dNewSphere(cgl3d.shader.sphere.(#,false),center,radius,
-    plotModifiers->modifiers,opaqueIf->opacityExpr,onUpdate->onUpdate));
+    plotModifiers->modifiers,opaqueIf->opacityExpr));
   ids=if(needBackFace,append(ids,topLayer),topLayer);
 );
 
 
 cglInterface("draw3d",cglDraw3d,(point1,point2),(color,color1,color2,colors,texture,
   colorBack,colorsBack,textureBack,size,alpha,renderBack,direction1,
-  light,caps,cap1,cap2,projection,plotModifiers,tags,onUpdate));
+  light,caps,cap1,cap2,projection,plotModifiers));
 cglDraw3d(point1,point2):=(
   size = cglValOrDefault(size,cgl3d.defaults.cylinderSize);
   caps = cglValOrDefault(caps,cgl3d.defaults.curveCaps);
@@ -1993,14 +1993,14 @@ cglDraw3d(point1,point2):=(
 );
 cglInterface("cylinder3d",cglCylinder3d,(center,orientation),(color,color1,color2,colors,texture,
   colorBack,colorsBack,textureBack,size,alpha,renderBack,direction1,
-  light,caps,cap1,cap2,projection,plotModifiers,tags,onUpdate));
+  light,caps,cap1,cap2,projection,plotModifiers));
 cglCylinder3d(center,orientation):=(
   size = cglValOrDefault(size,cgl3d.defaults.cylinderSize);
   cglCylinder3d(center,orientation,size);
 );
 cglInterface("cylinder3d",cglCylinder3d,(center,orientation,radius),(color,color1,color2,colors,texture,
   colorBack,colorsBack,textureBack,alpha,light,cap1,cap2,caps,
-  projection,direction1,plotModifiers,tags,renderBack,onUpdate));
+  projection,direction1,plotModifiers,renderBack));
 cglCylinder3d(center,orientation,radius):=(
   regional(overhang,needBackFace,modifiers,n,ids,topLayer,hasAlpha,usesAlpha,exprData,opacityExpr);
   color = cglValOrDefault(color,cgl3d.defaults.cylinderColor);
@@ -2095,9 +2095,8 @@ cglJoint(prev,current,next,jointType):=(
 );
 cglInterface("connect3d",cglConnect3d,(points),(
   color,colors,texture,colorBack,colorsBack,textureBack,size,alpha,
-  light,caps,cap1,cap2,joints,closed,plotModifiers,tags,onUpdate));
+  light,caps,cap1,cap2,joints,closed,plotModifiers));
 cglConnect3d(points):=(
-  // feature TODO? create wrapper for onUpdate to update complete list of sample points
   regional(jointEnd,jointStart,totalLength,alpha0,a,b,current1,current2,prev,next,projection,color1,color2,nextColor,direction1,cutDir,renderBack);
   closed = cglValOrDefault(closed,false);
   color = cglValOrDefault(color,cgl3d.defaults.cylinderColor);
@@ -2203,7 +2202,7 @@ cglConnect3d(points):=(
 );
 cglInterface("curve3d",cglCurve3d,(expr:(t),from,to),(
   color,colors,texture,colorBack,colorsBack,textureBack,size,samples,alpha,light,
-  caps,cap1,cap2,joints,closed,plotModifiers,tags,onUpdate));
+  caps,cap1,cap2,joints,closed,plotModifiers));
 cglCurve3d(expr,from,to):=(
   samples = cglValOrDefault(samples,cgl3d.defaults.curveSamples)-1;
   if(from==to,
@@ -2218,7 +2217,7 @@ cglCurve3d(expr,from,to):=(
 
 cglInterface("torus3d",cglTorus3d,(center,orientation,radius1,radius2),(color,texture,
   colorBack,textureBack,alpha,light,arcRange,angle1range,angle2range,
-  direction1,plotModifiers,tags,onUpdate));
+  direction1,plotModifiers));
 cglTorus3d(center,orientation,radius1,radius2):=(
   regional(needBackFace,modifiers,ids,topLayer,hasAlpha,usesAlpha,exprData,pixelExpr,opacityExpr);
   orientation=normalize(orientation);
@@ -2282,31 +2281,30 @@ cglTorus3d(center,orientation,radius1,radius2):=(
     modifiers_"cglDirection1" = normalize(direction1);
     modifiers_"cglTorusProjGetDirection1" = lambda((normal,height,orientation),cglDirection1);
   );
-  tags = cglValOrDefault(tags,[]);
   opacityExpr = if(usesAlpha,false,if(hasAlpha,lambda((),cglAlpha>=1),true));
   if(needBackFace,
     ids = [cgl3d.addObject.(cgl3dNewCylinder(cgl3d.shader.torus.(#,4),
       center, radius2*orientation, radius1+radius2,
-      plotModifiers->modifiers,tags->["torus","backside"]++tags,opaqueIf->opacityExpr)),
+      plotModifiers->modifiers,opaqueIf->opacityExpr)),
     cgl3d.addObject.(cgl3dNewCylinder(cgl3d.shader.torus.(#,3),
       center, radius2*orientation, radius1+radius2,
-      plotModifiers->modifiers,tags->["torus","backside"]++tags,opaqueIf->opacityExpr)),
+      plotModifiers->modifiers,opaqueIf->opacityExpr)),
     cgl3d.addObject.(cgl3dNewCylinder(cgl3d.shader.torus.(#,2),
       center, radius2*orientation, radius1+radius2,
-      plotModifiers->modifiers,tags->["torus","backside"]++tags,opaqueIf->opacityExpr))];
+      plotModifiers->modifiers,opaqueIf->opacityExpr))];
   );
   topLayer = cgl3d.addObject.(cgl3dNewCylinder(cgl3d.shader.torus.(#,1),
     center, radius2*orientation, radius1+radius2,
-    plotModifiers->modifiers,tags->["torus"]++tags,opaqueIf->opacityExpr));
+    plotModifiers->modifiers,opaqueIf->opacityExpr));
   ids=if(needBackFace,append(ids,topLayer),topLayer);
 );
 // feature TODO? option to use aspect ratio instead of second radius
 cglInterface("circle3d",cglCircle3d,(center,orientation,radius),(color,texture,
   colorBack,textureBack,size,alpha,
-  light,arcRange,angle1range,angle2range,direction1,plotModifiers,tags,onUpdate));
+  light,arcRange,angle1range,angle2range,direction1,plotModifiers));
 cglInterface("torus3d",cglCircle3d,(center,orientation,radius),(color,texture,
   colorBack,textureBack,size,alpha,
-  light,arcRange,angle1range,angle2range,direction1,plotModifiers,tags,onUpdate));
+  light,arcRange,angle1range,angle2range,direction1,plotModifiers));
 cglCircle3d(center,orientation,radius):=(
   size = cglValOrDefault(size,cgl3d.defaults.torusSize);
   cglTorus3d(center,orientation,radius,size);
@@ -2335,10 +2333,10 @@ cglNormalExprImpl(expr):=expr;
 // API TODO? merge normalExpr and normalTexture into normals modifier and use type to distinguish arguments
 cglInterface("draw3d",cglTriangle3d,(p1,p2,p3),(color,colors,texture,colorBack,colorsBack,
   textureBack,alpha,light,uv,normal,normals,
-  normalExpr,plotModifiers,vertexModifiers,tags,onUpdate));
+  normalExpr,plotModifiers,vertexModifiers));
 cglInterface("triangle3d",cglTriangle3d,(p1,p2,p3),(color,colors,texture,colorBack,colorsBack,
   textureBack,alpha,light,uv,normal,normals,
-  normalExpr,plotModifiers,vertexModifiers,tags,onUpdate));
+  normalExpr,plotModifiers,vertexModifiers));
 cglTriangle3d(p1,p2,p3):=(
   regional(modifiers,vModifiers,defNormal,hasAlpha,usesAlpha,exprData,pixelExpr,colLen,opacityExpr);
   color = cglValOrDefault(color,cgl3d.defaults.triangleColor);
@@ -2386,10 +2384,9 @@ cglTriangle3d(p1,p2,p3):=(
   vModifiers = cglMergeDicts(vModifiers,exprData_"vModifiers");
   if(hasAlpha, modifiers_"cglAlpha" = alpha);
   modifiers_"cglPixelExpr" = exprData_"pixelExpr";
-  tags = cglValOrDefault(tags,[]);
   opacityExpr = if(usesAlpha,false,if(hasAlpha,lambda((),cglAlpha>=1),true));
   cgl3d.addObject.(cgl3dNewMesh(cgl3d.shader.triangle.(#),[p1,p2,p3],
-    plotModifiers->modifiers,vModifiers->vModifiers,tags->["triangle"]++tags,opaqueIf->opacityExpr));
+    plotModifiers->modifiers,vModifiers->vModifiers,opaqueIf->opacityExpr));
 );
 
 // TODO improve triangle rendering
@@ -2399,7 +2396,7 @@ cglTriangle3d(p1,p2,p3):=(
 // render multiple triangles in a single call
 cglInterface("triangles3d",cglTriangles3d,(triangles),(color,colors,texture,colorBack,colorsBack,
   textureBack,alpha,light,uv,normals,
-  normalExpr,plotModifiers,vertexModifiers,tags,onUpdate));
+  normalExpr,plotModifiers,vertexModifiers));
 cglTriangles3d(triangles):=(
   regional(modifiers,vModifiers,defNormal,hasAlpha,usesAlpha,exprData,pixelExpr,colLen,opacityExpr,v1,v2,v3,triuv,n,cols,vertices,triangleCount);
   color = cglValOrDefault(color,cgl3d.defaults.triangleColor);
@@ -2511,15 +2508,14 @@ cglTriangles3d(triangles):=(
   vModifiers = cglMergeDicts(vModifiers,exprData_"vModifiers");
   if(hasAlpha, modifiers_"cglAlpha" = alpha);
   modifiers_"cglPixelExpr" = exprData_"pixelExpr";
-  tags = cglValOrDefault(tags,[]);
   opacityExpr = if(usesAlpha,false,if(hasAlpha,lambda((),cglAlpha>=1),true));
   cgl3d.addObject.(cgl3dNewMesh(cgl3d.shader.triangle.(#),vertices,
-    plotModifiers->modifiers,vModifiers->vModifiers,tags->["triangles"]++tags,opaqueIf->opacityExpr));
+    plotModifiers->modifiers,vModifiers->vModifiers,opaqueIf->opacityExpr));
 );
 
 cglInterface("polygon3d",cglPolygon3d,(vertices),(triangulation,color,colors,texture,
   colorBack,colorsBack,textureBack,alpha,light,uv,
-  normal,normals,normalExpr,normalType,plotModifiers,vertexModifiers,tags,onUpdate));
+  normal,normals,normalExpr,normalType,plotModifiers,vertexModifiers));
 cglPolygon3d(vertices):=(
   regional(modifiers,vModifiers,trianglesAndNormals,hasAlpha,usesAlpha,exprData,pixelExpr,colLen,opacityExpr);
   color = cglValOrDefault(color,cgl3d.defaults.triangleColor);
@@ -2615,16 +2611,15 @@ cglPolygon3d(vertices):=(
   ,if(normalType != cgl3d.normalType.pixel,
     vModifiers_"cglNormal" =trianglesAndNormals_2;
   ));
-  tags = cglValOrDefault(tags,[]);
   opacityExpr = if(usesAlpha,false,if(hasAlpha,lambda((),cglAlpha>=1),true));
   cgl3d.addObject.(cgl3dNewMesh(cgl3d.shader.triangle.(#),trianglesAndNormals_1,
-    plotModifiers->modifiers,vModifiers->vModifiers,tags->["polygon"]++tags,opaqueIf->opacityExpr));
+    plotModifiers->modifiers,vModifiers->vModifiers,opaqueIf->opacityExpr));
 );
 
 // feature TODO? adjust uv coordinates if side of grid-cell is collapsed
 cglInterface("mesh3d",cglMesh3d,(grid),(color,colors,texture,colorBack,colorsBack,
   textureBack,alpha,light,uv,
-  normals,normalExpr,normalType,topology,plotModifiers,vertexModifiers,tags,onUpdate));
+  normals,normalExpr,normalType,topology,plotModifiers,vertexModifiers));
 cglMesh3d(grid):=(
   regional(Ny,Nx,triangles,modifiers,vModifiers,exprData,pixelExpr,hasAlpha,usesAlpha,colLen,opacityExpr);
   color = cglValOrDefault(color,cgl3d.defaults.triangleColor);
@@ -2703,10 +2698,9 @@ cglMesh3d(grid):=(
   if(normalType != cgl3d.normalType.pixel,
     vModifiers_"cglNormal" = normals;
   );
-  tags = cglValOrDefault(tags,[]);
   opacityExpr = if(usesAlpha,false,if(hasAlpha,lambda((),cglAlpha>=1),true));
   cgl3d.addObject.(cgl3dNewMesh(cgl3d.shader.triangle.(#),triangles,
-    plotModifiers->modifiers,vModifiers->vModifiers,tags->["polygon"]++tags,opaqueIf->opacityExpr));
+    plotModifiers->modifiers,vModifiers->vModifiers,opaqueIf->opacityExpr));
 );
 
 // TODO using modifiers in plotted expression leads to errors
@@ -2716,7 +2710,7 @@ cglMesh3d(grid):=(
 // feature TODO custom projection/uv-mapping from surface to 2D space
 cglInterface("surface3d",cglSurface3d,(expr:(x,y,z)),(color,texture,colorBack,
   textureBack,alpha,light,
-  texture,uv,dF:(x,y,z),cutoffRegion,degree,layers,plotModifiers,tags,onUpdate));
+  texture,uv,dF:(x,y,z),cutoffRegion,degree,layers,plotModifiers));
 cglSurface3d(fun) := (
     regional(N,nodes,F,normalExpr,N,B,modifiers,viewRect,bounds,usesAlpha,opacityExpr,exprData,pixelExpr);
     color = cglValOrDefault(color,cgl3d.defaults.surfaceColor);
@@ -2795,9 +2789,10 @@ cglSurface3d(fun) := (
     );
 );
 
+// feature TODO: allow using function value in color-expression (? accessible through special modifier)
 // feature TODO! compute surface dF from function df
 cglInterface("plot3d",cglPlot3d,(f:(x,y)),(color,texture,colorBack,textureBack,
-  alpha,light,texture,uv,df:(x,y),cutoffRegion,degree,layers,plotModifiers,tags,onUpdate));
+  alpha,light,uv,df:(x,y),cutoffRegion,degree,layers,plotModifiers));
 cglPlot3d(f/*f(x,y)*/):=(
   if(isUndefined(degree),
       degree = min(cglTryDetermineDegree(f),cglMaxAutoDeg);
@@ -2805,11 +2800,11 @@ cglPlot3d(f/*f(x,y)*/):=(
   cglSurface3d(lambda((x,y,z),f.(x,y)-z,f->f),degree->degree);
 );
 cglInterface("complexplot3d",cglCPlot3d,(f:(z)),(color,texture,colorBack,
-  textureBack,alpha,light,texture,uv,df:(z),
-  cutoffRegion,degree,layers,plotModifiers,tags,onUpdate));
+  textureBack,alpha,light,uv,df:(z),
+  cutoffRegion,degree,layers,plotModifiers));
 cglInterface("cplot3d",cglCPlot3d,(f:(z)),(color,texture,colorBack,
-  textureBack,alpha,light,texture,uv,df:(z),
-  cutoffRegion,degree,layers,plotModifiers,tags,onUpdate));
+  textureBack,alpha,light,uv,df:(z),
+  cutoffRegion,degree,layers,plotModifiers));
 cglCPlot3d(f/*f(z)*/):=(
   if(isUndefined(color) & isUndefined(texture), // TODO find better condition for choosing phase-coloring
     color = {
