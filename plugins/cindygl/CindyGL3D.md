@@ -1,124 +1,126 @@
-# Temporary documentation of CindyGL3D
+# CindyGL3D
 
-!!! CindyGL3D is still in development, there may be breaking changes between versions !!!
+CindyGl3D is an extension of CindyGL that allows to render 3-dimensional scenes containing multiple objects
 
-## Common reasons why a Script can be slower than expected
+It consists of an extension of the CindyGL-plugging together with wrapper functions written in CindyScript, provided in the file `cgl3d.cjs` located in the scripts folder.
 
-* Geometric objects are re-initialized each draw step:
-    The intended way to draw scenes with a large number of objects it to draw the objects once (every time the rendered objects change) and only render the scene in the draw script.
-    - Not redrawing the (complete) internal geometry every rendering step can significantly speed up the script if there is a large number of simple objects.
-    - If necessary it is possible to update individual objects using `cglUpdate` or `cglUpdateBounds...` (using the object id returned by `colorplot3d` to `cglFindObject`)
-
-* Large number of transparent objects:
-    The algorithm for rendering transparent objects ensures that the depth information for all pixels is sorted correctly, this will normally need 2 shader calls per translucent object per render-layer.
-    - If possible use 3-component colors for opaque objects, use `cglDiscard()` to discard individual pixels in a rendered objects.
-    - If the depth-order of all transparent objects is known in advance it is possible set the `layers` modifier in `render3d` to `0` to render transparent objects in the order they have been declared.
+## 3D-Objects
 
 
-## Function
 
-All CindyGL functions are preserved with their original behavior.
+## Functions
 
-!!! Functions starting with `cgl` are not part of the stable API and many be changed or removed in future updates !!!
+### Manipulating the 3D scene
 
-* `colorPlot3d(<expr>)` prepares color-plot with depth the expression should return a vector of five values z,r,g,b,a where rgba are the color for the current pixel and z is a depth value between 0 and 1, returns the id of the created 3D-object
-* `colorPlot3d(<expr>,<center>,<radius>)` like colorplot3d, but restricts the drawing area to a (bounding rectangle of a) sphere around `<center>` with the given radius
-* `colorPlot3d(<expr>,<pointA>,<pointB>,<radius>)` like colorplot3d, but restricts the drawing area to a (bounding rectangle of a) cylinder with end-points `<pointA>` and `<pointB>` and the given radius
-* `colorPlot3d(<expr>,<center>,<v1>,<v2>,<v3>)` like colorplot3d, but restricts the drawing area to a cuboid around the given center point with axes in the directions `v1`,`v2`,`v3`. (vertices $$center\pm v1 \pm v2 \pm v3$$)
-* `colorPlot3d(<expr>,<triangles>)` colorplot the expression on a set of triangles given in the second parameter, the coordinates of the triangles can be given in each for the following 3 formats:
-     - [x1,y1,z1,x2,y2,z2,...]      list of vertex coordinates
-     - [v1,v2,v3,v4,...]            list of vertices
-     - [[v1,v2,v3],[u1,u2,u3],...]  list of triangles
-* `reset3d` reset 3D scene
-* `render3d` render 3D scene, the `layers` modifier can be used to change how translucent objects are rendered, setting `layers` to `0` will render all objects in the order they are declared, if layers is `N` larger that `0` the renderer will try to sort the non-opaque objects at each pixel by their depth value using textures to store the top `N-1` objects at each pixel as well as the remaining objects merged by depth.
-By default `layers` is `0` is there is at most one non-opaque object and `2` otherwise, where an object is considered opaque if its pixel-color has (at most) 3 components
-* `rotate3d(<alpha>,<beta>)` rotate coordinate system
-* `zoom3d(<zoom>)` set coordinate system scaling factor to given value
+#### reset 3d scene: `reset3d()`
+  removes all objects from the current scene
 
-* `cglRender3d(<p0>,<p1>)` render 3D-scene to screen-rectangle bounded by the points `p0` and `p1`
-* `cglRender3d(<image>)` render 3D-scene to image (given as a string)
-* `cglViewPos()` the current view-position in model space
-* `cglViewRect()` the current view-rectangle returned as a 4-element list with elements in the order `x0,y0,x1,y1`
-* `cglCoordSystem()` allows updating the 3D coordinate system, the modifier `z0` can be used to set the initial viewDepth (for rotations to work correctly z0 should be a negative real number).
-The corners of the view-plane can be set using the modifiers `x0`, `y0`, `x1`, `y1` (or `p0`/`p1` for setting both coordinates of a corner at once), the z-coordinate of the view-plane can be set with `z1`.
-* `cglResetRotation` reset rotation
-* `cglUpdateBounds(<objId>)` `cglUpdateBounds(<objId>,<center>,<radius>)` `cglUpdateBounds(<objId>,<pointA>,<pointB>,<radius>)` `cglUpdateBounds(<objId>,<triangles>)` `cglUpdateBounds(<objId>,<center>,<v1>,<v2>,<v3>)` updates the bounding box of the object with the given id, the parameters after the object id behave the same way as those in the corresponding version of `colorplot3d`
-* `cglUpdate(<objId>)` can be used to update the modifiers of the object with the given id all modifiers passed to this function will be replace the cooresponding modifier on the existing object.
-* `cglSetVisible(<objId>,<bool>)` sets objects visibility, (true -> visible, false -> invisible). Invisible objects are not drawn/updated but remember their previous state
-* `cglDelete(<objId>)` deletes the object with the given id
-* `cglFindObject(<x>,<y>)` finds the id of the object closest to the camera on the ray at screen-position `(x,y)`
-* `cglEvalOrDiscard(<expr>)` evaluates the given expression, if `cglDiscard()` is called during the evaluation a default value (that can be set with the modifier `default`) is returned
-* `cglLazy(<args>,<expr>)` converts and expression into a value that can be stored and passed through functions, the expression can later be evaluated by calling `cglEval()`. All modifiers passed to `cglLazy` can be used as named constants within the expression.
-* `cglEval(<cglLazy>,<arg1>,...,<argN>)` evaluates the lazy expression (wrapped by `cglLazy()`) in the first argument with the values in the remaining arguments passed to the corresponding parameters of the expression
-* `cglIsLazy(<val>)` checks if val is a cglLazy expression
-`<args>` is a list of parameters that should be passed to the expression.
-* `cglInterface(<name>:name,<implName>:name,<args>:list<name>,<modifs>:list<name>)` can be used to wrap CindyScript functions in a more convenient user-interface:
-    - missing modifiers are set to nada (even if there is a global with the same name)
-    - adding a parameter list as user-data to the name of an argument or modifier will wrap the expression given to that argument in a `cglLazy` function with that parameter list
-    - creates three additional modifiers:
-      `cglModifs` the set of all modifiers passed to the given function
-* `cglTryDetermineDegree(<expr>,<vars>:list<name>)` tries to determine the degree of the given expression in the given values, if the degree is infinite `-1` is returned. When determining the degree is not possible the function returns `undefined`
-* `cglTryDetermineDegree(<lazy-expr>)` similar to `cglTryDetermineDegree(2)`, tries to determine the degree of a lazy-expression in its parameters
-* `cglLogError` `cglLogWarning` `cglLogInfo` print a string at different logging levels, makes error messages easier to find in the JavaScript console
-* `cglAxes()` returns the current coordinate axes as a list of vec3
-* `cglDirection(x,y)` returns the current view-direction for the screen pixel `(x,y)`
-* `cglSpacePoint(x,y)` returns the point on the view-plane corresponding to the screen pixel `(x,y)`
-* `cglGetBounds(<objId>)` returns the bounding box of the object with the given id as a JSON object, the midpoint of spheres will be stored in the entry `"center"`
-* `cglListObjects()` list all visible objects, the modifiers can be used to filter objects depending on their tags:
-    if a modifier is set to true the tag with the same name has to appear, if a modifier is set to false the tag must not appear.
-* `cglOrthogonalMode(<bool>)` toggle orthogonal mode on/off
-* `cglReadRawPixels(<image>)` reads pixels from an image as a 1D array, optimized for speed:
-  - Compared to `readpixels` the order of the image rows is reversed (to match internal order used by CindyGL)
-  - Add modifiers `rgb` -> only return first 3 components of each pixel and `skipTransparent` -> don't emit pixels with alpha value 0, currently `skipTransparent` is only supported in RGB mode.
-  The `skipTransparent` modifier exists as an optimization for the marching-cubes triangulator
+#### render 3d scene: `render3d()`
+  <!--TODO: render3d-->
+  
+#### zoom and rotation
+  * `rotate3d(dx,dy)` -> rotates 3d scene by `dx` radians around the y-Axis and `dy` radians around the z-Axis
+  <!-- TODO? more general transforms-->
+  * `zoom3d(zoomFactor)` -> scales all coordinates in the scene by the given `zoomFactor`
 
-## Built-in variables
+#### removing 3d-objects
+  <!--TODO? allow manual adding of objects in public API-->
+  * `delete3d(id)` -> completely 3d-object with the given `id` from the scene
+  * `hide3d(id)` -> makes the 3d-objects with the given `id` invisible
+  * `show3d(id)` -> makes the 3d-objects with the given `id` visible
 
-If a free parameter is passed to the expression in the colorplot function it will be initialized to the normalized viewDirection in 3D-mode
-In 2D mode the current pixel position will be used instead.
+### Drawing
+All drawing function create one or multiple 3d-object within the current scene and return the ids of the created objects.
 
-The following variables are automatically initialized in the code passed to colorplot3d.
-! Any CindyJS variables with the same name will be ignored,
-all built-in variables start with the prefix `cgl` to reduce the risk for name collisions.
+##### Common drawing modifiers
+* `color` -> the surface color, has to be one of:
+  - A list of 3/4 floats in the interval `[0,1]` representing the RGB-values of the color, with the fourth value being optionally used as a alpha component
+  - A color-name as accepted by `cglColor`
+  - A color-expression created by `cglColorExpr`
+  - A texture-value created by `cglTexture`
+* `texture` -> texture to use for the surface, mutually exclusive with `color` can be either an image-name or a texture-value created by `cglTexture`
+* `colorBack` `textureBack` like `color` and `texture` but only applied to the "back-side" (surface normals pointing in view-direction) of the rendered surface
+* `alpha` -> transparency value of the object, when the surface-color already has a alpha-component the two values are combined
+* `light` -> function used to compute the surface lighting of the object from the surface color, surface-normal and view-direction given as parameters `(color,direction,normal)`. Predefined values for commonly defined values can be found in `cgl3d.light`
+  - `cgl3d.light.none` -> use surface-color without modifications
+  - `cgl3d.light.simple` -> slightly darken color depending on normal-direction
+  - `cgl3d.light.normal` -> debug: use normal-vector as surface-color
+  - `cgl3d.light.depth` -> debug: use depth-value as surface-color
+  - `cgl3d.light.default` -> default lighting engine
+  - `cgl3d.light.default2` -> slight variation of default
+* `plotModifiers` -> modifiers to be applied to functions/shaders that are executed on the created 3D-objects
 
-* `cglPixel`: the 2D pixel coordinate on the texture, currently only supported in 2D-mode
-* `cglViewPos`: the current camera position
-* `cglViewDirection`: the direction of the view ray for the current pixel
-* `cglViewNormal` normal-vector to the current view-plane, scaled to the distance between view-plane and View-position
-* `cglDepth` can be used to read and write the depth of the current pixel. before rendering the depth values will be truncated to the range [0,1], with 0 begin closest to the camera.
+#### Spheres
+* `draw3d(center)` -> alias for `sphere3d(center)`
+* `sphere3d(center)` -> draw sphere with given center point and the default radius
+* `sphere3d(center,radius)` -> draw a sphere with the given center and radius
 
+Modifiers:
+* `size` -> radius of the sphere (not for 2-argument version of `sphere3d`)
+* `projection` -> Function mapping surface-normal to texture coordinates.
+  Pre-defined values:
+    - `cgl3d.projection.sphereStereographicC` apply stereographic projection to surface and returning texture-position as a single complex number
+    - `cgl3d.projection.sphereEquirect` Converts normal-vector of a pair of angles (latitude&longitude) normalized to the interval `[0,1]`
 
-Depending on the bounding box type there may be additional variables
+#### Cylinders
+* `draw3d(point1,point2)` -> draw a cylinder with the two end-points `point1` and `point2`
+* `cylinder3d(center,orientation)` -> draw a cylinder with the given center and orientation, the endpoints of the cylinder are the two points `center+orientation` and `center-orientation`
+* `cylinder3d(center,orientation,radius)` -> draw a cylinder with the given center and orientation and radius 
 
-* `cglCenter`: the center of the bounding sphere/cylinder/cube
-* `cglRadius`: the radius of the bounding sphere/cylinder
-* `cglOrientation` the orientation of the bounding cylinder (vector from first endpoint to center / center to second endpoint)
-* `cglCubeAxes` the axes vectors of the bounding cubioid as 3x3 matrix
-* `cglSpacePos`: position of current pixel in space (for triangles/mesh)
+Modifiers:
+* `size` -> radius of the cylinder (not for 3-argument version of `cylinder3d`)
+* `colors` / `colorsBack` -> colors at the end-points of the cylinder, the surface color will be interpolated between samples
+* `caps` -> style to use for rendering the ends of the cylinder
+  Supported values include:
+  - `cgl3d.cylinderCap.open` render a open cylinder
+  - `cgl3d.cylinderCap.flat` cut cylinder at a flat-surface orthogonal to the orientation
+  - `cgl3d.cylinderCap.round` add round end-caps to cylinder
+* `cap1` `cap2` -> individually modify the two end-cap styles
+* `direction1` -> direction to use as starting angle for surface-coordinate system
+* `projection` -> function that maps `(surfaceNormal,height,cylinderOrientation)` to a texture coordinate, where `height` is the height along the cylinder normalized to the interval `[-1,1]`
 
-## Built-in functions
+#### Curves
+* `connect3d(points)` -> join points by cylinders
+* `curve3d(expr:(t),from,to)` -> draw a sampled curve
 
-The following built-in functions are available in code passed to colorplot.
+Modifiers:
+* `colors` `colorsBack` -> colors at the sample points, the surface color will be interpolated between samples
+* `samples` -> number of sample points to use (only for `curve3d`)
+* `size` -> radius of the cylinders
+* `caps` `cap1` `cap2` -> which caps should be used at the end of the curve, similar to `caps` modifiers on cylinder
+* `joints` -> which connection type should be used between the segments, supported values are:
+  - `cgl3d.connect.round` -> insert spheres at the connection points between cylinders
+  - `cgl3d.connect.flat` -> extend cylinders until they meet in a flat surface
+* `closed` -> if true the last point will be connected to first point
 
-* `cglDiscard()` when this function is called the current pixel will not be drawn to the screen.
-Due to compiler limitations the source code still has to be valid if all `cglDiscrad` calls are ignored.
-* `cglTexture(<image>,<pos>)` and `cglTextureRGB(<image>,<pos>)` can be used to obtain the pixel of a texture without the transformations applied by `imagergba` / `imagergb`
+#### Tori
+* `circle3d(center,orientation,radius)` -> alias for `torus3d`
+* `torus3d(center,orientation,radius)` -> draw a torus with the default minor-radius
+* `torus3d(center,orientation,radius1,radius2)` -> draw a torus with the given `center` point in the plane given by `orientation`, with major radius `radius1` and minor-radius `radius2`
 
-## Plot Modifiers
+Modifiers:
+  - `size` -> minor-radius of torus (not for 4-argument version of `torus3d`)
+  - `arcRange` -> alias for `angle1range`
+  - `angle1range` -> range of angles along torus-arc that should be rendered
+  - `angle2range` -> range of angles along minor circle that should be rendered
+  - `direction1` -> direction to use as starting angle for surface-coordinate system
 
-Modifiers passed to `colorplot3d` that are prefixed with `U` can be used as constant values in the color-plot expression (without the `U` prefix).
-Additionally a list of further plot modifiers can be passed through the `plotModifiers` modifier as a list of `(<key:string>,<value>)` pairs, by name collisions the last definition will be used, directly specified modifiers cannot be overwritten by implicit modifiers.
-For plots on triangular meshes defined using the `colorPlot3d(<expr>,<triangles>)` function, it is additionally possible to attach a value to each vertex by prefixing the variable name with `V` and attaching the array of all values (in the same order as the corresponding vertices).
-Like for the plot modifiers additional vertex modifiers can be specified as a key-value list and be passed through the modifier `vModifiers`
+#### Polygons
+* `draw3d(p1,p2,p3)` -> alias for `triangle3d(p1,p2,p3)`
+* `triangle3d(p1,p2,p3)` -> draw a single triangle
+* `polygon3d(vertices)` -> draw a polygon given as a sequence of points
 
-The values of the constants are directly associated with the drawn object and can be changed by calling `cglUpdate` with the matching modifiers.
+<!--TODO: collect modifiers-->
 
-The modifier `opaqueIf` can be used to specify when the object should be rendered opaque, the given value can be eigther a boolean, an expression evaluating to a boolean variable or a cglLazy expression without parameters.
-Within the given (lazy) expression plotModifiers can be used and will evaluate to their value within the render evironment.
-`opaqueIf` is only a hit for how the renderer should treat the object (rendering translucent objects is much more expensive), it does not have an effect on the actual rendered alpha-value.
+#### Meshes
+* `triangles3d(triangles)` -> draw a collection of triangles either given as a list of vertices or as a list of vertex-triples
+* `mesh3d(gridPoints)` -> draw a square mesh given as a 2D-array of grid-points
 
-The modifier `onUpdate` can be used to pass in a cglLazy expression with a single argument, that will be called every time the bounding box of the current object changes.
+#### Surfaces
 
-## Primitive objects
+* `surface3d(expr:(x,y,z))` -> draw an implicit surface given by the solution set of the equation `expr==0`
 
-The file `scripts/cgl3d.cjs` contains definitions for geometric primitive objects, for a documentation of the available functions seee `Primitives.md`
+#### Plotting
+* `plot3d(f:(x,y))` -> plot the 2D-function `(x,y) -> f(x,y)`
+* `complexplot3d(f:(z))` / `cplot3d(f:(z))` -> plot the Complex function `z -> f(z)`
+    The rendered surface if the magnitude of the function while the default surface-texture is the phase value of the function
