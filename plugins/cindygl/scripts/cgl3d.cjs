@@ -1983,7 +1983,7 @@ cglSphere3d(center,radius):=(
 );
 
 
-cglInterface("draw3d",cglDraw3d,(point1,point2),(color,color1,color2,colors,texture,
+cglInterface("draw3d",cglDraw3d,(point1,point2),(color,colors,texture,
   colorBack,colorsBack,textureBack,size,alpha,renderBack,direction1,
   light,caps,cap1,cap2,projection,plotModifiers));
 cglDraw3d(point1,point2):=(
@@ -1991,14 +1991,14 @@ cglDraw3d(point1,point2):=(
   caps = cglValOrDefault(caps,cgl3d.defaults.curveCaps);
   cglCylinder3d((point1+point2)/2,(point2-point1)/2,size);
 );
-cglInterface("cylinder3d",cglCylinder3d,(center,orientation),(color,color1,color2,colors,texture,
+cglInterface("cylinder3d",cglCylinder3d,(center,orientation),(color,colors,texture,
   colorBack,colorsBack,textureBack,size,alpha,renderBack,direction1,
   light,caps,cap1,cap2,projection,plotModifiers));
 cglCylinder3d(center,orientation):=(
   size = cglValOrDefault(size,cgl3d.defaults.cylinderSize);
   cglCylinder3d(center,orientation,size);
 );
-cglInterface("cylinder3d",cglCylinder3d,(center,orientation,radius),(color,color1,color2,colors,texture,
+cglInterface("cylinder3d",cglCylinder3d,(center,orientation,radius),(color,colors,texture,
   colorBack,colorsBack,textureBack,alpha,light,cap1,cap2,caps,
   projection,direction1,plotModifiers,renderBack));
 cglCylinder3d(center,orientation,radius):=(
@@ -2011,15 +2011,11 @@ cglCylinder3d(center,orientation,radius):=(
         colors = colors ++ (color,color);
       );
     );
-    if(!isUndefined(color1),colors_1=color1);
-    if(!isUndefined(color2),colors_2=color2);
     if(colors_1 == colors_2,
       color = colors_1;
       colors = cglUndefinedVal();
     );
-  ,if(!isUndefined(color1) % !isUndefined(color2),
-    colors = [cglValOrDefault(color1,color),cglValOrDefault(color2,color)];
-  ));
+  );
   light = cglValOrDefault(light,cgl3d.defaults.light);
   caps = cglValOrDefault(caps,cgl3d.defaults.cylinderCaps);
   cap1 = cglValOrDefault(cap1,caps);
@@ -2097,7 +2093,7 @@ cglInterface("connect3d",cglConnect3d,(points),(
   color,colors,texture,colorBack,colorsBack,textureBack,size,alpha,
   light,caps,cap1,cap2,joints,closed,plotModifiers));
 cglConnect3d(points):=(
-  regional(jointEnd,jointStart,totalLength,alpha0,a,b,current1,current2,prev,next,projection,color1,color2,nextColor,direction1,cutDir,renderBack);
+  regional(jointEnd,jointStart,totalLength,alpha0,a,b,current1,current2,prev,next,projection,nextColor,cylinderColors,direction1,cutDir,renderBack);
   closed = cglValOrDefault(closed,false);
   color = cglValOrDefault(color,cgl3d.defaults.cylinderColor);
   size = cglValOrDefault(size,cgl3d.defaults.cylinderSize);
@@ -2141,8 +2137,10 @@ cglConnect3d(points):=(
       next = points_1;
       direction1 = normalize(next-current2)+normalize(current2-current1);
       direction1 = normalize(direction1 - (normalize(current2-current1)*direction1)*normalize(current2-current1));
-      color1 = if(isUndefined(colors),color,colors_(length(points)-1));
-      color2 = if(isUndefined(colors),color,colors_(length(points)));
+      cylinderColors = [
+        if(isUndefined(colors),color,colors_(length(points)-1)),
+        if(isUndefined(colors),color,colors_(length(points)))
+      ];
       nextColor = if(isUndefined(colors),color,colors_1);
       ids = [];
     ,
@@ -2151,14 +2149,16 @@ cglConnect3d(points):=(
       next = points_3;
       direction1 = normalize(next-current2)+normalize(current2-current1);
       direction1 = normalize(direction1 - (normalize(current2-current1)*direction1)*normalize(current2-current1));
-      color1 = if(isUndefined(colors),color,colors_1);
-      color2 = if(isUndefined(colors),color,colors_2);
+      cylinderColors = [
+        if(isUndefined(colors),color,colors_1),
+        if(isUndefined(colors),color,colors_2)
+      ];
       nextColor = if(isUndefined(colors),color,colors_3);
       a = b;b = a + |current1-current2|/totalLength;
       plotModifiers_"cglSegmentStart"=a;
       plotModifiers_"cglSegmentEnd"=b;
       alpha = alpha0;
-      ids = [cglCylinder3d((current1+current2)/2,(current2-current1)/2,size,cap1->cap1,colors->(color1,color2),
+      ids = [cglCylinder3d((current1+current2)/2,(current2-current1)/2,size,cap1->cap1,colors->cylinderColors,
         cap2->cglJoint(current1,current2,next,jointEnd))];
     );
     ids = ids ++ apply(if(closed,2,4)..length(points),i,
@@ -2168,31 +2168,27 @@ cglConnect3d(points):=(
       next = points_i;
       cutDir = normalize((normalize(current2-current1)+normalize(current1-prev)));
       direction1 = direction1-2*(direction1*cutDir)*cutDir; // mirror direction at cut-plane
-      color1 = color2;
-      color2 = nextColor;
+      cylinderColors = [cylinderColors_1,nextColor];
       nextColor = if(isUndefined(colors),color,colors_i);
       a = b;b = a + |current1-current2|/totalLength;
       plotModifiers_"cglSegmentStart"=a;
       plotModifiers_"cglSegmentEnd"=b;
       alpha = alpha0;
-      cglCylinder3d((current1+current2)/2,(current2-current1)/2,size,colors->(color1,color2),
+      cglCylinder3d((current1+current2)/2,(current2-current1)/2,size,colors->cylinderColors,
         cap1->cglJoint(prev,current1,current2,jointStart),cap2->cglJoint(current1,current2,next,jointEnd));
     );
-    color1 = color2;
-    color2 = nextColor;
+    cylinderColors = [cylinderColors_1,nextColor];
     a = b;b = a + |current2-next|/totalLength;
     plotModifiers_"cglSegmentStart"=a;
     plotModifiers_"cglSegmentEnd"=b;
     cutDir = normalize((normalize(next-current2)+normalize(current2-current1)));
     direction1 = direction1-2*(direction1*cutDir)*cutDir; // mirror direction at cut-plane
     alpha = alpha0;
-    flatten(append(ids,cglCylinder3d((current2+next)/2,(next-current2)/2,size,colors->(color2,nextColor),
+    flatten(append(ids,cglCylinder3d((current2+next)/2,(next-current2)/2,size,colors->[cylinderColors_2,nextColor],
         cap1->cglJoint(current1,current2,next,jointStart),
         cap2->if(closed,cglJoint(current2,next,points_1,jointEnd),cap2))));
   ,if(length(points)==2,
-    color1 = if(isUndefined(colors),color,colors_1);
-    color2 = if(isUndefined(colors),color,colors_2);
-    cglCylinder3d((points_1+points_2)/2,(points_2-points_1)/2,size);
+    cglCylinder3d((points_1+points_2)/2,(points_2-points_1)/2,size,colors->cglValOrDefault(colors,[color,color]));
   ,if(length(points)==1,
     if(!isUndefined(colors),
       color = colors_1
