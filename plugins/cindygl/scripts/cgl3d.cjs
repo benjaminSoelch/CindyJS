@@ -1577,7 +1577,7 @@ cgl3d.saveDefaults = () => (
     apply(cgl3d.defaults,#) // push shallow copy of current defaults
   );
 );
-cgl3d.restureDefaults = () => (
+cgl3d.restoreDefaults = () => (
   if(length(cgl3d.defaultStack)>0,
     // pop previous defaults from default-stack
     cgl3d.defaults = cgl3d.defaultStack_(length(cgl3d.defaultStack));
