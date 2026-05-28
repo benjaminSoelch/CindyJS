@@ -15,8 +15,19 @@ It consists of an extension of the CindyGL-plugging together with wrapper functi
 #### reset 3d scene: `reset3d()`
   removes all objects from the current scene
 
+  Currently constructing the 3D-scene is the slowest part of the program so it is recommended to avoid resetting the whole scene and instead, update existing objects `cgl3dObjectSetModifier` (currently unstable) or remove individual objects using `delete3d`
+
 #### render 3d scene: `render3d()`
-  <!--TODO: render3d-->
+  Render the current 3D scene
+
+Modifiers:
+  `layers` -> how many independent render-layers should be used for transparent objects, more layers can lead to higher accuracy but are more computational expensive. If all rendered objects are guaranteed to be depth ordered (like the layers of a single surface), using `layers->0` is normally enough.
+  `image` -> render to the given image instead of the default canvas
+  `screenCorners` -> array of two elements containing the top-left and bottom-right corners of screen-region to render to, for the default canvas given in the cindy-script coordinate system, for images given in pixels.
+  `p0` `p1` -> the xy-coordinates of the top-left an bottom right corner in the render coordinate-system
+  `z0` `z1` -> the front and back z-coordinates of the rendered-region, by default the z-range is `+- max(|x1-x0|,|y1-y0|)`
+  `zScale` -> scaling factor applied in z-direction
+  `skewFactor` -> number in the interval `[0,1)` determining the perspective distortion, a value of `0` corresponds to orthogonal projection
   
 #### zoom and rotation
   * `rotate3d(dx,dy)` -> rotates 3d scene by `dx` radians around the y-Axis and `dy` radians around the z-Axis

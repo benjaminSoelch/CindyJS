@@ -121,7 +121,7 @@ cgl3d.render = () => (
   cgl3dFinishRender();
 );
 // prevent capturing of global variables
-cglInterface("render3d",cglRender3d,(),(layers,image,screenCorners,p0,p1));
+cglInterface("render3d",cglRender3d,(),(layers,image,screenCorners,p0,p1,skewFactor,zScale,z0,z1));
 cglRender3d() := cgl3d.render.();
 cgl3d.addObject = (obj) => (
   regional(id,opaqueIf);
