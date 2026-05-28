@@ -2326,7 +2326,6 @@ cglCheckSize(vData,vCount,msg) := (
 cglInterface("cglNormalExpr",cglNormalExprImpl,(expr:(spacePos,texturePos)),());
 cglNormalExprImpl(expr):=expr;
 // feature TODO? normalTexture to be plugged into normals (texture of normal vectors)
-// API TODO? merge normalExpr and normalTexture into normals modifier and use type to distinguish arguments
 cglInterface("draw3d",cglTriangle3d,(p1,p2,p3),(color,colors,texture,colorBack,colorsBack,
   textureBack,alpha,light,uv,normal,normals,
   plotModifiers,vertexModifiers));
@@ -2386,16 +2385,14 @@ cglTriangle3d(p1,p2,p3):=(
 );
 
 // TODO improve triangle rendering
-// TODO? support rendering multiple polygons in single call (should be possible with minimal extension of the triangles function)
-// TODO? auto-merge rendered triangles with similar parameters into single render-call
+// ? support rendering multiple polygons in single call (should be possible with minimal extension of the triangles function)
+// ? auto-merge rendered triangles with similar parameters into single render-call
 
-// TODO! better handling for normals
 // render multiple triangles in a single call
 cglInterface("triangles3d",cglTriangles3d,(triangles),(color,colors,texture,colorBack,colorsBack,
-  textureBack,alpha,light,uv,normals,
-  normalExpr,plotModifiers,vertexModifiers));
+  textureBack,alpha,light,uv,normals,normalType,plotModifiers,vertexModifiers));
 cglTriangles3d(triangles):=(
-  regional(modifiers,vModifiers,defNormal,hasAlpha,usesAlpha,exprData,pixelExpr,colLen,opacityExpr,v1,v2,v3,triuv,n,cols,vertices,triangleCount);
+  regional(modifiers,vModifiers,normalExpr,defNormal,hasAlpha,usesAlpha,exprData,pixelExpr,colLen,opacityExpr,v1,v2,v3,triuv,n,cols,vertices,triangleCount);
   color = cglValOrDefault(color,cgl3d.defaults.triangleColor);
   light = cglValOrDefault(light,cgl3d.defaults.light);
   vertices = if(islist(triangles_1_1),
@@ -2448,36 +2445,43 @@ cglTriangles3d(triangles):=(
   };
   modifiers = cglMergeDicts(modifiers,cglValOrDefault(plotModifiers,{}));
   vModifiers = cglValOrDefault(vertexModifiers,{});
-  if(isUndefined(normalExpr),
-    if(isUndefined(normals),
-      normals = [];
+  if(isLambda(normals),
+    normalExpr = normals;
+  ,
+    if(normalType == cgl3d.normalType.pixel,
+        cglLogError("per-pixel normals should be given as a lambda-expression");
+    );
+    if(isUndefined(normals) % normalType == cgl3d.normalType.pixel,
+      normals = flatten(apply(0..(triangleCount-1),i,
+        v1 = vertices_(3*i+1);
+        v2 = vertices_(3*i+2);
+        v3 = vertices_(3*i+3);
+        defNormal = normalize(cross(v2-v1,v3-v1));
+        [defNormal,defNormal,defNormal]
+      ));
+    ,if(normalType == cgl3d.normalType.vertex,
+      cglCheckSize(normals,length(vertices),"normals should contain one element for each vertex");
     ,
       cglCheckSize(normals,triangleCount,"normals should contain one element for each triangle");
-    );
-    normals = flatten(apply(0..(triangleCount-1),i,
-      v1 = vertices_(3*i+1);
-      v2 = vertices_(3*i+2);
-      v3 = vertices_(3*i+3);
-      defNormal = normalize(cross(v2-v1,v3-v1));
-      if(i<length(normals),
-        n = normals_i;
-        if(islist(n_1),
-          cglCheckSize(n,3,"wrong length for triangle normals",defNormal);
+      normals = flatten(apply(0..(triangleCount-1),i,
+        v1 = vertices_(3*i+1);
+        v2 = vertices_(3*i+2);
+        v3 = vertices_(3*i+3);
+        defNormal = normalize(cross(v2-v1,v3-v1));
+        if(i<length(normals),
+          n = normals_i;
+          if(islist(n_1),
+            cglCheckSize(n,3,"wrong length for triangle normals",defNormal);
+          ,
+            [n,n,n]
+          )
         ,
-          [n,n,n]
-        )
-      ,
-        [defNormal,defNormal,defNormal]
-      );
+          [defNormal,defNormal,defNormal]
+        );
+      ));
     ));
     vModifiers_"cglNormal" = normals;
     normalExpr = lambda((spacePos,texturePos),normalize(cglNormal));
-  ,
-    if(!isUndefined(normals),
-      cglLogWarning(" modifier `normals` is ignored if `normalExpr` is given");
-    );
-    modifiers_"cglNormal" = defNormal;
-    normalExpr = lambda((spacePos,texturePos),cglNormal);
   );
   modifiers_"cglNormalExpr" = normalExpr;
   modifiers_"cglTextureMapping" = lambda((pos3d,direction),cglTexCoords);
@@ -2512,9 +2516,9 @@ cglTriangles3d(triangles):=(
 
 cglInterface("polygon3d",cglPolygon3d,(vertices),(triangulation,color,colors,texture,
   colorBack,colorsBack,textureBack,alpha,light,uv,
-  normal,normals,normalExpr,normalType,plotModifiers,vertexModifiers));
+  normal,normals,normalType,plotModifiers,vertexModifiers));
 cglPolygon3d(vertices):=(
-  regional(modifiers,vModifiers,trianglesAndNormals,hasAlpha,usesAlpha,exprData,pixelExpr,colLen,opacityExpr);
+  regional(modifiers,normalExpr,vModifiers,trianglesAndNormals,hasAlpha,usesAlpha,exprData,pixelExpr,colLen,opacityExpr);
   color = cglValOrDefault(color,cgl3d.defaults.triangleColor);
   light = cglValOrDefault(light,cgl3d.defaults.light);
   triangulation = cglValOrDefault(triangulation,cgl3d.triangulate.default);
@@ -2526,35 +2530,21 @@ cglPolygon3d(vertices):=(
   };
   modifiers = cglMergeDicts(modifiers,cglValOrDefault(plotModifiers,{}));
   vModifiers = cglValOrDefault(vertexModifiers,{});
+  if(isLambda(normals),
+    normalType = cgl3d.normalType.pixel;
+  ,if(!isUndefined(normals),
+    normalType = cgl3d.normalType.vertex;
+  ,if(!isUndefined(normal),
+    normalType = cgl3d.normalType.face;
+  )));
   if(isUndefined(normalType),
-    if(!isUndefined(normalExpr),
-      normalType = cgl3d.normalType.pixel;
-    );
-    if(!isUndefined(normals),
-      if(isUndefined(normalType),
-        normalType = cgl3d.normalType.vertex;
-      ,
-        cglLogWarning("modifier `normals` is ignored if `normalExpr` is given");
-      )
-    );
-    if(!isUndefined(normal),
-      if(isUndefined(normalType),
-        normalType = cgl3d.normalType.face;
-      ,
-        cglLogWarning("modifier `normal` is ignored if `normalExpr` or `normals` is given");
-      )
-    );
-    if(isUndefined(normalType),
-      normalType = cgl3d.normalType.triangle;
-    );
+    normalType = cgl3d.normalType.triangle;
   );
   if(normalType == cgl3d.normalType.pixel,
-    if(isUndefined(normalExpr),
-      cglLogWarning("modifier `normalExpr` has to be set when using per-pixel normals");
-      normals = cglUndefinedVal();
-      normalExpr = lambda((spacePos,texturePos),normalize(cglNormal));
-      normalType = cgl3d.normalType.vertex;
+    if(!isLambda(normals),
+      cglLogWarning("modifier `normals` has to be a lambda-function when using per-pixel normals");
     );
+    normalExpr = normals;
   ,if(normalType == cgl3d.normalType.vertex,
     normalExpr = lambda((spacePos,texturePos),normalize(cglNormal));
     if(!isUndefined(normals),
@@ -2616,9 +2606,9 @@ cglPolygon3d(vertices):=(
 // feature TODO? adjust uv coordinates if side of grid-cell is collapsed
 cglInterface("mesh3d",cglMesh3d,(grid),(color,colors,texture,colorBack,colorsBack,
   textureBack,alpha,light,uv,
-  normals,normalExpr,normalType,topology,plotModifiers,vertexModifiers));
+  normals,normalType,topology,plotModifiers,vertexModifiers));
 cglMesh3d(grid):=(
-  regional(Ny,Nx,triangles,modifiers,vModifiers,exprData,pixelExpr,hasAlpha,usesAlpha,colLen,opacityExpr);
+  regional(Ny,Nx,normalExpr,triangles,modifiers,vModifiers,exprData,pixelExpr,hasAlpha,usesAlpha,colLen,opacityExpr);
   color = cglValOrDefault(color,cgl3d.defaults.triangleColor);
   light = cglValOrDefault(light,cgl3d.defaults.light);
   alpha = cglValOrDefault(alpha,cgl3d.defaults.triangleAlpha);
@@ -2629,26 +2619,22 @@ cglMesh3d(grid):=(
   Nx = length(grid_1);
   triangles = cgl3d.mesh.samplesToTriangles.(grid,Nx,Ny,topology,cgl3d.mesh.sampleVertex);
   if(isUndefined(normalType),
-    if(!isUndefined(normalExpr),
+    if(isLambda(normals),
       normalType = cgl3d.normalType.pixel;
-    );
-    if(!isUndefined(normals),
-      if(isUndefined(normalType),
+    ,if(!isUndefined(normals),
         normalType = cgl3d.normalType.vertex;
-      ,
-        cglLogWarning("modifier `normals` is ignored if `normalExpr` is given");
-      )
-    );
-    if(isUndefined(normalType),
+    ,
       normalType = cgl3d.normalType.triangle;
-    );
+    ));
   );
-  if(normalType == cgl3d.normalType.pixel & isUndefined(normalExpr),
-      cglLogWarning("modifier `normalExpr` has to be set when using per-pixel normals");
+  if(normalType == cgl3d.normalType.pixel & !isLambda(normals),
+      cglLogWarning("modifier `normals` has to a lambda-expression when using per-pixel normals");
       normals = cglUndefinedVal();
       normalType = cgl3d.normalType.vertex;
   );
-  if(normalType != cgl3d.normalType.pixel,
+  if(normalType == cgl3d.normalType.pixel,
+    normalExpr = normals
+  ,
     if(normalType == cgl3d.normalType.vertex,
       // interpolated vector may not be normalized
       normalExpr = lambda((spacePos,texturePos),normalize(cglNormal));

@@ -15,7 +15,7 @@ It consists of an extension of the CindyGL-plugging together with wrapper functi
 #### reset 3d scene: `reset3d()`
   removes all objects from the current scene
 
-  Currently constructing the 3D-scene is the slowest part of the program so it is recommended to avoid resetting the whole scene and instead, update existing objects `cgl3dObjectSetModifier` (currently unstable) or remove individual objects using `delete3d`
+  Currently constructing the 3D-scene is the slowest part of the program so it is recommended to avoid resetting the whole scene and instead, update existing objects `cgl3dObjectSetModifier` (currently not part of stable API) or remove individual objects using `delete3d`
 
 #### render 3d scene: `render3d()`
   Render the current 3D scene
@@ -39,6 +39,8 @@ Modifiers:
   * `delete3d(id)` -> completely 3d-object with the given `id` from the scene
   * `hide3d(id)` -> makes the 3d-objects with the given `id` invisible
   * `show3d(id)` -> makes the 3d-objects with the given `id` visible
+
+<!--TODO allow changing object bounds /modifiers in public api-->
 
 ### Drawing
 All drawing function create one or multiple 3d-object within the current scene and return the ids of the created objects.
@@ -126,7 +128,7 @@ Modifiers:
 * `uv` -> texture coordinates of vertices
 * `normal` -> normal vector of surface (ignored if `normals` is given)
 * `normals` -> vertex normals, either an array containing one normal vector per vertex or the result of calling `cglNormalExpr`
-* `normalType` -> how normal vectors should be computed, will be ignored if it does not fit the normal-vector data passed through the `normal` and `normals` modifiers:
+* `normalType` -> (only for `polygon3d`) how normal vectors should be computed, will be ignored if it does not fit the normal-vector data passed through the `normal` and `normals` modifiers:
   - `cgl3d.normalType.flat` a single normal for the whole polygon
   - `cgl3d.normalType.triangle` one normal per triangle
   - `cgl3d.normalType.vertex` one normal per vertex
@@ -140,11 +142,14 @@ Modifiers:
 #### Triangular-Mesh
 * `triangles3d(triangles)` -> draw a collection of triangles either given as a list of vertices or as a list of vertex-triples
 
-<!--TODO: API: improve normals handling for triangles/mesh/polygon-->
 Modifiers:
 * `colors` `colorsBack` -> colors of the vertices, the surface color will be interpolated between vertices
 * `uv` -> texture coordinates of vertices
-* `normals` -> triangle normals
+* `normalType` -> determines hoe normals should be interpreted
+  - `cgl3d.normalType.triangle` one normal per triangle
+  - `cgl3d.normalType.vertex` one normal per vertex
+  - `cgl3d.normalType.pixel` normals are computed on a per-pixel basis
+* `normals` -> a list of normal vectors for each triangle/vertex or the result of calling `cglNormalExpr` (for per-pixel normals)
 * `vertexModifiers` -> values attached to each vertex, the value at a given point will be interpolated between vertices
 
 #### Rectangular Mesh
@@ -154,7 +159,7 @@ Modifiers:
 * `colors` `colorsBack` -> colors of the vertices, the surface color will be interpolated between vertices
 * `uv` -> texture coordinates of vertices
 * `normals` -> normal vector data, interpreted according to normalType.
- For vertex and triangle for face normal the normal vector of the top-left vertex will be used, for triangle normals the top-left and bottom right
+ For vertex and triangle for face normal the normal vector of the top-left vertex will be used, for triangle normals the top-left and bottom right, for per-pixel normals this parameters should be the result of calling `cglNormalExpr`
 * `normalType` -> how normal vectors should be computed:
   - `cgl3d.normalType.face` one normal for each rectangular face
   - `cgl3d.normalType.triangle` one normal per triangle
