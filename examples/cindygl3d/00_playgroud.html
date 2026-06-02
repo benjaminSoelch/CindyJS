@@ -73,7 +73,7 @@ mesh3d(samples,topology->TopologyCloseX+TopologyCloseY);
             const textarea = document.getElementById('exampleCode');
             textarea.addEventListener('keypress', function(event) {
                 if (event.key === 'Enter') {
-                    cdy.evokeCS("reset3d();"+textarea.value+";");
+                    cdy.evokeCS("reset3d();dgs3dReset();"+textarea.value+";");
                 }
             });
             const frameTextArea = document.getElementById('frameUpdate');
@@ -84,7 +84,7 @@ mesh3d(samples,topology->TopologyCloseX+TopologyCloseY);
             });
             function redrawScene(){
                 cdy.evokeCS("frameUpdate():=("+frameTextArea.value+");");
-                cdy.evokeCS("reset3d();"+textarea.value+";");
+                cdy.evokeCS("reset3d();dgs3dReset();"+textarea.value+";");
             }
             setTimeout(function() { redrawScene(); }, 100); // 100ms delay to allow CS initscript to execute
             setTimeout(function() { redrawScene(); }, 1000); // 1s should be enough to ensure that everything is loaded
