@@ -37,6 +37,7 @@ dgs3dHandleZoom(zoom):=(
   forall(dgs3dLines,l,l:"redraw".(l));
   forall(dgs3dPlanes,p,p:"redraw".(p));
   forall(dgs3dSpheres,q,q:"redraw".(q));
+  forall(dgs3dCircles,q,q:"redraw".(q));
   forall(dgs3dQuadrics,q,q:"redraw".(q));
 );
 dgs3dUpdateCutoff();
@@ -384,6 +385,7 @@ dgs3dPoints = {};
 dgs3dLines = {};
 dgs3dPlanes = {};
 dgs3dSpheres = {};
+dgs3dCircles = {};
 dgs3dQuadrics = {};
 // special objects
 dgs3dMovablePoints = {};
@@ -407,6 +409,7 @@ dgs3dReset():=(
   dgs3dLines = {};
   dgs3dPlanes = {};
   dgs3dSpheres = {};
+  dgs3dCircles = {};
   dgs3dQuadrics = {};
   // special objects
   dgs3dMovablePoints = {};
@@ -429,6 +432,7 @@ dgs3dDelete(obj):=(
     jsonRemove(dgs3dPlanes,obj:"id");
     jsonRemove(dgs3dQuadrics,obj:"id");
     jsonRemove(dgs3dSpheres,obj:"id");
+    jsonRemove(dgs3dCircles,obj:"id");
     jsonRemove(dgs3dMovablePoints,obj:"id");
     cglDelete(obj:"drawId");
     forall(obj:"parents",p,
@@ -498,7 +502,9 @@ dgs3dLoad(values):=(
       dgs3dQuadrics:(obj:"id") = obj;
     ,if(obj:"type" == "sphere",
       dgs3dSpheres:(obj:"id") = obj;
-    )))));
+    ,if(obj:"type" == "circle",
+      dgs3dCircles:(obj:"id") = obj;
+    ))))));
   );
 );
 
@@ -547,6 +553,11 @@ dgs3dNewObject(type,parents):=(
     obj:"color" = cglColor(cglValOrDefault(color,(0,0.5,1)));
     obj:"alpha" = cglValOrDefault(alpha,0.67);
     obj:"redraw" = lambda(self,dgs3dRenderSphere(self));
+  ,if(type == "circle",
+    dgs3dCircles:objId = obj;
+    obj:"color" = cglColor(cglValOrDefault(color,(0.5,0.5,0.75)));
+    obj:"alpha" = cglValOrDefault(alpha,1);
+    obj:"redraw" = lambda(self,dgs3dRenderCircle(self));
   ,if(type == "conic", // TODO? should conics and intersection2Q be stored with quadrics?
     dgs3dQuadrics:objId = obj;
     obj:"color" = cglColor(cglValOrDefault(color,(0.25,1,0)));
@@ -561,7 +572,7 @@ dgs3dNewObject(type,parents):=(
     // nothing to do
   ,
     cglLogWarning("unknown object type");
-  ))))))));
+  )))))))));
   forall(parents,parent,
     if(isJSON(parent),
       parent:"children" = append(parent:"children",obj);
@@ -640,13 +651,29 @@ dgs3dRenderPlane(self):=(
 );
 dgs3dRenderSphere(self):=(
   regional(p,ptColor);
-  [p,r] = self:"coords";
-  if(self:"visible" == true & min(apply(p,isReal(#))), // treat undefined as falsy
+  [c,r] = self:"coords";
+  if(self:"visible" == true & min(apply(c,isReal(#))), // treat undefined as falsy
     if(self:"drawId"==-1,
-      self:"drawId" = sphere3d(p,r,color->ptColor,alpha->self:"alpha");
+      self:"drawId" = sphere3d(c,r,color->ptColor,alpha->self:"alpha");
+    , // FIXME: why does setting color lead to CindyGl error
+      //cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["cglColor","cglAlpha"],[ptColor,self:"alpha"]);
+      cgl3dObjectSet(cgl3d.getObjects.(self:"drawId"),["center","radius"],[c,r]);
+      cgl3d.setVisible.(self:"drawId",true);
+    );
+  ,if(self:"drawId"!=-1,
+    cgl3d.setVisible.(self:"drawId",false);
+  ));
+);
+dgs3dRenderCircle(self):=(
+  regional(p,ptColor);
+  [c,n,r] = self:"coords";
+  if(self:"visible" == true & min(apply(c,isReal(#))), // treat undefined as falsy
+    if(self:"drawId"==-1,
+      self:"drawId" = torus3d(c,n,r,color->ptColor,alpha->self:"alpha",size->self:"size");
     ,
       //cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["cglColor","cglAlpha"],[ptColor,self:"alpha"]);
-      cgl3dObjectSet(cgl3d.getObjects.(self:"drawId"),["center","radius"],[p,r]);
+      cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),"cglRadii",[r,self:"size"]);
+      cgl3dObjectSet(cgl3d.getObjects.(self:"drawId"),["center","orientation","radius"],[c,n,r+self:"size"]);
       cgl3d.setVisible.(self:"drawId",true);
     );
   ,if(self:"drawId"!=-1,
@@ -1853,6 +1880,25 @@ dgs3dSphere4points(A,B,C,D):=(
     v = linearSolve(A,b);
     c = 0.5*v_(1..3);
     self:"coords" = [c,sqrt(v_4+c*c)];
+    DGS3DmOVEoK
+  );
+  obj:"recompute".(obj);
+  obj:"redraw".(obj);
+  obj
+);
+cglInterface(circle3d,dgs3dCircle3points,(A,B,C),(visible,color,alpha));
+dgs3dCircle3points(A,B,C):=(
+  obj = dgs3dNewObject("circle",[A,B,C]);
+  obj:"size" = cglValOrDefault(size,cgl3d.defaults:"cylinderSize");
+  obj:"recompute" = lambda(self,
+    regional(pts,p,A,b,v,c);
+    pts = apply(self:"parents",#:"coords");
+    p = dgs3dEpsilon444(pts_1,pts_2,pts_3); // get equation of plane through 3-points
+    A = [(pts_1)/(pts_1)_4,(pts_2)/(pts_2)_4,(pts_3)/(pts_3)_4,[p_1,p_2,p_3,0]];
+    b = [|(pts_1)_(1..3)|^2,|(pts_2)_(1..3)|^2,|(pts_3)_(1..3)|^2,-2*p_4];
+    v = linearSolve(A,b);
+    c = 0.5*v_(1..3);
+    self:"coords" = [c,p_(1..3),sqrt(v_4+c*c)];
     DGS3DmOVEoK
   );
   obj:"recompute".(obj);
