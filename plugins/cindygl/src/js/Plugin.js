@@ -821,7 +821,7 @@ let CindyGL = function(api) {
         let layerCount = getRealModifier(modifs,"layers",0);
         Renderer.resetCachedState();
         gl.clear(gl.DEPTH_BUFFER_BIT|gl.COLOR_BUFFER_BIT);
-        if (CindyGL.sceneRenderer !== null) cglLogWarning("once one rendering pass can be active at a given type, call `cgl3dFinishRender` before calling `cgl3dStartRender` a second time");
+        if (CindyGL.sceneRenderer !== null) cglLogWarning("only one rendering pass can be active at a given type, call `cgl3dFinishRender` before calling `cgl3dStartRender` a second time");
         CindyGL.sceneRenderer = (layerCount != 0) ?
              new Cgl3dLayeredSceneRenderer(iw,ih,canvaswrapper,layerCount) :
             new Cgl3dSimpleSceneRenderer(iw,ih,canvaswrapper);
