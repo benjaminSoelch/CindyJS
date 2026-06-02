@@ -675,7 +675,7 @@ dgs3dRenderConic(self):=(
     if(self:"drawId"==-1,
       M = self:"coords";
       // TODO? use custom cutoff-region instead of default
-      self:"drawId" = surface3d(dgs3dDistanceQuadricPlane2(Q,p,(x,y,z,1))-r*r,degree->8,
+      self:"drawId" = surface3d(dgs3dDistanceQuadricPlane(Q,p,(x,y,z,1))-r*r,degree->8,
         plotModifiers->{"Q":self:"coords"_1,"p":self:"coords"_2,"r":self:"size"},
         alpha->self:"alpha",color->self:"color");
     ,
@@ -1255,6 +1255,7 @@ dgs3dIntersectionsQQP(Q1,Q2,p):=(
     T_3 = T_4;
   )));
   T_4 = p;
+  T = transform(T);
   S = adjoint4(T);
   // 2. transform quadrics such that p = (0,0,0,1)
   A = transpose(S)*Q1*S;
@@ -1858,8 +1859,8 @@ dgs3dSphere4points(A,B,C,D):=(
   obj:"redraw".(obj);
   obj
 );
-cglInterface(circle3d,dgs3dCircle3points,(A,B,C),(visible,color,alpha));
-dgs3dCircle3points(A,B,C):=(
+cglInterface(circle3d,dgs3dCircle3pointsEuclidean,(A,B,C),(visible,color,alpha));
+dgs3dCircle3pointsEuclidean(A,B,C):=(
   obj = dgs3dNewObject("circle",[A,B,C]);
   obj:"size" = cglValOrDefault(size,cgl3d.defaults:"cylinderSize");
   obj:"recompute" = lambda(self,
@@ -1871,6 +1872,58 @@ dgs3dCircle3points(A,B,C):=(
     v = linearSolve(A,b);
     c = 0.5*v_(1..3);
     self:"coords" = [c,p_(1..3),sqrt(v_4+c*c)];
+    DGS3DmOVEoK
+  );
+  obj:"recompute".(obj);
+  obj:"redraw".(obj);
+  obj
+);
+dgs3dCircle3pointsProjective(A,B,C):=(
+  obj = dgs3dNewObject("conic",[A,B,C]);
+  obj:"size" = cglValOrDefault(size,cgl3d.defaults:"cylinderSize");
+  obj:"recompute" = lambda(self,
+    regional(A,B,C,T,M,p,l,I,J,a,b,c,d,e,G,H);
+    A = self:"parents"_1:"coords";
+    B = self:"parents"_2:"coords";
+    C = self:"parents"_3:"coords";
+    // find plane through 3 points
+    p = dgs3dEpsilon444(A,B,C);
+    l = dgs3dEpsilon44(p,(0,0,0,1));
+    [I, J] = dgs3dIntersectLineQuadric(l,((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,0)));
+    // build transformation that maps (0,0,0,1) to p
+    T = ((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1));
+    if(|p_1|>=|p_2| & |p_1|>=|p_3| & |p_1|>=|p_4|,
+      T_1 = T_4;
+    ,if(|p_2|>=|p_1| & |p_2|>=|p_3| & |p_2|>=|p_4|,
+      T_2 = T_4;
+    ,if(|p_3|>=|p_1| & |p_3|>=|p_2| & |p_3|>=|p_4|,
+      T_3 = T_4;
+    )));
+    T_4 = p;
+    // make transformation orthogonal
+    T_1 = T_1 - (T_1*T_4)/(T_4*T_4)*T_4;
+    T_2 = T_2 - (T_2*T_4)/(T_4*T_4)*T_4;
+    T_3 = T_3 - (T_3*T_4)/(T_4*T_4)*T_4;
+    T_1 = T_1 - (T_1*T_3)/(T_3*T_3)*T_3;
+    T_2 = T_2 - (T_2*T_3)/(T_3*T_3)*T_3;
+    T_1 = T_1 - (T_1*T_2)/(T_2*T_2)*T_2;
+    T = transpose(T);
+    // TODO? is there a projection for which the resulting quadric is orthogonal to the given plane
+    // build conic through 5 transformed points
+    a = (T*A)_(1..3);
+    b = (T*B)_(1..3);
+    c = (T*C)_(1..3);
+    d = (T*I)_(1..3);
+    e = (T*J)_(1..3);
+    G = transpose([cross(d,a)])*[cross(b,e)];
+    H = transpose([cross(d,b)])*[cross(a,e)];
+    M = (c*G*c)*H-(c*H*c)*G;
+    M = M + transpose(M);
+    fnz = 0;
+    forall(M,forall(#,if(fnz==0,fnz=#))); // find first non-zero entry
+    M = conjugate(fnz)*M; // scale by conjugate of first non-zero entry to map complex multiples of real matrices to real matrices
+    M = transpose(T)*((M_1_1,M_1_2,M_1_3,0),(M_2_1,M_2_2,M_2_3,0),(M_3_1,M_3_2,M_3_3,0),(0,0,0,0))*T;
+    self:"coords" = [M,p];
     DGS3DmOVEoK
   );
   obj:"recompute".(obj);
