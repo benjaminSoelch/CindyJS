@@ -36,6 +36,7 @@ dgs3dHandleZoom(zoom):=(
   forall(dgs3dPoints,p,p:"redraw".(p));
   forall(dgs3dLines,l,l:"redraw".(l));
   forall(dgs3dPlanes,p,p:"redraw".(p));
+  forall(dgs3dSpheres,q,q:"redraw".(q));
   forall(dgs3dQuadrics,q,q:"redraw".(q));
 );
 dgs3dUpdateCutoff();
@@ -382,6 +383,7 @@ dgs3dObjects = {};
 dgs3dPoints = {};
 dgs3dLines = {};
 dgs3dPlanes = {};
+dgs3dSpheres = {};
 dgs3dQuadrics = {};
 // special objects
 dgs3dMovablePoints = {};
@@ -404,6 +406,7 @@ dgs3dReset():=(
   dgs3dPoints = {};
   dgs3dLines = {};
   dgs3dPlanes = {};
+  dgs3dSpheres = {};
   dgs3dQuadrics = {};
   // special objects
   dgs3dMovablePoints = {};
@@ -425,6 +428,7 @@ dgs3dDelete(obj):=(
     jsonRemove(dgs3dLines,obj:"id");
     jsonRemove(dgs3dPlanes,obj:"id");
     jsonRemove(dgs3dQuadrics,obj:"id");
+    jsonRemove(dgs3dSpheres,obj:"id");
     jsonRemove(dgs3dMovablePoints,obj:"id");
     cglDelete(obj:"drawId");
     forall(obj:"parents",p,
@@ -488,11 +492,13 @@ dgs3dLoad(values):=(
       )
     ,if(obj:"type" == "line",
       dgs3dLines:(obj:"id") = obj;
-    ,if(obj:"plane" == "plane",
+    ,if(obj:"type" == "plane",
       dgs3dPlanes:(obj:"id") = obj;
-    ,if(obj:"plane" == "quadric",
+    ,if(obj:"type" == "quadric",
       dgs3dQuadrics:(obj:"id") = obj;
-    ))));
+    ,if(obj:"type" == "sphere",
+      dgs3dSpheres:(obj:"id") = obj;
+    )))));
   );
 );
 
@@ -536,7 +542,12 @@ dgs3dNewObject(type,parents):=(
     obj:"color" = cglColor(cglValOrDefault(color,(0.5,0,1)));
     obj:"alpha" = cglValOrDefault(alpha,0.67);
     obj:"redraw" = lambda(self,dgs3dRenderQuadric(self));
-  ,if(type == "conic",
+  ,if(type == "sphere",
+    dgs3dSpheres:objId = obj;
+    obj:"color" = cglColor(cglValOrDefault(color,(0,0.5,1)));
+    obj:"alpha" = cglValOrDefault(alpha,0.67);
+    obj:"redraw" = lambda(self,dgs3dRenderSphere(self));
+  ,if(type == "conic", // TODO? should conics and intersection2Q be stored with quadrics?
     dgs3dQuadrics:objId = obj;
     obj:"color" = cglColor(cglValOrDefault(color,(0.25,1,0)));
     obj:"alpha" = cglValOrDefault(alpha,1);
@@ -550,7 +561,7 @@ dgs3dNewObject(type,parents):=(
     // nothing to do
   ,
     cglLogWarning("unknown object type");
-  )))))));
+  ))))))));
   forall(parents,parent,
     if(isJSON(parent),
       parent:"children" = append(parent:"children",obj);
@@ -625,6 +636,21 @@ dgs3dRenderPlane(self):=(
     );
   ,if(self:"drawId"!=-1,
       cgl3d.setVisible.(self:"drawId",false);
+  ));
+);
+dgs3dRenderSphere(self):=(
+  regional(p,ptColor);
+  [p,r] = self:"coords";
+  if(self:"visible" == true & min(apply(p,isReal(#))), // treat undefined as falsy
+    if(self:"drawId"==-1,
+      self:"drawId" = sphere3d(p,r,color->ptColor,alpha->self:"alpha");
+    ,
+      //cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["cglColor","cglAlpha"],[ptColor,self:"alpha"]);
+      cgl3dObjectSet(cgl3d.getObjects.(self:"drawId"),["center","radius"],[p,r]);
+      cgl3d.setVisible.(self:"drawId",true);
+    );
+  ,if(self:"drawId"!=-1,
+    cgl3d.setVisible.(self:"drawId",false);
   ));
 );
 dgs3dRenderQuadric(self):=(
@@ -1808,6 +1834,25 @@ dgs3dMirrorPtPl(p,P):=(
     n = P_(1..3);
     p1 = p0 - 2*((P_4+(p0*n))/(n*n))*n;
     self:"coords" = (p1_1,p1_2,p1_3,p_4);
+    DGS3DmOVEoK
+  );
+  obj:"recompute".(obj);
+  obj:"redraw".(obj);
+  obj
+);
+
+// A,B,C,D: point => quadric, visible: bool = should object be drawn
+cglInterface(sphere3d,dgs3dSphere4points,(A,B,C,D),(visible,color,alpha));
+dgs3dSphere4points(A,B,C,D):=(
+  obj = dgs3dNewObject("sphere",[A,B,C,D]);
+  obj:"recompute" = lambda(self,
+    regional(pts,A,b,v,c);
+    pts = apply(self:"parents",#:"coords");
+    A = apply(pts,#/#_4);
+    b = apply(pts,|#_(1..3)|^2);
+    v = linearSolve(A,b);
+    c = 0.5*v_(1..3);
+    self:"coords" = [c,sqrt(v_4+c*c)];
     DGS3DmOVEoK
   );
   obj:"recompute".(obj);
