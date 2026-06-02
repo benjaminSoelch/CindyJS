@@ -911,7 +911,7 @@ let CindyGL = function(api) {
         }
         if(obj['ctype'] !== "cgl3dObject") return;
         const objVal = obj["value"]
-        if(key['ctype'] === "string") {
+        function setKey(objVal,key,value) {
             const keyVal = key["value"];
             if(objVal.boundingBox.hasOwnProperty(keyVal) && OBJECT_BOUND_KEYS.includes(keyVal)) {
                 const jsVal = toJsVal(value);
@@ -927,7 +927,16 @@ let CindyGL = function(api) {
                 obj["value"].visible = value["value"];
             }
             obj["value"].data.set(key["value"],value);
+        }
+        if (key['ctype'] === "string") {
+            setKey(objVal,key,value)
             return nada;
+        } else if (key['ctype'] === "list") {
+            if (value["ctype"] !== "list" || value["value"].length !== key["value"].length)
+                return; // TODO? warning
+            key['value'].forEach((eltKey,index)=>{
+                setKey(objVal,eltKey,value.value[index]);
+            });
         }
     }
     api.defineFunction("cgl3dObjectSet", 3, (args, modifs) => {
