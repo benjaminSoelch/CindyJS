@@ -36,7 +36,6 @@ dgs3dHandleZoom(zoom):=(
   forall(dgs3dPoints,p,p:"redraw".(p));
   forall(dgs3dLines,l,l:"redraw".(l));
   forall(dgs3dPlanes,p,p:"redraw".(p));
-  forall(dgs3dSpheres,q,q:"redraw".(q));
   forall(dgs3dCircles,q,q:"redraw".(q));
   forall(dgs3dQuadrics,q,q:"redraw".(q));
 );
@@ -384,7 +383,6 @@ dgs3dObjects = {};
 dgs3dPoints = {};
 dgs3dLines = {};
 dgs3dPlanes = {};
-dgs3dSpheres = {};
 dgs3dCircles = {};
 dgs3dQuadrics = {};
 // special objects
@@ -408,7 +406,6 @@ dgs3dReset():=(
   dgs3dPoints = {};
   dgs3dLines = {};
   dgs3dPlanes = {};
-  dgs3dSpheres = {};
   dgs3dCircles = {};
   dgs3dQuadrics = {};
   // special objects
@@ -431,7 +428,6 @@ dgs3dDelete(obj):=(
     jsonRemove(dgs3dLines,obj:"id");
     jsonRemove(dgs3dPlanes,obj:"id");
     jsonRemove(dgs3dQuadrics,obj:"id");
-    jsonRemove(dgs3dSpheres,obj:"id");
     jsonRemove(dgs3dCircles,obj:"id");
     jsonRemove(dgs3dMovablePoints,obj:"id");
     cglDelete(obj:"drawId");
@@ -500,11 +496,9 @@ dgs3dLoad(values):=(
       dgs3dPlanes:(obj:"id") = obj;
     ,if(obj:"type" == "quadric",
       dgs3dQuadrics:(obj:"id") = obj;
-    ,if(obj:"type" == "sphere",
-      dgs3dSpheres:(obj:"id") = obj;
     ,if(obj:"type" == "circle",
       dgs3dCircles:(obj:"id") = obj;
-    ))))));
+    )))));
   );
 );
 
@@ -548,11 +542,6 @@ dgs3dNewObject(type,parents):=(
     obj:"color" = cglColor(cglValOrDefault(color,(0.5,0,1)));
     obj:"alpha" = cglValOrDefault(alpha,0.67);
     obj:"redraw" = lambda(self,dgs3dRenderQuadric(self));
-  ,if(type == "sphere",
-    dgs3dSpheres:objId = obj;
-    obj:"color" = cglColor(cglValOrDefault(color,(0,0.5,1)));
-    obj:"alpha" = cglValOrDefault(alpha,0.67);
-    obj:"redraw" = lambda(self,dgs3dRenderSphere(self));
   ,if(type == "circle",
     dgs3dCircles:objId = obj;
     obj:"color" = cglColor(cglValOrDefault(color,(0.5,0.5,0.75)));
@@ -572,7 +561,7 @@ dgs3dNewObject(type,parents):=(
     // nothing to do
   ,
     cglLogWarning("unknown object type");
-  )))))))));
+  ))))))));
   forall(parents,parent,
     if(isJSON(parent),
       parent:"children" = append(parent:"children",obj);
@@ -647,21 +636,6 @@ dgs3dRenderPlane(self):=(
     );
   ,if(self:"drawId"!=-1,
       cgl3d.setVisible.(self:"drawId",false);
-  ));
-);
-dgs3dRenderSphere(self):=(
-  regional(p,ptColor);
-  [c,r] = self:"coords";
-  if(self:"visible" == true & min(apply(c,isReal(#))), // treat undefined as falsy
-    if(self:"drawId"==-1,
-      self:"drawId" = sphere3d(c,r,color->ptColor,alpha->self:"alpha");
-    , // FIXME: why does setting color lead to CindyGl error
-      //cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["cglColor","cglAlpha"],[ptColor,self:"alpha"]);
-      cgl3dObjectSet(cgl3d.getObjects.(self:"drawId"),["center","radius"],[c,r]);
-      cgl3d.setVisible.(self:"drawId",true);
-    );
-  ,if(self:"drawId"!=-1,
-    cgl3d.setVisible.(self:"drawId",false);
   ));
 );
 dgs3dRenderCircle(self):=(
@@ -1871,15 +1845,13 @@ dgs3dMirrorPtPl(p,P):=(
 // A,B,C,D: point => quadric, visible: bool = should object be drawn
 cglInterface(sphere3d,dgs3dSphere4points,(A,B,C,D),(visible,color,alpha));
 dgs3dSphere4points(A,B,C,D):=(
-  obj = dgs3dNewObject("sphere",[A,B,C,D]);
+  obj = dgs3dNewObject("quadric",[A,B,C,D]);
   obj:"recompute" = lambda(self,
     regional(pts,A,b,v,c);
     pts = apply(self:"parents",#:"coords");
-    A = apply(pts,#/#_4);
-    b = apply(pts,|#_(1..3)|^2);
-    v = linearSolve(A,b);
-    c = 0.5*v_(1..3);
-    self:"coords" = [c,sqrt(v_4+c*c)];
+    b = apply(pts,-(|#_(1..3)|^2));
+    v = linearSolve(pts,b);
+    self:"coords" = [[1,0,0,0.5*v_1],[0,1,0,0.5*v_2],[0,0,1,0.5*v_3],[0.5*v_1,0.5*v_2,0.5*v_3,v_4]];
     DGS3DmOVEoK
   );
   obj:"recompute".(obj);
