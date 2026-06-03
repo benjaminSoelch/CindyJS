@@ -916,11 +916,6 @@ function postfix_undefine(args, modifs) {
     }
     if (args[0].ctype === "function") {
         delete myfunctions[args[0].oper];
-    } else if (args[0].ctype === "userdata") {
-        const base = evaluate(args[0].obj);
-        const key = niceprint(evaluate(args[0].key.value));
-        console.log(base, key);
-        if (base.ctype == "JSON") Json.removeField(base, key);
     }
     return nada;
 }
@@ -1997,20 +1992,6 @@ evaluator.iscomplex$1 = function (args, modifs) {
 evaluator.isstring$1 = function (args, modifs) {
     const v0 = evaluate(args[0]);
     if (v0.ctype === "string") {
-        return {
-            ctype: "boolean",
-            value: true,
-        };
-    }
-    return {
-        ctype: "boolean",
-        value: false,
-    };
-};
-
-evaluator.isjson$1 = function (args, modifs) {
-    const v0 = evaluate(args[0]);
-    if (v0.ctype === "JSON") {
         return {
             ctype: "boolean",
             value: true,
@@ -4808,39 +4789,6 @@ evaluator.eval$1 = function (args, modifs) {
     });
     return erg;
     //                    return tt(args,modifs);
-};
-
-evaluator.delete$1 = function (args, modifs) {
-    let base, key;
-    if (args[0].ctype === "field") {
-        base = evaluate(args[0].obj);
-        key = args[0].key;
-    } else if (args[0].ctype === "userdata") {
-        base = evaluate(args[0].obj);
-        const keyVal = evaluate(args[0].key);
-        key = niceprint(keyVal);
-    } else if (args[0].ctype === "infix" && args[0].oper === "_") {
-        base = evaluate(args[0].args[0]);
-        const keyVal = evaluate(args[0].args[1]);
-        if (keyVal.ctype !== "string") return nada;
-        key = keyVal.value;
-    } else {
-        return nada;
-    }
-    if (base.ctype === "JSON") {
-        Json.removeField(base, key);
-    } else if (base.ctype === "list") {
-        delete base.userData[key];
-    }
-    return nada;
-};
-evaluator.merge$2 = function (args, modifs) {
-    let a = evaluate(args[0]);
-    if (a.ctype !== "JSON") return nada;
-    let b = evaluate(args[1]);
-    if (b.ctype !== "JSON") return nada;
-    let merged = Object.assign({}, a.value, b.value);
-    return { ctype: "JSON", value: merged };
 };
 
 ///////////////////////////////
