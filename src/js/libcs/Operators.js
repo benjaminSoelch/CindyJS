@@ -4862,14 +4862,17 @@ function infix_lambda(args, modifs) {
     } else {
         params = [args[0]];
     }
+    let modValues = {};
     for (let i = 0; i < params.length; i++) {
-        if (params[i].ctype !== "variable") {
+        if (params[i].ctype === "infix" && params[i].oper == "->" && params[i].args[0].ctype == "variable") {
+            modValues[params[i].args[0].name] = params[i].args[1];
+            params.splice(i, 1); // remove from params
+        } else if (params[i].ctype !== "variable") {
             console.error("lambda parameter should be variable got: " + args[i].ctype);
             return nada;
         }
     }
     // evaluate modifiers when creating lambda
-    let modValues = {};
     Object.entries(modifs).forEach(function ([key, value]) {
         modValues[key] = evaluate(value);
     });
