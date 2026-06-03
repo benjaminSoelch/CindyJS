@@ -4861,11 +4861,7 @@ eval_helper.evalLambda = function (lambda, args, modifs) {
     Object.entries(modifs).forEach(function ([key, value]) {
         callModifs[key] = value;
     });
-    // prefer lambda modifiers over modifiers passed to eval
-    Object.entries(lambda.modifs).forEach(function ([key, value]) {
-        callModifs[key] = value;
-    });
-    return evalfunction(lambda.params, lambda.body, args, callModifs);
+    return evalfunction(lambda.params, lambda.body, args, callModifs, lambda.modifs);
 };
 function evalref(fptr, args, modifs) {
     if (fptr.arity != args.length) {
