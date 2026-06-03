@@ -51,7 +51,13 @@ function evaluate(a) {
             return nada;
         }
     } else if (a.ctype === "invokelambda") {
-        return eval_helper.evalLambda(a.obj, a.args, a.modifs);
+        const oldobject = Json._helper.self;
+        if (a.obj.ctype === "userdata" || a.obj.ctype === "field") {
+            Json._helper.self = evaluate(a.obj.obj);
+        }
+        const result = eval_helper.evalLambda(a.obj, a.args, a.modifs);
+        Json._helper.self = oldobject;
+        return result;
     } else if (a.ctype === "userdata") {
         const obj = evaluate(a.obj);
         let key = General.string(niceprint(evaluate(a.key)));
