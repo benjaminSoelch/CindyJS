@@ -185,7 +185,7 @@ niceprint.errorTypes = ["_?_", "_??_", "_???_", "___"];
 //this is the container for self-defined functions
 //Distinct form evaluator for code clearness :-)
 //*******************************************************
-function evalfunction(params, body, args, modifs) {
+function evalfunction(params, body, args, modifs, defaultModifs) {
     const set = [];
     let i;
 
@@ -194,7 +194,7 @@ function evalfunction(params, body, args, modifs) {
     }
     //  evaluate modifiers in caller-scope
     let modValues = {};
-    Object.entries(tt.defaultModifs || {}).forEach(function ([key, value]) {
+    Object.entries(defaultModifs || {}).forEach(function ([key, value]) {
         modValues[key] = evaluate(value);
     });
     Object.entries(modifs).forEach(function ([key, value]) {
@@ -228,7 +228,7 @@ function evalmyfunctions(name, args, modifs) {
     if (tt === undefined) {
         return nada;
     }
-    return evalfunction(tt.arglist, tt.body, args, modifs);
+    return evalfunction(tt.arglist, tt.body, args, modifs, tt.defaultModifs);
 }
 
 //*******************************************************
