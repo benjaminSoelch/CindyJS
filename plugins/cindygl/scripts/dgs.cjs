@@ -870,8 +870,11 @@ dgs3dJoin3L(l1,l2,l3):=(
   regional(obj);
   obj = dgs3dNewObject("quadric",[l1,l2,l3]);
   obj:"recompute" = lambda(self,
-    regional(M);
-    M = dgs3dLineMatrix(l1:"coords")*dgs3dLineMatrix(dgs3dDualLine(l2:"coords"))*dgs3dLineMatrix(l3:"coords");
+    regional(M,l1,l2,l3);
+    l1 = self:"parents"_1:"coords";
+    l2 = self:"parents"_2:"coords";
+    l3 = self:"parents"_3:"coords";
+    M = dgs3dLineMatrix(l1)*dgs3dLineMatrix(dgs3dDualLine(l2))*dgs3dLineMatrix(l3);
     self:"coords" = M + transpose(M);
     DGS3DmOVEoK
   );
@@ -1931,8 +1934,10 @@ dgs3dCircle3pointsProjective(A,B,C):=(
   obj
 );
 
-// approximate distance to intersection curve using distance to polar plane(s)
-// TODO? find better heuristics for level-set of intersection
+////////////////
+// Distance Estimators
+////////////////
+// estimate squared-distance to intersection curve of quadric and plane
 dgs3dDistanceQuadricPlane(Quadric,Plane,coords):=(
   regional(pol,v,plane,P);
   // 1. get polar planes
@@ -1947,22 +1952,7 @@ dgs3dDistanceQuadricPlane(Quadric,Plane,coords):=(
   P = (P / P_4 - coords / coords_4);
   P*P
 );
-dgs3dDistanceQuadricPlane2(Quadric,Plane,coords):=(
-  regional(pol,v,plane,P,Q);
-  P = Q = coords;
-  repeat(2,
-    P = (2*P*Q_4 + Q*P_4);
-    // 1. get polar plane
-    pol = Quadric*P;
-    // 2. project point onto intersection line
-    l = dgs3dDualLine(dgs3dEpsilon44(pol,Plane));
-    v = dgs3dEpsilon46((0,0,0,1),l);
-    plane = (v_1*P_4,v_2*P_4,v_3*P_4,-(v_1,v_2,v_3,0)*P);
-    Q = dgs3dEpsilon46(plane,l);
-  );
-  Q = (Q / Q_4 - coords / coords_4);
-  Q*Q
-);
+// estimate squared-distance to intersection curve of quadric and quadric
 dgs3dDistanceQuadricQuadric(Q1,Q2,coords):=(
   regional(pol1,pol2,l,v,plane,P);
   // 1. get polar planes

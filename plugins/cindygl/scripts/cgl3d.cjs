@@ -1607,6 +1607,8 @@ cgl3d.resetDefaults.(); // initialisation of code complete -> can initialize def
 // TODO? cglLogLevel(...) built-in for setting log-level
 
 // bug TODO:
+// FIXME: bounding box for cylinder with round caps is too short
+
 // FIXME better error message for dynamic array access
 // ? does opengl support dynamic indexing
 // TODO rendering of mesh with overlapping transparent textures is partially broken
