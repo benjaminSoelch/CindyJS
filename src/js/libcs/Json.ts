@@ -83,11 +83,6 @@ const Json: CSJson = {
             where[field] = what;
         }
     },
-    removeField(obj: CSJsonValue, field: string) {
-        if (obj.value[field]) {
-            delete obj.value[field];
-        }
-    },
 
     GenFromUserDataEl(el: { key: CSJsonKey; value: CSJsonValue }): Nada | { key: Nada | CSJsonValue; val: CSType } {
         const key = el.key;
