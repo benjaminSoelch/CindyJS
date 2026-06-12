@@ -83,12 +83,11 @@ Modifiers:
 Modifiers:
 * `size` -> radius of the cylinder (not for 3-argument version of `cylinder3d`)
 * `colors` / `colorsBack` -> colors at the end-points of the cylinder, the surface color will be interpolated between samples
-* `caps` -> style to use for rendering the ends of the cylinder
+* `caps` -> style to use for rendering the ends of the cylinder, to use different cap-styles for the two ends of the cylinder pass an array of two elements
   Supported values include:
   - `cgl3d.cylinderCap.open` render a open cylinder
   - `cgl3d.cylinderCap.flat` cut cylinder at a flat-surface orthogonal to the orientation
   - `cgl3d.cylinderCap.round` add round end-caps to cylinder
-* `cap1` `cap2` -> individually modify the two end-cap styles
 * `direction1` -> direction to use as starting angle for surface-coordinate system
 * `projection` -> function that maps `(surfaceNormal,height,cylinderOrientation)` to a texture coordinate, where `height` is the height along the cylinder normalized to the interval `[-1,1]`
 
@@ -100,7 +99,7 @@ Modifiers:
 * `colors` `colorsBack` -> colors at the sample points, the surface color will be interpolated between samples
 * `samples` -> number of sample points to use (only for `curve3d`)
 * `size` -> radius of the cylinders
-* `caps` `cap1` `cap2` -> which caps should be used at the end of the curve, similar to `caps` modifiers on cylinder
+* `caps` -> which caps should be used at the end of the curve, similar to `caps` modifiers on cylinder
 * `joints` -> which connection type should be used between the segments, supported values are:
   - `cgl3d.connect.round` -> insert spheres at the connection points between cylinders
   - `cgl3d.connect.flat` -> extend cylinders until they meet in a flat surface
