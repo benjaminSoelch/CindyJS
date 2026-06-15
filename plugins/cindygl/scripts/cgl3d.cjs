@@ -102,8 +102,6 @@ cgl3d.prepareRender = () => (
   defaultZ = max(abs(x1-x0),abs(y1-y0));
   z0 = if(isUndefined(z0),-defaultZ,zoom*z0);
   z1 = if(isUndefined(z1),defaultZ,zoom*z1);
-  skewFactor = cglValOrDefault(skewFactor,0.5);
-  zScale = cglValOrDefault(zScale,1);
   projection = [
       [(x1-x0)/2,0,0,(x0+x1)/2],
       [0,(y1-y0)/2,0,(y0+y1)/2],
@@ -122,8 +120,8 @@ cgl3d.render = () => (
   cgl3dFinishRender();
 );
 // prevent capturing of global variables
-cglInterface("render3d",cglRender3d,(),(layers,image,screenCorners,p0,p1,skewFactor,zScale,z0,z1));
-cglRender3d() := cgl3d.render.();
+render3d(layers->cglNada,image->cglNada,screenCorners->cglNada,
+  p0->cglNada,p1->cglNada,skewFactor->0.5,zScale->1,z0->cglNada,z1->cglNada) := cgl3d.render.();
 cgl3d.addObject = (obj) => (
   regional(id,opaqueIf);
   id = cgl3dObjectId(obj);
@@ -1633,7 +1631,7 @@ cgl3d.resetDefaults.(); // initialisation of code complete -> can initialize def
 
 // opt TODO:
 // TODO speed up mesh3d for large meshes
-// TODO? store texture-name in plotModifier instead of lambda-modifier
+// TODO? store texture-name in plotModifiers instead of lambda-modifier
 // TODO is there a way to avoid recompilation when texture changes
 // TODO? prevent recompilation when lambda modifier changes
 // TODO? WEBGL.get*Parameter is slow try to avoid use
@@ -1951,7 +1949,7 @@ draw3d(pos3d,color->cgl3d.defaults.sphereColor,texture->cglNada,
   projection->cgl3d.defaults.sphereProjection,
   light->cgl3d.defaults.light,plotModifiers->{}
 ):=(
-  cglSphere3d(pos3d,size,
+  sphere3d(pos3d,size,
     color->color,texture->texture,colorBack->colorBack,textureBack->textureBack,
     alpha->alpha,projection->projection,light->light,plotModifiers->plotModifiers
   );
@@ -1962,20 +1960,17 @@ sphere3d(pos3d,color->cgl3d.defaults.sphereColor,texture->cglNada,
   projection->cgl3d.defaults.sphereProjection,
   light->cgl3d.defaults.light,plotModifiers->{}
 ):=(
-  cglSphere3d(pos3d,size,
+  sphere3d(pos3d,size,
     color->color,texture->texture,colorBack->colorBack,textureBack->textureBack,
     alpha->alpha,projection->projection,light->light,plotModifiers->plotModifiers
   );
 );
 
-cglInterface("sphere3d",cglSphere3d,(center,radius),(color,texture,colorBack,textureBack,alpha,
-  light,projection,plotModifiers));
-cglSphere3d(center,radius):=(
+sphere3d(center,radius,
+  color->cgl3d.defaults.sphereColor,texture->cglNada,colorBack->cglNada,textureBack->cglNada,
+  projection->cgl3d.defaults.sphereProjection,
+  alpha->cgl3d.defaults.sphereAlpha,light->cgl3d.defaults.light,plotModifiers->{}):=(
   regional(needBackFace,modifiers,ids,topLayer,hasAlpha,usesAlpha,exprData,opacityExpr);
-  color = cglValOrDefault(color,cgl3d.defaults.sphereColor);
-  light = cglValOrDefault(light,cgl3d.defaults.light);
-  projection = cglValOrDefault(projection,cgl3d.defaults.sphereProjection);
-  alpha = cglValOrDefault(alpha,cgl3d.defaults.sphereAlpha);
   hasAlpha = ! isUndefined(alpha);
   alpha = cglValOrDefault(alpha,1);
   modifiers = {"cglLight": light,"cglProjection":projection};
@@ -2004,8 +1999,7 @@ draw3d(point1,point2,color->cgl3d.defaults.cylinderColor,colors->cglNada,texture
   projection->cgl3d.projection.cylinder,
   light->cgl3d.defaults.light,plotModifiers->{}
 ):=(
-  
-  cglCylinder3d((point1+point2)/2,(point2-point1)/2,size,color->color,colors->colors,texture->texture,
+  cylinder3d((point1+point2)/2,(point2-point1)/2,size,color->color,colors->colors,texture->texture,
     colorBack->colorBack,colorsBack->colorsBack,textureBack->textureBack,
     alpha->alpha,caps->caps,renderBack->renderBack,direction1->direction1,
     projection->projection,light->light,plotModifiers->plotModifiers
@@ -2018,18 +2012,21 @@ cylinder3d(center,orientation,color->cgl3d.defaults.cylinderColor,colors->cglNad
   projection->cgl3d.projection.cylinder,
   light->cgl3d.defaults.light,plotModifiers->{}
 ):=(
-  cglCylinder3d(center,orientation,size,color->color,colors->colors,texture->texture,
+  cylinder3d(center,orientation,size,color->color,colors->colors,texture->texture,
     colorBack->colorBack,colorsBack->colorsBack,textureBack->textureBack,
     alpha->alpha,caps->caps,renderBack->renderBack,direction1->direction1,
     projection->projection,light->light,plotModifiers->plotModifiers
   );
 );
-cglInterface("cylinder3d",cglCylinder3d,(center,orientation,radius),(color,colors,texture,
-  colorBack,colorsBack,textureBack,alpha,light,caps,
-  projection,direction1,plotModifiers,renderBack));
-cglCylinder3d(center,orientation,radius):=(
+cylinder3d(center,orientation,radius,
+  color->cgl3d.defaults.cylinderColor,colors->cglNada,texture->cglNada,
+  colorBack->cglNada,colorsBack->cglNada,textureBack->cglNada,
+  caps->cgl3d.defaults.cylinderCaps,renderBack->false,
+  // if true back-face should always be rendered
+  direction1->cglNada,projection->cgl3d.projection.cylinder,
+  alpha->cgl3d.defaults.cylinderAlpha,light->cgl3d.defaults.light,plotModifiers->{}
+):=(
   regional(cap1,cap2,overhang,needBackFace,modifiers,n,ids,topLayer,hasAlpha,usesAlpha,exprData,opacityExpr);
-  color = cglValOrDefault(color,cgl3d.defaults.cylinderColor);
   if(!isUndefined(colors),
     if(length(colors)!=2,
       cglLogWarning("wrong length for colors expected 2 got: "+text(length(colors)));
@@ -2042,17 +2039,12 @@ cglCylinder3d(center,orientation,radius):=(
       colors = cglNada;
     );
   );
-  light = cglValOrDefault(light,cgl3d.defaults.light);
-  caps = cglValOrDefault(caps,cgl3d.defaults.cylinderCaps);
   if(isList(caps),
     cap1 = caps_1; cap2 = caps_2;
   ,
     cap1 = cap2 = caps;
   );
-  renderBack = cglValOrDefault(renderBack,false); // if true back-face should always be rendered
-  projection = cglValOrDefault(projection,cgl3d.projection.cylinder);
   overhang = if(cap1_"name" == "Round" % cap2_"name" == "Round",radius,0);
-  alpha = cglValOrDefault(alpha,cgl3d.defaults.cylinderAlpha);
   hasAlpha = !isUndefined(alpha);
   alpha = cglValOrDefault(alpha,1);
   modifiers = {"cglLight": light,
@@ -2122,11 +2114,11 @@ connect3d(points,
   color->cgl3d.defaults.cylinderColor,colors->cglNada,texture->cglNada,
   colorBack->cglNada,colorsBack->cglNada,textureBack->cglNada,
   caps->cgl3d.defaults.curveCaps,joints->cgl3d.defaults.curveJoints,
-  closed->false,
+  closed->false,renderBack->false,
   size->cgl3d.defaults.cylinderSize,alpha->cgl3d.defaults.cylinderAlpha,
   light->cgl3d.defaults.light,plotModifiers->{}
 ):=(
-  regional(cap1,cap2,jointEnd,jointStart,totalLength,alpha0,a,b,current1,current2,prev,next,projection,nextColor,cylinderColors,direction1,cutDir,renderBack);
+  regional(cap1,cap2,jointEnd,jointStart,totalLength,alpha0,a,b,current1,current2,prev,next,projection,nextColor,cylinderColors,direction1,cutDir);
   if(isList(caps),
     cap1 = caps_1; cap2 = caps_2;
   ,
@@ -2145,6 +2137,7 @@ connect3d(points,
     // a:col1 b:col2 b:col3 b:col4 c:col5 -> a:col1 b:col2 ; b:col4 c:col5
     colors = remove(apply(1..length(points),i,if(if(i>1,points_(i-1)==points_i,false),-1,colors_i)),-1);
   );
+  // TODO: handle colorsBack
   prev = -1;
   points = remove(apply(points,p,if(p == prev,-1,prev=p;p)),-1);
   if(length(points)>=3,
@@ -2155,6 +2148,8 @@ connect3d(points,
         pos0=cgl3d.projection.cylinder.(normal,height,orientation);
         (pos0_1,cglSegmentEnd*pos0_2+cglSegmentStart*(1-pos0_2))
       );
+    ,
+      projection = cgl3d.projection.cylinder
     );
     totalLength = sum(consecutive(points),pts,|pts_1-pts_2|);
     if(closed,totalLength = totalLength + |points_1-points_(length(points))|);
@@ -2187,7 +2182,13 @@ connect3d(points,
       plotModifiers_"cglSegmentStart"=a;
       plotModifiers_"cglSegmentEnd"=b;
       alpha = alpha0;
-      ids = [cglCylinder3d((current1+current2)/2,(current2-current1)/2,size,caps->[cap1,cglJoint(current1,current2,next,jointEnd)],colors->cylinderColors)];
+      ids = [cylinder3d(
+          (current1+current2)/2,(current2-current1)/2,size,
+          caps->[cap1,cglJoint(current1,current2,next,jointEnd)],colors->cylinderColors,
+          color->color,texture->texture,colorBack->colorBack,textureBack->textureBack,
+          alpha->alpha,renderBack->renderBack,direction1->direction1,
+          projection->projection,light->light,plotModifiers->plotModifiers
+        )];
     );
     ids = ids ++ apply(if(closed,2,4)..length(points),i,
       prev = current1;
@@ -2202,8 +2203,12 @@ connect3d(points,
       plotModifiers_"cglSegmentStart"=a;
       plotModifiers_"cglSegmentEnd"=b;
       alpha = alpha0;
-      cglCylinder3d((current1+current2)/2,(current2-current1)/2,size,colors->cylinderColors,
-        caps->[cglJoint(prev,current1,current2,jointStart),cglJoint(current1,current2,next,jointEnd)]);
+      cylinder3d((current1+current2)/2,(current2-current1)/2,size,colors->cylinderColors,
+        caps->[cglJoint(prev,current1,current2,jointStart),cglJoint(current1,current2,next,jointEnd)],
+        color->color,texture->texture,colorBack->colorBack,textureBack->textureBack,
+        alpha->alpha,renderBack->renderBack,direction1->direction1,
+        projection->projection,light->light,plotModifiers->plotModifiers
+      );
     );
     cylinderColors = [cylinderColors_1,nextColor];
     a = b;b = a + |current2-next|/totalLength;
@@ -2212,27 +2217,39 @@ connect3d(points,
     cutDir = normalize((normalize(next-current2)+normalize(current2-current1)));
     direction1 = direction1-2*(direction1*cutDir)*cutDir; // mirror direction at cut-plane
     alpha = alpha0;
-    flatten(append(ids,cglCylinder3d((current2+next)/2,(next-current2)/2,size,colors->[cylinderColors_2,nextColor],
-        caps->[cglJoint(current1,current2,next,jointStart),if(closed,cglJoint(current2,next,points_1,jointEnd),cap2)])));
+    flatten(append(ids,cylinder3d((current2+next)/2,(next-current2)/2,size,
+        colors->[cylinderColors_2,nextColor],
+        caps->[cglJoint(current1,current2,next,jointStart),if(closed,cglJoint(current2,next,points_1,jointEnd),cap2)],
+        color->color,texture->texture,colorBack->colorBack,textureBack->textureBack,
+        alpha->alpha,renderBack->renderBack,direction1->direction1,
+        projection->projection,light->light,plotModifiers->plotModifiers
+      )));
   ,if(length(points)==2,
-    cglCylinder3d((points_1+points_2)/2,(points_2-points_1)/2,size,colors->cglValOrDefault(colors,[color,color]));
+    cylinder3d((points_1+points_2)/2,(points_2-points_1)/2,size,
+      color->color,colors->colors,texture->texture,colorBack->colorBack,textureBack->textureBack,
+      alpha->alpha,caps->caps,renderBack->renderBack,direction1->direction1,
+      light->light,plotModifiers->plotModifiers
+    );
   ,if(length(points)==1,
     if(!isUndefined(colors),
       color = colors_1
     );
-    cglSphere3d(points_1,size);
+    sphere3d(points_1,size,
+      color->color,texture->texture,colorBack->colorBack,textureBack->textureBack,
+      alpha->alpha,light->light,plotModifiers->plotModifiers
+    );
   )));
 );
 curve3d(expr.(t),from,to,color->cgl3d.defaults.cylinderColor,colors->cglNada,texture->cglNada,
   colorBack->cglNada,colorsBack->cglNada,textureBack->cglNada,
-  samples->cgl3d.defaults.curveSamples,closed->false,
+  samples->cgl3d.defaults.curveSamples,closed->false,renderBack->false,
   caps->cgl3d.defaults.curveCaps,joints->cgl3d.defaults.curveJoints,
   size->cgl3d.defaults.cylinderSize,alpha->cgl3d.defaults.cylinderAlpha,
   light->cgl3d.defaults.light,plotModifiers->{}
 ):=(
   samples = cglValOrDefault(samples,cgl3d.defaults.curveSamples)-1;
   if(from==to,
-    cglSphere3d(expr.(from),size,
+    sphere3d(expr.(from),size,
       color->color,texture->texture,colorBack->colorBack,textureBack->textureBack,
       alpha->alpha,light->light,plotModifiers->plotModifiers
     );
@@ -2243,21 +2260,19 @@ curve3d(expr.(t),from,to,color->cgl3d.defaults.cylinderColor,colors->cglNada,tex
     ),
       color->color,colors->colors,texture->texture,
       colorBack->colorBack,colorsBack->colorsBack,textureBack->textureBack,
-      closed->closed,caps->caps,joints->joints,size->size,
+      closed->closed,renderBack->renderBack,caps->caps,joints->joints,size->size,
       alpha->alpha,light->light,plotModifiers->plotModifiers
     );
   );
 );
 
-cglInterface("torus3d",cglTorus3d,(center,orientation,radius1,radius2),(color,texture,
-  colorBack,textureBack,alpha,light,arcRange,angle1range,angle2range,
-  direction1,plotModifiers));
-cglTorus3d(center,orientation,radius1,radius2):=(
+torus3d(center,orientation,radius1,radius2,color->cgl3d.defaults.torusColor,texture->cglNada,
+  colorBack->cglNada,textureBack->cglNada,alpha->cgl3d.defaults.torusAlpha,
+  arcRange->cglNada,angle1range->cglNada,angle2range->cglNada,
+  direction1->cglNada,light->cgl3d.defaults.light,plotModifiers->{}
+):=(
   regional(needBackFace,modifiers,ids,topLayer,hasAlpha,usesAlpha,exprData,pixelExpr,opacityExpr);
   orientation=normalize(orientation);
-  color = cglValOrDefault(color,cgl3d.defaults.torusColor);
-  light = cglValOrDefault(light,cgl3d.defaults.light);
-  alpha = cglValOrDefault(alpha,cgl3d.defaults.torusAlpha);
   hasAlpha = !isUndefined(alpha);
   alpha = cglValOrDefault(alpha,1);
   modifiers = {
@@ -2332,16 +2347,31 @@ cglTorus3d(center,orientation,radius1,radius2):=(
     plotModifiers->modifiers,opaqueIf->opacityExpr));
   ids=if(needBackFace,append(ids,topLayer),topLayer);
 );
+
+torus3d(center,orientation,radius,size->cgl3d.defaults.torusSize,
+  color->cgl3d.defaults.torusColor,texture->cglNada,
+  colorBack->cglNada,textureBack->cglNada,alpha->cgl3d.defaults.torusAlpha,
+  arcRange->cglNada,angle1range->cglNada,angle2range->cglNada,
+  direction1->cglNada,light->cgl3d.defaults.light,plotModifiers->{}
+):=(
+  torus3d(center,orientation,radius,size,
+    color->color,texture->texture,colorBack->colorBack,textureBack->textureBack,
+    alpha->alpha,arcRange->arcRange,angle1range->angle1range,angle2range->angle2range,
+    direction1->direction1,light->light,plotModifiers->plotModifiers
+  );
+);
 // feature TODO? option to use aspect ratio instead of second radius
-cglInterface("circle3d",cglCircle3d,(center,orientation,radius),(color,texture,
-  colorBack,textureBack,size,alpha,
-  light,arcRange,angle1range,angle2range,direction1,plotModifiers));
-cglInterface("torus3d",cglCircle3d,(center,orientation,radius),(color,texture,
-  colorBack,textureBack,size,alpha,
-  light,arcRange,angle1range,angle2range,direction1,plotModifiers));
-cglCircle3d(center,orientation,radius):=(
-  size = cglValOrDefault(size,cgl3d.defaults.torusSize);
-  cglTorus3d(center,orientation,radius,size);
+circle3d(center,orientation,radius,size->cgl3d.defaults.torusSize,
+  color->cgl3d.defaults.torusColor,texture->cglNada,
+  colorBack->cglNada,textureBack->cglNada,alpha->cgl3d.defaults.torusAlpha,
+  arcRange->cglNada,angle1range->cglNada,angle2range->cglNada,
+  direction1->cglNada,light->cgl3d.defaults.light,plotModifiers->{}
+):=(
+  torus3d(center,orientation,radius,size,
+    color->color,texture->texture,colorBack->colorBack,textureBack->textureBack,
+    alpha->alpha,arcRange->arcRange,angle1range->angle1range,angle2range->angle2range,
+    direction1->direction1,light->light,plotModifiers->plotModifiers
+  );
 );
 
 cglCheckSize(vData,vCount,msg,defVal) := (
@@ -2363,18 +2393,24 @@ cglCheckSize(vData,vCount,msg) := (
 // code TODO? consistent order of spacePos and texture pos
 cglNormalExpr(expr.(spacePos,texturePos)):=expr;
 // feature TODO? normalTexture to be plugged into normals (texture of normal vectors)
-cglInterface("draw3d",cglTriangle3d,(p1,p2,p3),(color,colors,texture,colorBack,colorsBack,
-  textureBack,alpha,light,uv,normal,normals,
-  plotModifiers,vertexModifiers));
-cglInterface("triangle3d",cglTriangle3d,(p1,p2,p3),(color,colors,texture,colorBack,colorsBack,
-  textureBack,alpha,light,uv,normal,normals,
-  plotModifiers,vertexModifiers));
-cglTriangle3d(p1,p2,p3):=(
+draw3d(p1,p2,p3,color->cgl3d.defaults.triangleColor,colors->cglNada,texture->cglNada,
+  colorBack->cglNada,colorsBack->cglNada,textureBack->cglNada,alpha->cgl3d.defaults.triangleAlpha,
+  uv->[(0,0),(1,0),(0,1)],normal->cglNada,normals->cglNada,
+  light->cgl3d.defaults.light,plotModifiers->{},vertexModifiers->{}
+):=(
+  triangle3d(p1,p2,p3,
+    color->color,colors->colors,texture->texture,
+    colorBack->colorBack,colorsBack->colorsBack,textureBack->textureBack,
+    alpha->alpha,uv->uv,normal->normal,normals->normals,
+    light->light,plotModifiers->plotModifiers,vertexModifiers->vertexModifiers
+  );
+);
+triangle3d(p1,p2,p3,color->cgl3d.defaults.triangleColor,colors->cglNada,texture->cglNada,
+  colorBack->cglNada,colorsBack->cglNada,textureBack->cglNada,alpha->cgl3d.defaults.triangleAlpha,
+  uv->[(0,0),(1,0),(0,1)],normal->cglNada,normals->cglNada,
+  light->cgl3d.defaults.light,plotModifiers->{},vertexModifiers->{}
+):=(
   regional(normalExpr,modifiers,vModifiers,defNormal,hasAlpha,usesAlpha,exprData,pixelExpr,colLen,opacityExpr);
-  color = cglValOrDefault(color,cgl3d.defaults.triangleColor);
-  light = cglValOrDefault(light,cgl3d.defaults.light);
-  uv = cglValOrDefault(uv,[(0,0),(1,0),(0,1)]);
-  alpha = cglValOrDefault(alpha,cgl3d.defaults.triangleAlpha);
   hasAlpha = !isUndefined(alpha);
   alpha = cglValOrDefault(alpha,1);
   modifiers = {
@@ -2426,12 +2462,14 @@ cglTriangle3d(p1,p2,p3):=(
 // ? auto-merge rendered triangles with similar parameters into single render-call
 
 // render multiple triangles in a single call
-cglInterface("triangles3d",cglTriangles3d,(triangles),(color,colors,texture,colorBack,colorsBack,
-  textureBack,alpha,light,uv,normals,normalType,plotModifiers,vertexModifiers));
-cglTriangles3d(triangles):=(
+triangles3d(triangles,
+  color->cgl3d.defaults.triangleColor,colors->cglNada,texture->cglNada,
+  colorBack->cglNada,colorsBack->cglNada,textureBack->cglNada,
+  alpha->cgl3d.defaults.triangleAlpha,uv->cglNada,
+  normals->cglNada,normalType->cgl3d.normalType.triangle,
+  light->cgl3d.defaults.light,plotModifiers->{},vertexModifiers->{}
+):=(
   regional(modifiers,vModifiers,normalExpr,defNormal,hasAlpha,usesAlpha,exprData,pixelExpr,colLen,opacityExpr,v1,v2,v3,triuv,n,cols,vertices,triangleCount);
-  color = cglValOrDefault(color,cgl3d.defaults.triangleColor);
-  light = cglValOrDefault(light,cgl3d.defaults.light);
   vertices = if(islist(triangles_1_1),
     flatten(triangles)
   ,
@@ -2474,7 +2512,6 @@ cglTriangles3d(triangles):=(
     ))
     )
   );
-  alpha = cglValOrDefault(alpha,cgl3d.defaults.triangleAlpha);
   hasAlpha = !isUndefined(alpha);
   alpha = cglValOrDefault(alpha,1);
   modifiers = {
@@ -2551,15 +2588,14 @@ cglTriangles3d(triangles):=(
     plotModifiers->modifiers,vModifiers->vModifiers,opaqueIf->opacityExpr));
 );
 
-cglInterface("polygon3d",cglPolygon3d,(vertices),(triangulation,color,colors,texture,
-  colorBack,colorsBack,textureBack,alpha,light,uv,
-  normal,normals,normalType,plotModifiers,vertexModifiers));
-cglPolygon3d(vertices):=(
+polygon3d(vertices,triangulation->cgl3d.triangulate.default,
+  color->cgl3d.defaults.triangleColor,colors->cglNada,texture->cglNada,
+  colorBack->cglNada,colorsBack->cglNada,textureBack->cglNada,
+  alpha->cgl3d.defaults.triangleAlpha,uv->cglNada,
+  normal->cglNada,normals->cglNada,normalType->cgl3d.normalType.triangle,
+  light->cgl3d.defaults.light,plotModifiers->{},vertexModifiers->{}
+):=(
   regional(modifiers,normalExpr,vModifiers,trianglesAndNormals,hasAlpha,usesAlpha,exprData,pixelExpr,colLen,opacityExpr);
-  color = cglValOrDefault(color,cgl3d.defaults.triangleColor);
-  light = cglValOrDefault(light,cgl3d.defaults.light);
-  triangulation = cglValOrDefault(triangulation,cgl3d.triangulate.default);
-  alpha = cglValOrDefault(alpha,cgl3d.defaults.triangleAlpha);
   hasAlpha = !isUndefined(alpha);
   alpha = cglValOrDefault(alpha,1);
   modifiers = {
@@ -2641,17 +2677,16 @@ cglPolygon3d(vertices):=(
 );
 
 // feature TODO? adjust uv coordinates if side of grid-cell is collapsed
-cglInterface("mesh3d",cglMesh3d,(grid),(color,colors,texture,colorBack,colorsBack,
-  textureBack,alpha,light,uv,
-  normals,normalType,topology,plotModifiers,vertexModifiers));
-cglMesh3d(grid):=(
+mesh3d(grid,
+  color->cgl3d.defaults.triangleColor,colors->cglNada,texture->cglNada,
+  colorBack->cglNada,colorsBack->cglNada,textureBack->cglNada,
+  alpha->cgl3d.defaults.triangleAlpha,uv->cglNada,
+  normals->cglNada,normalType->cglNada,topology->cgl3d.mesh.topologyOpen,
+  light->cgl3d.defaults.light,plotModifiers->{},vertexModifiers->{}
+):=(
   regional(Ny,Nx,normalExpr,triangles,modifiers,vModifiers,exprData,pixelExpr,hasAlpha,usesAlpha,colLen,opacityExpr);
-  color = cglValOrDefault(color,cgl3d.defaults.triangleColor);
-  light = cglValOrDefault(light,cgl3d.defaults.light);
-  alpha = cglValOrDefault(alpha,cgl3d.defaults.triangleAlpha);
   hasAlpha = !isUndefined(alpha);
   alpha = cglValOrDefault(alpha,1);
-  topology = cglValOrDefault(topology,cgl3d.mesh.topologyOpen);
   Ny = length(grid);
   Nx = length(grid_1);
   triangles = cgl3d.mesh.samplesToTriangles.(grid,Nx,Ny,topology,cgl3d.mesh.sampleVertex);
@@ -2727,17 +2762,14 @@ cglMesh3d(grid):=(
 //  * evaluate plot-expr with all given plot-modifiers?
 
 // feature TODO custom projection/uv-mapping from surface to 2D space
-cglInterface("surface3d",cglSurface3d,(expr:(x,y,z)),(color,texture,colorBack,
-  textureBack,alpha,light,dF:(x,y,z),cutoffRegion,degree,layers,plotModifiers));
-cglSurface3d(fun) := (
-    regional(N,nodes,F,normalExpr,N,B,modifiers,viewRect,bounds,usesAlpha,opacityExpr,exprData,pixelExpr);
-    color = cglValOrDefault(color,cgl3d.defaults.surfaceColor);
-    light = cglValOrDefault(light,cgl3d.defaults.light);
-    alpha = cglValOrDefault(alpha,cgl3d.defaults.surfaceAlpha);
-    cutoffRegion = cglValOrDefault(cutoffRegion,cgl3d.defaults.surfaceCutoff);
-    layers = cglValOrDefault(layers,0);
-    // convert function to form taking vector insteads of 3 arguments
-    F = lambda(p,fun.( p.x, p.y, p.z),fun->fun);
+cglSurface3d(F,// lambda: p: vec3 -> float
+  color->cgl3d.defaults.surfaceColor,texture->cglNada,
+  colorBack->cglNada,textureBack->cglNada,alpha->cgl3d.defaults.surfaceAlpha,
+  dF->cglNada,cutoffRegion->cgl3d.defaults.surfaceCutoff,
+  degree->cglNada,layers->0,
+  light->cgl3d.defaults.light,plotModifiers->{}
+):=(
+    regional(N,nodes,normalExpr,N,B,modifiers,viewRect,bounds,usesAlpha,opacityExpr,exprData,pixelExpr);
     normalExpr = if(isUndefined(dF),cgl3d.compute.guessDerivative.(F),lambda(p,dF.(p_1,p_2,p_3),dF->dF));
     if(isUndefined(degree),
       N = min(cglTryDetermineDegree(fun),cglMaxAutoDeg);
@@ -2806,34 +2838,84 @@ cglSurface3d(fun) := (
       );
     );
 );
+surface3d(cgl3dSurfaceExpr.(x,y,z),
+  color->cgl3d.defaults.surfaceColor,texture->cglNada,
+  colorBack->cglNada,textureBack->cglNada,alpha->cgl3d.defaults.surfaceAlpha,
+  dF->cglNada,cutoffRegion->cgl3d.defaults.surfaceCutoff,
+  degree->cglNada,layers->0,
+  light->cgl3d.defaults.light,plotModifiers->{}
+) := (
+  regional(cgl3dSurfaceExpr0);
+  cgl3dSurfaceExpr0 = cgl3dSurfaceExpr.(0,0,0);
+  if(isLambda(cgl3dSurfaceExpr0),cgl3dSurfaceExpr=cgl3dSurfaceExpr0);
+  // convert function to form taking vector insteads of 3 arguments
+  cglSurface3d(lambda(p,cgl3dSurfaceExpr.(p.x, p.y, p.z),cgl3dSurfaceExpr->cgl3dSurfaceExpr),
+    color->color,texture->texture,colorBack->colorBack,textureBack->textureBack,alpha->alpha,
+    dF->dF,cutoffRegion->cutoffRegion,degree->degree,layers->layers,
+    light->light,plotModifiers->plotModifiers
+  );
+);
 
 // feature TODO: allow using function value in color-expression (? accessible through special modifier)
-// feature TODO! compute surface dF from function df
-cglInterface("plot3d",cglPlot3d,(f:(x,y)),(color,texture,colorBack,textureBack,
-  alpha,light,df:(x,y),cutoffRegion,degree,layers,plotModifiers));
-cglPlot3d(f/*f(x,y)*/):=(
+plot3d(cgl3dPlotExpr.(x,y),
+  color->cgl3d.defaults.surfaceColor,texture->cglNada,
+  colorBack->cglNada,textureBack->cglNada,alpha->cgl3d.defaults.surfaceAlpha,
+  df->cglNada,cutoffRegion->cgl3d.defaults.surfaceCutoff,
+  degree->cglNada,layers->0,
+  light->cgl3d.defaults.light,plotModifiers->{}
+):=(
+  regional(cgl3dPlotExpr0);
+  cgl3dPlotExpr0 = cgl3dPlotExpr.(0,0);
+  if(isLambda(cgl3dPlotExpr0),cgl3dPlotExpr=cgl3dPlotExpr0);
   if(isUndefined(degree),
-      degree = min(cglTryDetermineDegree(f),cglMaxAutoDeg);
+      degree = min(cglTryDetermineDegree(cgl3dPlotExpr),cglMaxAutoDeg);
   );
-  cglSurface3d(lambda((x,y,z),f.(x,y)-z,f->f),degree->degree);
+  cglSurface3d(lambda(p,cgl3dPlotExpr.(p.x,p.y)-p.z,cgl3dPlotExpr->cgl3dPlotExpr),
+    color->color,texture->texture,colorBack->colorBack,textureBack->textureBack,alpha->alpha,
+    dF->cglNada/*lambda((x,y,z),,df->df)*/,//TODO: compute surface dF from df
+    cutoffRegion->cutoffRegion,degree->degree,layers->layers,
+    light->light,plotModifiers->plotModifiers
+  );
 );
-cglInterface("complexplot3d",cglCPlot3d,(f:(z)),(color,texture,colorBack,
-  textureBack,alpha,light,df:(z),
-  cutoffRegion,degree,layers,plotModifiers));
-cglInterface("cplot3d",cglCPlot3d,(f:(z)),(color,texture,colorBack,
-  textureBack,alpha,light,df:(z),
-  cutoffRegion,degree,layers,plotModifiers));
-cglCPlot3d(f/*f(z)*/):=(
+
+complexplot3d(cgl3dPlotExpr.(z),
+  color->cgl3d.defaults.surfaceColor,texture->cglNada,
+  colorBack->cglNada,textureBack->cglNada,alpha->cgl3d.defaults.surfaceAlpha,
+  df->cglNada,cutoffRegion->cgl3d.defaults.surfaceCutoff,
+  degree->cglNada,layers->0,
+  light->cgl3d.defaults.light,plotModifiers->{}
+):=(
+  cplot3d(cgl3dPlotExpr,
+    color->color,texture->texture,colorBack->colorBack,textureBack->textureBack,alpha->alpha,
+    df->df,cutoffRegion->cutoffRegion,degree->degree,layers->layers,
+    light->light,plotModifiers->plotModifiers
+  );
+);
+cplot3d(cgl3dPlotExpr.(z),
+  color->cglNada,texture->cglNada,
+  colorBack->cglNada,textureBack->cglNada,alpha->cgl3d.defaults.surfaceAlpha,
+  df->cglNada,cutoffRegion->cgl3d.defaults.surfaceCutoff,
+  degree->cglNada,layers->0,
+  light->cgl3d.defaults.light,plotModifiers->{}
+):=(
+  regional(cgl3dPlotExpr0);
+  cgl3dPlotExpr0 = cgl3dPlotExpr.(0,0,0);
+  if(isLambda(cgl3dPlotExpr0),cgl3dPlotExpr=cgl3dPlotExpr0);
   if(isUndefined(color) & isUndefined(texture), // TODO find better condition for choosing phase-coloring
     color = {
       "type": "expr",
       "expr": lambda((texturePos,spacePos,normal),
         regional(z);
-        z=f.(spacePos_1+i*spacePos_2);
+        z=cgl3dPlotExpr.(spacePos_1+i*spacePos_2);
         hue((arctan2(re(z),im(z))+pi)/(2*pi))
-      ,f->f),
+      ,cgl3dPlotExpr->cgl3dPlotExpr),
       "hasAlpha": false
     };
   );
-  cglSurface3d(lambda((x,y,z),abs(f.(x+i*y))-z,f->f),degree->cglValOrDefault(degree,-1));
+  cglSurface3d(lambda(p,abs(cgl3dPlotExpr.(p.x+i*p.y))-p.z,cgl3dPlotExpr->cgl3dPlotExpr),
+    color->color,texture->texture,colorBack->colorBack,textureBack->textureBack,alpha->alpha,
+    dF->cglNada/*lambda((x,y,z),,df->df)*/,//TODO: compute surface dF from df
+    cutoffRegion->cutoffRegion,degree->cglValOrDefault(degree,-1),layers->layers,
+    light->light,plotModifiers->plotModifiers
+  );
 );
