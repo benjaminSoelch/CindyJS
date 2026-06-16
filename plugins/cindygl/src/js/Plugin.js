@@ -240,110 +240,6 @@ let CindyGL = function(api) {
         return undefined;
     }
 
-    /**
-     * @param {CindyJS.anyval} paramArg
-     * @returns {Array<CindyJS.anyval>}
-     *  */
-    function lambdaParams(paramArg){
-        if(paramArg['ctype'] === "list") {
-            return paramArg['value'];
-        } else if(paramArg['ctype'] === "function" && paramArg['oper'] === "genList"){
-            return paramArg['args'];
-        } else {
-            return [paramArg];
-        }
-    }
-    /** replace all occurences of names in argValues in the given expression with their corresponding value
-        @param {Map<string,CindyJS.anyval>} argValues
-    */
-    function replaceVariables(expr,argValues){
-        if(expr['ctype'] === 'variable') {
-            const name = expr['name'];
-            // TODO? are there any unhandled cases of variable shadowing
-            if(argValues.has(name))
-                return argValues.get(name);
-            // name not matched
-            return expr;
-        } else if(expr['ctype'] === 'field') {
-            // create copy of expression
-            let newExpr = Object.assign({}, expr);
-            // do not replace key for field
-            newExpr['obj'] = replaceVariables(expr['obj'],argValues);
-            return newExpr;
-        } else if(expr['ctype'] === 'userdata') {
-            // create copy of expression
-            let newExpr = Object.assign({}, expr);
-            newExpr['key'] = replaceVariables(expr['key'],argValues);
-            newExpr['obj'] = replaceVariables(expr['obj'],argValues);
-            return newExpr;
-        } else if(expr.hasOwnProperty('args')) {
-            let newArgs;
-            if(expr['ctype'] === 'function' && ["repeat$2", "forall$2", "apply$2", "sum$2", "product$2"].includes(expr['oper'])) {
-                // treat loop-body as seperate scope
-                let argValues2 = /** @type {Map<string,CindyJS.anyval>}*/ (new Map(argValues));
-                argValues2.delete("#");
-                newArgs = [replaceVariables(expr['args'][0],argValues),replaceVariables(expr['args'][1],argValues2)];
-            } else if(expr['ctype'] === 'function' && ["repeat$3", "forall$3", "apply$3", "sum$3", "product$3"].includes(expr['oper'])) {
-                const itrName = expr['args'][1]['name'];
-                // treat loop-body as seperate scope
-                let argValues2 = /** @type {Map<string,CindyJS.anyval>}*/ (new Map(argValues));
-                argValues2.delete(itrName);
-                newArgs = [replaceVariables(expr['args'][0],argValues),expr['args'][1],replaceVariables(expr['args'][2],argValues2)];
-            } else if(expr['ctype'] === 'function' && expr['oper'] === "lambda$2") {
-                const params = lambdaParams(expr['args'][0]);
-                // seperate scope within body -> create copy of argValues
-                let argValues2 = /** @type {Map<string,CindyJS.anyval>}*/ (new Map(argValues));
-                params.forEach(v=>{
-                    argValues2.delete(v['name']);
-                });
-                newArgs = [replaceVariables(expr['args'][0],argValues),replaceVariables(expr['args'][1],argValues2)];
-            } else if(expr['oper'] === "=" && argValues.has(expr['args'][0]['name'])) {
-                let argVal = argValues.get(expr['args'][0]['name']);
-                if(argVal['name'] && argVal['name'].includes("_")) {
-                    // regional variable
-                    newArgs = expr['args'].map((oldArg)=>replaceVariables(oldArg,argValues));
-                } else {
-                    // TODO? how to handle (conditional) assignment to lambda parameter
-                    cglLogError(`assignment to lambda parameter "${expr['args'][0]['name']}" is not supported`);
-                }
-            } else if(expr['oper'] === ":=") {
-                const lhs = expr['args'][0];
-                const rhs = expr['args'][1];
-                const params = lhs['args'] === undefined ? [] : lhs['args'];
-                // seperate scope for function body
-                let argValues2 = /** @type {Map<string,CindyJS.anyval>}*/ (new Map(argValues));
-                params.forEach(v=>{
-                    argValues2.delete(v['name']);
-                });
-                newArgs = [lhs,replaceVariables(rhs,argValues2)];
-            } else if(expr['ctype'] === 'function' && getPlainName(expr['oper']) === "regional") {
-                newArgs = expr['args'].map(v=>{
-                    let renamed = /** @type CindyJS.anyval*/(Object.assign({}, v));
-                    // regional variables in api.evaluate leak into enclosing scope
-                    // -> set name to invalid identifier to ensure variable stays within eval-block
-                    renamed['name']=`0_${v['name']}`;
-                    argValues.set(v['name'],renamed); // regional shaddows argument
-                    return renamed;
-                });
-            } else {
-                newArgs = expr['args'].map((oldArg)=>replaceVariables(oldArg,argValues));
-            }
-            // create copy of expression
-            let newExpr = Object.assign({}, expr);
-            newExpr['args'] = newArgs;
-            if(expr['modifs'] !== undefined) {
-                let newMods = {};
-                Object.entries(expr['modifs']).forEach(([key,oldMod])=>{
-                    newMods[key]=replaceVariables(oldMod,argValues);
-                });
-                newExpr['modifs'] = newMods;
-            }
-            return newExpr;
-        }
-        // TODO is this enough to replace all lambda params
-        return expr;
-    }
-
     api.defineFunction("forcerecompile", 0, (args, modifs) => {
         requiredcompiletime++;
         return nada;
@@ -761,8 +657,6 @@ let CindyGL = function(api) {
         obj3d.data.set("opaqueIf",api.evaluate(modifs['opaqueIf'] || nada));
         return {"ctype":"cgl3dObject","value":obj3d};
     });
-
-    // TODO? automatic update of coordinate system to match render region of screen
 
     function getDefinedValueOrNull(expr) {
         if (expr === undefined || expr === null) return null;
