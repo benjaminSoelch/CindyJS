@@ -2772,7 +2772,6 @@ cglSurface3d(F,// lambda: p: vec3 -> float
     regional(N,nodes,normalExpr,N,B,modifiers,viewRect,bounds,usesAlpha,opacityExpr,exprData,pixelExpr);
     normalExpr = if(isUndefined(dF),cgl3d.compute.guessDerivative.(F),lambda(p,dF.(p_1,p_2,p_3),dF->dF));
     if(isUndefined(degree),
-      N = min(cglTryDetermineDegree(fun),cglMaxAutoDeg);
       if(isUndefined(N),
         N = min(cgl3d.compute.guessDegree.(F),cglMaxAutoDeg);
       ,if(N<0,
@@ -2845,9 +2844,26 @@ surface3d(cgl3dSurfaceExpr.(x,y,z),
   degree->cglNada,layers->0,
   light->cgl3d.defaults.light,plotModifiers->{}
 ) := (
-  regional(cgl3dSurfaceExpr0);
-  cgl3dSurfaceExpr0 = cgl3dSurfaceExpr.(0,0,0);
-  if(isLambda(cgl3dSurfaceExpr0),cgl3dSurfaceExpr=cgl3dSurfaceExpr0);
+  if(isUndefined(degree),
+      degree = min(cglTryDetermineDegree(cgl3dSurfaceExpr),cglMaxAutoDeg);
+  );
+  // convert function to form taking vector insteads of 3 arguments
+  cglSurface3d(lambda(p,cgl3dSurfaceExpr.(p.x, p.y, p.z),cgl3dSurfaceExpr->cgl3dSurfaceExpr),
+    color->color,texture->texture,colorBack->colorBack,textureBack->textureBack,alpha->alpha,
+    dF->dF,cutoffRegion->cutoffRegion,degree->degree,layers->layers,
+    light->light,plotModifiers->plotModifiers
+  );
+);
+surface3dL(cgl3dSurfaceExpr,
+  color->cgl3d.defaults.surfaceColor,texture->cglNada,
+  colorBack->cglNada,textureBack->cglNada,alpha->cgl3d.defaults.surfaceAlpha,
+  dF->cglNada,cutoffRegion->cgl3d.defaults.surfaceCutoff,
+  degree->cglNada,layers->0,
+  light->cgl3d.defaults.light,plotModifiers->{}
+) := (
+  if(isUndefined(degree),
+      degree = min(cglTryDetermineDegree(cgl3dSurfaceExpr),cglMaxAutoDeg);
+  );
   // convert function to form taking vector insteads of 3 arguments
   cglSurface3d(lambda(p,cgl3dSurfaceExpr.(p.x, p.y, p.z),cgl3dSurfaceExpr->cgl3dSurfaceExpr),
     color->color,texture->texture,colorBack->colorBack,textureBack->textureBack,alpha->alpha,
@@ -2864,9 +2880,23 @@ plot3d(cgl3dPlotExpr.(x,y),
   degree->cglNada,layers->0,
   light->cgl3d.defaults.light,plotModifiers->{}
 ):=(
-  regional(cgl3dPlotExpr0);
-  cgl3dPlotExpr0 = cgl3dPlotExpr.(0,0);
-  if(isLambda(cgl3dPlotExpr0),cgl3dPlotExpr=cgl3dPlotExpr0);
+  if(isUndefined(degree),
+      degree = min(cglTryDetermineDegree(cgl3dPlotExpr),cglMaxAutoDeg);
+  );
+  cglSurface3d(lambda(p,cgl3dPlotExpr.(p.x,p.y)-p.z,cgl3dPlotExpr->cgl3dPlotExpr),
+    color->color,texture->texture,colorBack->colorBack,textureBack->textureBack,alpha->alpha,
+    dF->cglNada/*lambda((x,y,z),,df->df)*/,//TODO: compute surface dF from df
+    cutoffRegion->cutoffRegion,degree->degree,layers->layers,
+    light->light,plotModifiers->plotModifiers
+  );
+);
+plot3dL(cgl3dPlotExpr,
+  color->cgl3d.defaults.surfaceColor,texture->cglNada,
+  colorBack->cglNada,textureBack->cglNada,alpha->cgl3d.defaults.surfaceAlpha,
+  df->cglNada,cutoffRegion->cgl3d.defaults.surfaceCutoff,
+  degree->cglNada,layers->0,
+  light->cgl3d.defaults.light,plotModifiers->{}
+):=(
   if(isUndefined(degree),
       degree = min(cglTryDetermineDegree(cgl3dPlotExpr),cglMaxAutoDeg);
   );
@@ -2878,19 +2908,6 @@ plot3d(cgl3dPlotExpr.(x,y),
   );
 );
 
-complexplot3d(cgl3dPlotExpr.(z),
-  color->cgl3d.defaults.surfaceColor,texture->cglNada,
-  colorBack->cglNada,textureBack->cglNada,alpha->cgl3d.defaults.surfaceAlpha,
-  df->cglNada,cutoffRegion->cgl3d.defaults.surfaceCutoff,
-  degree->cglNada,layers->0,
-  light->cgl3d.defaults.light,plotModifiers->{}
-):=(
-  cplot3d(cgl3dPlotExpr,
-    color->color,texture->texture,colorBack->colorBack,textureBack->textureBack,alpha->alpha,
-    df->df,cutoffRegion->cutoffRegion,degree->degree,layers->layers,
-    light->light,plotModifiers->plotModifiers
-  );
-);
 cplot3d(cgl3dPlotExpr.(z),
   color->cglNada,texture->cglNada,
   colorBack->cglNada,textureBack->cglNada,alpha->cgl3d.defaults.surfaceAlpha,
@@ -2898,9 +2915,19 @@ cplot3d(cgl3dPlotExpr.(z),
   degree->cglNada,layers->0,
   light->cgl3d.defaults.light,plotModifiers->{}
 ):=(
-  regional(cgl3dPlotExpr0);
-  cgl3dPlotExpr0 = cgl3dPlotExpr.(0,0,0);
-  if(isLambda(cgl3dPlotExpr0),cgl3dPlotExpr=cgl3dPlotExpr0);
+  cplot3dL(cgl3dPlotExpr,
+    color->color,texture->texture,colorBack->colorBack,textureBack->textureBack,alpha->alpha,
+    df->df,cutoffRegion->cutoffRegion,degree->cglValOrDefault(degree,-1),layers->layers,
+    light->light,plotModifiers->plotModifiers
+  );
+);
+cplot3dL(cgl3dPlotExpr,
+  color->cglNada,texture->cglNada,
+  colorBack->cglNada,textureBack->cglNada,alpha->cgl3d.defaults.surfaceAlpha,
+  df->cglNada,cutoffRegion->cgl3d.defaults.surfaceCutoff,
+  degree->cglNada,layers->0,
+  light->cgl3d.defaults.light,plotModifiers->{}
+):=(
   if(isUndefined(color) & isUndefined(texture), // TODO find better condition for choosing phase-coloring
     color = {
       "type": "expr",
