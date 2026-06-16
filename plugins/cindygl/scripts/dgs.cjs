@@ -512,7 +512,7 @@ dgs3dLoad(values):=(
 // + defined incidences / deduced incidences
 
 // type: string, parents: [obj3d] -> obj3d
-dgs3dNewObject(type,parents):=(
+dgs3dNewObject(type,parents,color->cglNada,alpha->cglNada):=(
   regional(obj,objId);
   objId = dgs3dNewId();
   obj = {
@@ -571,8 +571,7 @@ dgs3dNewObject(type,parents):=(
 );
 
 // TODO? better name
-cglInterface(color3d,dgs3dUpdateColor,(obj),(visible,color,alpha));
-dgs3dUpdateColor(obj):=(
+dgs3dUpdateColor(obj,visible->cglNada,color->cglNada,alpha->cglNada):=(
   obj:"color" = cglColor(cglValOrDefault(color,obj:"color"));
   obj:"alpha" = cglValOrDefault(alpha,obj:"alpha");
   obj:"visible" = cglValOrDefault(alpha,obj:"visible");
@@ -727,10 +726,18 @@ dgs3dPoint4(p):=(
 );
 
 // p: vec3|vec4 = (x,y,z)|(x,y,z,w) ; size: real = radius, pinned: bool = fixed position?, visible: bool = should object be drawn
-cglInterface(point3d,dgs3dNewPoint,(p),(size,pinned,visible,color,alpha));
-dgs3dNewPoint(p):=(
+point3d(p,
+  size->cgl3d.defaults:"sphereSize",pinned->false,visible->true,
+  color->cglNada,alpha->cglNada
+):=(
+  dgs3dNewPoint(p,size->size,pinned->pinned,visible->visible,color->color,alpha->alpha)
+);
+dgs3dNewPoint(p,
+  size->cgl3d.defaults:"sphereSize",pinned->false,visible->true,
+  color->cglNada,alpha->cglNada
+):=(
   regional(obj);
-  obj = dgs3dNewObject("point",[]);
+  obj = dgs3dNewObject("point",[],visible->visible,color->color);
   obj:"coords" = dgs3dPoint4(p);
   obj:"size" = cglValOrDefault(size,cgl3d.defaults:"sphereSize");
   dgs3dRenderPoint(obj);
@@ -744,19 +751,23 @@ dgs3dNewPoint(p):=(
 );
 
 // p: vec4 = (x,y,z,w) , visible: bool = should object be drawn
-cglInterface(plane3d,dgs3dNewPlane,(p),(visible,color,alpha));
-dgs3dNewPlane(p):=(
+plane3d(p,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewPlane(p,visible->visible,color->color,alpha->alpha);
+);
+dgs3dNewPlane(p,visible->true,color->cglNada,alpha->cglNada):=(
   regional(obj);
-  obj = dgs3dNewObject("plane",[]);
+  obj = dgs3dNewObject("plane",[],visible->visible,color->color);
   obj:"coords" = p;
   dgs3dRenderPlane(obj);
   obj
 );
 // p: mat4, visible: bool = should object be drawn
-cglInterface(quadric3d,dgs3dNewQuadric,(p),(visible,color,alpha));
-dgs3dNewQuadric(M):=(
+quadric3d(M,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewQuadric(M,visible->visible,color->color,alpha->alpha);
+);
+dgs3dNewQuadric(M,visible->true,color->cglNada,alpha->cglNada):=(
   regional(obj);
-  obj = dgs3dNewObject("quadric",[]);
+  obj = dgs3dNewObject("quadric",[],visible->visible,color->color);
   obj:"coords" = M;
   dgs3dRenderQuadric(obj);
   obj

@@ -201,8 +201,10 @@ triangulateCube(x0,y0,z0,x1,y1,z1,N):=(
     //triangles = getTriangles(readpixels("buffer"));
 );
 
-cglInterface(triangulate3d,"cglTriangulate",(expr:(x,y,z),p0,p1,N),(gpu));
-cglTriangulate(expr,p0,p1,N):=(
+triangulate3d(expr.(x,y,z),p0,p1,N,gpu->true):=(
+  triangulate3dL(expr,p0,p1,N,gpu->gpu)
+);
+triangulate3dL(expr,p0,p1,N,gpu->true):=(
     regional(tmp,i,vertices,triangles,parts,n,ix,iy,iz);
     x0 = p0_1;
     y0 = p0_2;
