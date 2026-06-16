@@ -41,14 +41,14 @@
             QX = polar3d(Q,X);
             Y = point3d((0,0,0),pinned->true);
             QX:"children" = append(QX:"children",Y);
-            Y:"recompute" = cglLazy(self,
+            Y:"recompute" = lambda(self,
                 regional(n);
                 n = QX:"coords";
                 self:"coords" = X:"coords"+(n_1,n_2,n_3,0);
-                cglEval(self:"redraw",self);
+                eval(self:"redraw",self);
                 DGS3DmOVEoK
             );
-            cglEval(Y:"recompute",Y);
+            eval(Y:"recompute",Y);
             join3d(X,Y);
         </script>
         <script id="csdraw" type="text/x-cindyscript">
