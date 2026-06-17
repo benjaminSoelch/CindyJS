@@ -496,9 +496,7 @@ dgs3dLoad(values):=(
       dgs3dPlanes:(obj:"id") = obj;
     ,if(obj:"type" == "quadric",
       dgs3dQuadrics:(obj:"id") = obj;
-    ,if(obj:"type" == "circle",
-      dgs3dCircles:(obj:"id") = obj;
-    )))));
+    ))));
   );
 );
 
@@ -542,11 +540,6 @@ dgs3dNewObject(type,parents,visible->true,color->cglNada,alpha->cglNada):=(
     obj:"color" = cglColor(cglValOrDefault(color,(0.5,0,1)));
     obj:"alpha" = cglValOrDefault(alpha,0.67);
     obj:"redraw" = lambda(self,dgs3dRenderQuadric(self));
-  ,if(type == "circle",
-    dgs3dCircles:objId = obj;
-    obj:"color" = cglColor(cglValOrDefault(color,(0.5,0.5,0.75)));
-    obj:"alpha" = cglValOrDefault(alpha,1);
-    obj:"redraw" = lambda(self,dgs3dRenderCircle(self));
   ,if(type == "conic", // TODO? should conics and intersection2Q be stored with quadrics?
     dgs3dQuadrics:objId = obj;
     obj:"color" = cglColor(cglValOrDefault(color,(0.25,1,0)));
@@ -561,7 +554,7 @@ dgs3dNewObject(type,parents,visible->true,color->cglNada,alpha->cglNada):=(
     // nothing to do
   ,
     cglLogWarning("unknown object type");
-  ))))))));
+  )))))));
   forall(parents,parent,
     if(isJSON(parent),
       parent:"children" = append(parent:"children",obj);
@@ -1917,27 +1910,9 @@ dgs3dSphere4points(A,B,C,D,visible->true,color->cglNada,alpha->cglNada):=(
   obj
 );
 circle3d(A,B,C,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dCircle3pointsEuclidean(A,B,C,size->size,visible->visible,color->color,alpha->alpha);
+  dgs3dCircle3points(A,B,C,size->size,visible->visible,color->color,alpha->alpha);
 );
-dgs3dCircle3pointsEuclidean(A,B,C,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  obj = dgs3dNewObject("circle",[A,B,C],visible->visible,color->color,alpha->alpha);
-  obj:"size" = cglValOrDefault(size,cgl3d.defaults:"cylinderSize");
-  obj:"recompute" = lambda(self,
-    regional(pts,p,A,b,v,c);
-    pts = apply(self:"parents",#:"coords");
-    p = dgs3dEpsilon444(pts_1,pts_2,pts_3); // get equation of plane through 3-points
-    A = [(pts_1)/(pts_1)_4,(pts_2)/(pts_2)_4,(pts_3)/(pts_3)_4,[p_1,p_2,p_3,0]];
-    b = [|(pts_1)_(1..3)|^2,|(pts_2)_(1..3)|^2,|(pts_3)_(1..3)|^2,-2*p_4];
-    v = linearSolve(A,b);
-    c = 0.5*v_(1..3);
-    self:"coords" = [c,p_(1..3),sqrt(v_4+c*c)];
-    DGS3DmOVEoK
-  );
-  obj:"recompute".(obj);
-  obj:"redraw".(obj);
-  obj
-);
-dgs3dCircle3pointsProjective(A,B,C,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+dgs3dCircle3points(A,B,C,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   obj = dgs3dNewObject("conic",[A,B,C],visible->visible,color->color,alpha->alpha);
   obj:"size" = cglValOrDefault(size,cgl3d.defaults:"cylinderSize");
   obj:"recompute" = lambda(self,
@@ -1951,23 +1926,25 @@ dgs3dCircle3pointsProjective(A,B,C,size->cglNada,visible->true,color->cglNada,al
     [I, J] = dgs3dIntersectLineQuadric(l,((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,0)));
     // build transformation that maps (0,0,0,1) to p
     T = ((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1));
-    if(|p_1|>=|p_2| & |p_1|>=|p_3| & |p_1|>=|p_4|,
+    if(|p_1|>=|p_2| & |p_1|>=|p_3|,
       T_1 = T_4;
-    ,if(|p_2|>=|p_1| & |p_2|>=|p_3| & |p_2|>=|p_4|,
+    ,if(|p_2|>=|p_1| & |p_2|>=|p_3|,
       T_2 = T_4;
-    ,if(|p_3|>=|p_1| & |p_3|>=|p_2| & |p_3|>=|p_4|,
+    ,if(|p_3|>=|p_1| & |p_3|>=|p_2|,
       T_3 = T_4;
     )));
-    T_4 = p;
+    T_4 = (p_1,p_2,p_3,0);
     // make transformation orthogonal
-    T_1 = T_1 - (T_1*T_4)/(T_4*T_4)*T_4;
-    T_2 = T_2 - (T_2*T_4)/(T_4*T_4)*T_4;
-    T_3 = T_3 - (T_3*T_4)/(T_4*T_4)*T_4;
-    T_1 = T_1 - (T_1*T_3)/(T_3*T_3)*T_3;
-    T_2 = T_2 - (T_2*T_3)/(T_3*T_3)*T_3;
-    T_1 = T_1 - (T_1*T_2)/(T_2*T_2)*T_2;
-    T = transpose(T);
-    // TODO? is there a projection for which the resulting quadric is orthogonal to the given plane
+    T_4 = T_4/sqrt(T_4*T_4);
+    T_1 = T_1 - (T_1*T_4)*T_4;
+    T_2 = T_2 - (T_2*T_4)*T_4;
+    T_3 = T_3 - (T_3*T_4)*T_4;
+    T_3 = T_3/sqrt(T_3*T_3);
+    T_1 = T_1 - (T_1*T_3)*T_3;
+    T_2 = T_2 - (T_2*T_3)*T_3;
+    T_2 = T_2/sqrt(T_2*T_2);
+    T_1 = T_1 - (T_1*T_2)*T_2;
+    T_1 = T_1/sqrt(T_1*T_1);
     // build conic through 5 transformed points
     a = (T*A)_(1..3);
     b = (T*B)_(1..3);
