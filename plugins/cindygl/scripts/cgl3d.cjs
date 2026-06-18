@@ -2880,13 +2880,9 @@ plot3d(cgl3dPlotExpr.(x,y),
   degree->cglNada,layers->0,
   light->cgl3d.defaults.light,plotModifiers->{}
 ):=(
-  if(isUndefined(degree),
-      degree = min(cglTryDetermineDegree(cgl3dPlotExpr),cglMaxAutoDeg);
-  );
-  cglSurface3d(lambda(p,cgl3dPlotExpr.(p.x,p.y)-p.z,cgl3dPlotExpr->cgl3dPlotExpr),
+  plot3dL(cgl3dPlotExpr,
     color->color,texture->texture,colorBack->colorBack,textureBack->textureBack,alpha->alpha,
-    dF->cglNada/*lambda((x,y,z),,df->df)*/,//TODO: compute surface dF from df
-    cutoffRegion->cutoffRegion,degree->degree,layers->layers,
+    df->df,cutoffRegion->cutoffRegion,degree->degree,layers->layers,
     light->light,plotModifiers->plotModifiers
   );
 );
@@ -2902,7 +2898,7 @@ plot3dL(cgl3dPlotExpr,
   );
   cglSurface3d(lambda(p,cgl3dPlotExpr.(p.x,p.y)-p.z,cgl3dPlotExpr->cgl3dPlotExpr),
     color->color,texture->texture,colorBack->colorBack,textureBack->textureBack,alpha->alpha,
-    dF->cglNada/*lambda((x,y,z),,df->df)*/,//TODO: compute surface dF from df
+    dF->lambda((x,y,z),regional(dxy);dxy=df.(x,y);(dxy_1,dxy_2,-1),df->df),
     cutoffRegion->cutoffRegion,degree->degree,layers->layers,
     light->light,plotModifiers->plotModifiers
   );
@@ -2917,7 +2913,7 @@ cplot3d(cgl3dPlotExpr.(z),
 ):=(
   cplot3dL(cgl3dPlotExpr,
     color->color,texture->texture,colorBack->colorBack,textureBack->textureBack,alpha->alpha,
-    df->df,cutoffRegion->cutoffRegion,degree->cglValOrDefault(degree,-1),layers->layers,
+    df->df,cutoffRegion->cutoffRegion,degree->degree,layers->layers,
     light->light,plotModifiers->plotModifiers
   );
 );
