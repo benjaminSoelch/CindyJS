@@ -2008,7 +2008,33 @@ dgs3dMeetQP(Q,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
     regional(Q,p);
     Q = self:"parents"_1:"coords";
     p = self:"parents"_2:"coords";
-    self:"coords" = [Q,p];
+    // find a quadric with the same intersection that is "less similar" to p
+    // build transformation that maps (0,0,0,1) to p
+    T = ((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1));
+    if(|p_1|>=|p_2| & |p_1|>=|p_3|,
+      T_1 = T_4;
+    ,if(|p_2|>=|p_1| & |p_2|>=|p_3|,
+      T_2 = T_4;
+    ,if(|p_3|>=|p_1| & |p_3|>=|p_2|,
+      T_3 = T_4;
+    )));
+    T_4 = p;
+    // make transformation orthogonal
+    T_4 = T_4/sqrt(T_4*T_4);
+    T_1 = T_1 - (T_1*T_4)*T_4;
+    T_2 = T_2 - (T_2*T_4)*T_4;
+    T_3 = T_3 - (T_3*T_4)*T_4;
+    T_3 = T_3/sqrt(T_3*T_3);
+    T_1 = T_1 - (T_1*T_3)*T_3;
+    T_2 = T_2 - (T_2*T_3)*T_3;
+    T_2 = T_2/sqrt(T_2*T_2);
+    T_1 = T_1 - (T_1*T_2)*T_2;
+    T_1 = T_1/sqrt(T_1*T_1);
+    R = T*Q*transpose(T);
+    R_4 = (0,0,0,0);
+    R_1_4 = R_2_4 = R_3_4 = 0;
+    S = transpose(T)*R*T;
+    self:"coords" = [S,p];
     DGS3DmOVEoK
   );
   obj:"recompute".(obj);
