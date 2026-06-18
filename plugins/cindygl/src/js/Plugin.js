@@ -798,6 +798,7 @@ let CindyGL = function(api) {
             cglLogError("no active rendering pass, call `cgl3dStartRender` before calling `cgl3dFinishRender`");
             return nada;
         }
+        CindyGL.sceneRenderer.finishRender();
         let bounds = CindyGL.sceneRenderer.pixelBounds;
         finishRender3d(bounds[0],bounds[1],bounds[2],bounds[3],CindyGL.sceneRenderer.iw,CindyGL.sceneRenderer.ih,modifs);
         return nada;

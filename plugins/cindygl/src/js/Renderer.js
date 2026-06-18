@@ -942,10 +942,12 @@ Cgl3dSimpleSceneRenderer.prototype.renderTranslucent = function(objects) {
             this.wrongOpacity.add(obj3d);
         }
     });
+};
+Cgl3dSimpleSceneRenderer.prototype.finishRender = function(objects) {
     if (this.renderDepthBuffer !== null) {
         gl.deleteTexture(this.renderDepthBuffer);
     }
-};
+}
 
 /**
  * @param {number} iw screen width
@@ -1190,6 +1192,9 @@ Cgl3dLayeredSceneRenderer.prototype.renderTranslucent = function(objects) {
             }
         });
     }
+};
+Cgl3dLayeredSceneRenderer.prototype.finishRender = function() {
+    const layerCount = this.layers.length;
     // TODO? render multiple layers in a single call
     if(this.canvaswrapper!=null) {
         this.canvaswrapper.bindOutputFramebuffer(); //render to texture stored in canvaswrapper
