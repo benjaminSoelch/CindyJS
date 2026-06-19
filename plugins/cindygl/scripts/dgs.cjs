@@ -552,10 +552,10 @@ dgs3dNewObject(type,parents,visible->true,color->cglNada,alpha->cglNada):=(
     obj:"redraw" = lambda(self,dgs3dRenderBiQuadric(self));
   ,if(type == "pointSet",
     // nothing to do
-  ,if(type == type == "transform",
+  ,if(type == "transform",
     // TODO? store all-transforms in JSON
   ,
-    cglLogWarning("unknown object type");
+    cglLogWarning("unknown object type: "+type);
   ))))))));
   forall(parents,parent,
     if(isJSON(parent),
@@ -611,6 +611,14 @@ dgs3dNewPlane(parents,recompute,visible->true,color->cglNada,alpha->cglNada):=(
 dgs3dNewQuadric(parents,recompute,visible->true,color->cglNada,alpha->cglNada):=(
   regional(obj);
   obj = dgs3dNewObject("quadric",parents,visible->visible,color->color,alpha->alpha);
+  obj:"recompute" = recompute;
+  obj:"recompute".(obj);
+  obj:"redraw".(obj);
+  obj
+);
+dgs3dNewTrafo(parents,recompute):=(
+  regional(obj);
+  obj = dgs3dNewObject("transform",parents);
   obj:"recompute" = recompute;
   obj:"recompute".(obj);
   obj:"redraw".(obj);
@@ -1987,15 +1995,30 @@ dgs3dMeet2Q(Q1,Q2,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
 // Transformations
 ////////////////
 transformation3d(M):=(
-  dgs3dNewTransformation(M)
+  dgs3dFreeTransformation(M)
 );
-dgs3dNewTransformation(M):=(
+dgs3dFreeTransformation(M):=(
   regional(obj);
   obj = dgs3dNewObject("transform",[]);
   obj:"coords" = M;
   obj
 );
 // TODO: transformation by 5 point-pairs
+dgs3dTransformBy5P(As,Bs):=(
+  dgs3dNewTrafo(concat(As,Bs),lambda(self,
+    regional(A,B,R,S,v,w);
+    A = apply(self:"parents"_(1..5),#:"coords");
+    B = apply(self:"parents"_(6..10),#:"coords");
+    R = transpose((A_1,A_2,A_3,A_4));
+    v = linearSolve(R,A_5);
+    R=apply(R,(#_1*v_1,#_2*v_2,#_3*v_3,#_4*v_4));
+    S = transpose((B_1,B_2,B_3,B_4));
+    w = linearSolve(S,B_5);
+    S=apply(S,(#_1*w_1,#_2*w_2,#_3*w_3,#_4*w_4));
+    self:"coords" = S*adjoint4(R);
+    DGS3DmOVEoK
+  ))
+);
 transform3d(T,x,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dTransform(T,x,size->size,visible->visible,color->color,alpha->alpha);
 );
@@ -2036,7 +2059,7 @@ dgs3dTransformLine(T,l,size->cglNada,visible->true,color->cglNada,alpha->cglNada
     regional(T,l);
     T = adjoint4(self:"parents"_1:"coords");
     l = dgs3dLineMatrix(self:"parents"_2:"coords");
-    self:"coords" = dgs3dLineFromMatrix(T*l*T);
+    self:"coords" = dgs3dLineFromMatrix(transpose(T)*l*T);
     DGS3DmOVEoK
   ),size->size,visible->visible,color->color,alpha->alpha)
 );
@@ -2045,7 +2068,7 @@ dgs3dTransformPlane(T,p,visible->true,color->cglNada,alpha->cglNada):=(
     regional(T,p);
     T = adjoint4(self:"parents"_1:"coords");
     p = self:"parents"_2:"coords";
-    self:"coords" = T*p;
+    self:"coords" = transpose(T)*p;
     DGS3DmOVEoK
   ),visible->visible,color->color,alpha->alpha)
 );
@@ -2063,7 +2086,7 @@ dgs3dTransformConic(T,c,size->cglNada,visible->true,color->cglNada,alpha->cglNad
     regional(T,q,p);
     T = adjoint4(self:"parents"_1:"coords");
     (q,p) = self:"parents"_2:"coords";
-    self:"coords" = [transpose(T)*q*T,T*p];
+    self:"coords" = [transpose(T)*q*T,transpose(T)*p];
     DGS3DmOVEoK
   ),visible->visible,color->color,alpha->alpha)
 );
