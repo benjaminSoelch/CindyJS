@@ -1086,6 +1086,7 @@ pointOnConic3d(q,size->cglNada,visible->true,pinned->false,color->cglNada,alpha-
 dgs3dPointOnConic(q,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
   dgs3dPointOnConic(q,(0,0,0,1),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
 );
+// * point on quadric intersection
 
 // p1: plane, p2: plane|line, size:real = radius, visible: bool = should object be drawn
 meet3d(a,b,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
@@ -1980,6 +1981,7 @@ dgs3dMeet2Q(Q1,Q2,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
     DGS3DmOVEoK
   ),size->size,visible->visible,color->color,alpha->alpha);
 );
+// ? quadric by mix of points, lines and planes
 
 ////////////////
 // Transformations
@@ -1993,6 +1995,7 @@ dgs3dNewTransformation(M):=(
   obj:"coords" = M;
   obj
 );
+// TODO: transformation by 5 point-pairs
 transform3d(T,x,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dTransform(T,x,size->size,visible->visible,color->color,alpha->alpha);
 );
@@ -2020,30 +2023,62 @@ dgs3dTransform(Q,x,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   );
 );
 dgs3dTransformPoint(T,P,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-
+  dgs3dNewPoint([T,P],lambda(self,
+    regional(T,P);
+    T = self:"parents"_1:"coords";
+    P = self:"parents"_2:"coords";
+    self:"coords" = T*P;
+    DGS3DmOVEoK
+  ),size->size,visible->visible,color->color,alpha->alpha)
 );
 dgs3dTransformLine(T,l,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  
+  dgs3dNewLine([T,l],lambda(self,
+    regional(T,l);
+    T = adjoint4(self:"parents"_1:"coords");
+    l = dgs3dLineMatrix(self:"parents"_2:"coords");
+    self:"coords" = dgs3dLineFromMatrix(T*l*T);
+    DGS3DmOVEoK
+  ),size->size,visible->visible,color->color,alpha->alpha)
 );
 dgs3dTransformPlane(T,p,visible->true,color->cglNada,alpha->cglNada):=(
-  
+  dgs3dNewPlane([T,p],lambda(self,
+    regional(T,p);
+    T = adjoint4(self:"parents"_1:"coords");
+    p = self:"parents"_2:"coords";
+    self:"coords" = T*p;
+    DGS3DmOVEoK
+  ),visible->visible,color->color,alpha->alpha)
 );
 dgs3dTransformQuadric(T,q,visible->true,color->cglNada,alpha->cglNada):=(
-  
+  dgs3dNewQuadric([T,q],lambda(self,
+    regional(T,q);
+    T = adjoint4(self:"parents"_1:"coords");
+    q = self:"parents"_2:"coords";
+    self:"coords" = transpose(T)*q*T;
+    DGS3DmOVEoK
+  ),visible->visible,color->color,alpha->alpha)
 );
 dgs3dTransformConic(T,c,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  
+  dgs3dNewConic([T,c],lambda(self,
+    regional(T,q,p);
+    T = adjoint4(self:"parents"_1:"coords");
+    (q,p) = self:"parents"_2:"coords";
+    self:"coords" = [transpose(T)*q*T,T*p];
+    DGS3DmOVEoK
+  ),visible->visible,color->color,alpha->alpha)
 );
 dgs3dTransformBiQuadric(T,c,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  
+  dgs3dNewBiQuadric([T,c],lambda(self,
+    regional(T,q,p);
+    T = adjoint4(self:"parents"_1:"coords");
+    (q,r) = self:"parents"_2:"coords";
+    self:"coords" = [transpose(T)*q*T,transpose(T)*r*T];
+    DGS3DmOVEoK
+  ),visible->visible,color->color,alpha->alpha)
 );
 dgs3dTransformTrafo(T,S):=(
-  
+  cglLogError("unimplemented")
 );
-// ? quadric by mix of points, lines and planes
-
-// * point on quadric intersection
-
 
 // TODO? more intuitive names for functions
 // TODO: ? support redefining objects
@@ -2051,6 +2086,7 @@ dgs3dTransformTrafo(T,S):=(
 
 // TODO: test-cases for:
 // * quadric by 9 planes
+// * transformations
 // * load/store
 // * delete
 
