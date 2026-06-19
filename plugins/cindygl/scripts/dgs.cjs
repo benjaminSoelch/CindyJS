@@ -807,7 +807,18 @@ dgs3dFreePoint(p,
   obj
 );
 
-// TODO free-line
+// p: vec6 = (l11,l12,l13,l14,l23,l24,l34) , visible: bool = should object be drawn
+line3d(l,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dFreePlane(l,size->size,visible->visible,color->color,alpha->alpha);
+);
+dgs3dFreeLine(l,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  regional(obj);
+  obj = dgs3dNewObject("line",[],visible->visible,color->color,alpha->alpha);
+  obj:"coords" = l;
+  obj:"size" = cglValOrDefault(size,cgl3d.defaults:"cylinderSize");
+  dgs3dRenderLine(obj);
+  obj
+);
 
 // p: vec4 = (x,y,z,w) , visible: bool = should object be drawn
 plane3d(p,visible->true,color->cglNada,alpha->cglNada):=(
@@ -2003,7 +2014,6 @@ dgs3dFreeTransformation(M):=(
   obj:"coords" = M;
   obj
 );
-// TODO: transformation by 5 point-pairs
 dgs3dTransformBy5P(As,Bs):=(
   dgs3dNewTrafo(concat(As,Bs),lambda(self,
     regional(A,B,R,S,v,w);
@@ -2103,7 +2113,6 @@ dgs3dTransformTrafo(T,S):=(
   cglLogError("unimplemented")
 );
 
-// TODO? more intuitive names for functions
 // TODO: ? support redefining objects
 // TODO: ? should failure to trace child prevent movement of parent
 
@@ -2113,6 +2122,9 @@ dgs3dTransformTrafo(T,S):=(
 // * load/store
 // * delete
 
+// TODO? improve find, ? add variant of find for non dgs objects
+//  1. flag if only movable objects should be findable
+//  2. support finding general objects
 dgs3dFind(x,y):=(
   regional(root,dir,res,dist,center,radius);
   root = cglSpacePoint(x,y);
