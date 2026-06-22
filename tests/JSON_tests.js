@@ -176,16 +176,6 @@ describe("comparing JSON objects", function () {
     );
 });
 
-describe("JSON delete", function () {
-    before(function () {
-        cdy.evalcs('json = {"a": 1, "b": 2, "c" : 3,"4": 4};');
-    });
-
-    itCmd("json", "{4:4, a:1, b:2, c:3}");
-    itCmd('delete(json,"x");json', "{4:4, a:1, b:2, c:3}");
-    itCmd('delete(json,"b");json', "{4:4, a:1, c:3}");
-    itCmd("delete(json,4);json", "{4:4, a:1, c:3}");
-});
 describe("Operators: print self-containing JSON", function () {
     before(function () {
         cdy.evalcs('a = {};b = {};c= {};a:"c" = [b,c];b:"p" = a;c:"p" = a;');
@@ -195,4 +185,15 @@ describe("Operators: print self-containing JSON", function () {
         "text(a)",
         "{c:[{p:{c:[{p:{c:[{p:{…}}, {p:{…}}]}}, {p:{c:[{p:{…}}, {p:{…}}]}}]}}, {p:{c:[{p:{c:[{p:{…}}, {p:{…}}]}}, {p:{c:[{p:{…}}, {p:{…}}]}}]}}]}"
     );
+});
+
+describe("JSON delete", function () {
+    before(function () {
+        cdy.evalcs('json = {"a": 1, "b": 2, "c" : 3,"4": 4};');
+    });
+
+    itCmd("json", "{4:4, a:1, b:2, c:3}");
+    itCmd('delete(json,"x");json', "{4:4, a:1, b:2, c:3}");
+    itCmd('delete(json,"b");json', "{4:4, a:1, c:3}");
+    itCmd("delete(json,4);json", "{4:4, a:1, c:3}");
 });
