@@ -103,6 +103,16 @@ function evokeCS(code) {
 let canvas;
 let trafos;
 
+function switchCanvas(name) {
+    if (!globalInstance.canvases) return;
+    let newCanvas = globalInstance.canvases.get(name);
+    if (!newCanvas) return;
+    globalInstance.canvas = canvas = newCanvas;
+    csctx = newCanvas.getContext("2d");
+    if (!csctx.setLineDash) csctx.setLineDash = function () {};
+    updateCanvasDimensions();
+}
+
 function updateCanvasDimensions() {
     canvas.width = csw = canvas.clientWidth;
     canvas.height = csh = canvas.clientHeight;
@@ -259,11 +269,11 @@ async function createCindyNow() {
 
     csmouse = [100, 100];
     let c = null;
+    let canvases = null;
     trafos = data.transform;
     if (data.ports) {
-        if (data.ports.length > 0) {
-            const port = data.ports[0];
-            c = port.element;
+        canvases = data.ports.map((port) => {
+            let c = port.element;
             if (!c) c = document.getElementById(port.id);
             c = canvasWithContainingDiv(c);
             const divStyle = c.parentNode.style;
@@ -287,7 +297,9 @@ async function createCindyNow() {
             if (port.snap) cssnap = true;
             if (Number.isFinite(port.snapdistance)) cssnapDistance = Math.max(port.snapdistance, 0);
             if (port.axes) csaxes = true;
-        }
+            return [port.id || c.id, c];
+        });
+        c = canvases[0][1];
     }
     if (!c) {
         c = data.canvas;
@@ -584,6 +596,7 @@ If the key 'import' doesn't exists or its value is an empty array, opening the f
     }
 
     globalInstance.canvas = c;
+    globalInstance.canvases = new Map(canvases);
 
     // Invoke oninit callback
     if (data.oninit) data.oninit(globalInstance);
@@ -1061,6 +1074,7 @@ var globalInstance = {
     },
     niceprint,
     canvas: null, // will be set during startup
+    canvases: null,
 };
 
 var startupCalled = false;
@@ -1250,6 +1264,7 @@ export {
     cscompiled,
     loadImage,
     updateCanvasDimensions,
+    switchCanvas,
     isShutDown,
     csanimating,
     csctx,

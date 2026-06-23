@@ -1,5 +1,18 @@
 import { nada, document } from "expose";
-import { csctx, setCsctx, csw, csh, CindyJS, loadExtraPlugin, csscale, canvas, images, loadImage, vscale } from "Setup";
+import {
+    csctx,
+    setCsctx,
+    csw,
+    csh,
+    CindyJS,
+    loadExtraPlugin,
+    csscale,
+    canvas,
+    images,
+    loadImage,
+    vscale,
+    switchCanvas,
+} from "Setup";
 import { scheduleUpdate } from "Events";
 import { CSNumber } from "libcs/CSNumber";
 import { List } from "libcs/List";
@@ -1620,6 +1633,13 @@ evaluator.screenbounds$0 = function (args, modifs) {
     const pt3 = General.withUsage(List.realVector(csport.to(canvas.clientWidth, canvas.clientHeight)), "Point");
     const pt4 = General.withUsage(List.realVector(csport.to(0, canvas.clientHeight)), "Point");
     return List.turnIntoCSList([pt1, pt2, pt3, pt4]);
+};
+
+evaluator.setcanvas$1 = function (args, modifs) {
+    const name = evaluate(args[0]);
+    if (name.ctype !== "string") return nada;
+    switchCanvas(name.value);
+    return nada;
 };
 
 evaluator.createimage$3 = function (args, modifs) {
