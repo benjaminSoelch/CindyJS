@@ -937,7 +937,11 @@ function doneLoadingModule(skipInit) {
 
         if ((instanceInvocationArguments.animation || instanceInvocationArguments).autoplay) csplay();
 
-        if (globalInstance.canvas) setuplisteners(globalInstance.canvas, instanceInvocationArguments);
+        if (globalInstance.canvases) {
+            globalInstance.canvases.forEach((c) => {
+                setuplisteners(c, instanceInvocationArguments);
+            });
+        } else if (globalInstance.canvas) setuplisteners(globalInstance.canvas, instanceInvocationArguments);
     } else scheduleUpdate();
 }
 

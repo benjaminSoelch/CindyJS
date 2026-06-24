@@ -14,6 +14,7 @@ import {
     csgridsize,
     csaxes,
     cstgrid,
+    globalInstance,
     simcap,
     simtick,
     simspeed,
@@ -41,12 +42,18 @@ function setMove(mv) {
     move = mv;
 }
 
+let cseventsource;
 let cskey = "";
 let cskeycode = 0;
 
 let multiid = 0;
 const multipos = {};
 const multiiddict = {};
+
+function getCanvasId(canvas) {
+    if (canvas.id && canvas.id.length > 0) return canvas.id;
+    return canvas.parentNode.id;
+}
 
 function getmover(mouse) {
     let mov = null;
@@ -177,6 +184,9 @@ function setuplisteners(canvas, data) {
     }
 
     function updateMultiPositions(event, initialize) {
+        if (globalInstance.canvases) {
+            cseventsource = getCanvasId(event.target);
+        }
         for (let touch of event.changedTouches) {
             let id = getmultiid(touch.identifier);
             if (!initialize && !multipos[id]) continue;
@@ -191,6 +201,9 @@ function setuplisteners(canvas, data) {
     }
 
     function updatePosition(event) {
+        if (globalInstance.canvases) {
+            cseventsource = getCanvasId(event.target);
+        }
         const rect = canvas.getBoundingClientRect();
         const x = event.clientX - rect.left - canvas.clientLeft + 0.5;
         const y = event.clientY - rect.top - canvas.clientTop + 0.5;
@@ -778,6 +791,9 @@ function updateCindy() {
 
 function keyEvent(e, script) {
     e = e || window.event;
+    if (globalInstance.canvases) {
+        cseventsource = getCanvasId(e.target);
+    }
     cskey = e.key || String.fromCharCode(e.keyCode || e.charCode || 0);
     cskeycode = e.keyCode || e.charCode || 0;
     if (script) {
@@ -892,6 +908,7 @@ export {
     setuplisteners,
     cs_simulationstart,
     cs_simulationstop,
+    cseventsource,
     cskey,
     cskeycode,
     multipos,

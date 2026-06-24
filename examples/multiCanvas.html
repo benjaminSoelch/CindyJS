@@ -10,16 +10,22 @@
 
     <body style="font-family: Arial">
         <script id="csmouseclick" type="text/x-cindyscript">
-            print(mouse());
+            pos = mouse();
+            if(pos:"canvas"=="left",
+                lPos = pos;
+            ,
+                rPos = pos;
+            )
         </script>
         <script id="csinit" type="text/x-cindyscript">
-            
+            lPos = (0,0);
+            rPos = (0,0);
         </script>
         <script id="csdraw" type="text/x-cindyscript">
             setCanvas("left");
-            drawtext((0,0),"left");
+            drawtext(lPos,"left");
             setCanvas("right");
-            drawtext((0,0),"right");
+            drawtext(rPos,"right");
         </script>
 
         <div class="container" style="display: flex;width: 100vw;height: 100vh">

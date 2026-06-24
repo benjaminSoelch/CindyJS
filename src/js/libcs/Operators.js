@@ -21,7 +21,16 @@ import {
     dropPoint,
 } from "Setup";
 import { nada, instanceInvocationArguments, window, document } from "expose";
-import { cskey, cskeycode, multipos, move, multiid, addAutoCleaningEventListener, scheduleUpdate } from "Events";
+import {
+    cskey,
+    cskeycode,
+    multipos,
+    move,
+    multiid,
+    addAutoCleaningEventListener,
+    scheduleUpdate,
+    cseventsource,
+} from "Events";
 import { CSNumber } from "libcs/CSNumber";
 import { List } from "libcs/List";
 import { Json } from "libcs/Json";
@@ -3651,11 +3660,21 @@ evaluator.mouse$0 = function (args, modifs) {
         let k = evaluate(modifs.id);
         if (k.ctype === "number") {
             let id = k.value.real;
-            if (multipos[id]) return List.realVector(multipos[id]);
+            if (multipos[id]) {
+                let pos = List.realVector(multipos[id]);
+                if (cseventsource) {
+                    pos.userData = { canvas: General.string(cseventsource) };
+                }
+                return pos;
+            }
         }
         return nada;
     } else {
-        return List.realVector(csmouse);
+        let pos = List.realVector(csmouse);
+        if (cseventsource) {
+            pos.userData = { canvas: General.string(cseventsource) };
+        }
+        return pos;
     }
 };
 
