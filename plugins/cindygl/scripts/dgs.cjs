@@ -1869,6 +1869,21 @@ dgs3dSphere4points(A,B,C,D,visible->true,color->cglNada,alpha->cglNada):=(
     DGS3DmOVEoK
   ),visible->visible,color->color,alpha->alpha);
 );
+// M,R: point => quadric, visible: bool = should object be drawn
+sphere3dMR(M,R,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dSphere2P(M,R,visible->visible,color->color,alpha->alpha);
+);
+dgs3dSphere2P(M,R,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewQuadric([M,R],lambda(self,
+    regional(M,R,v,r);
+    [M,R] = apply(self:"parents",#:"coords");
+    v = (M_4*R_(1..3)/R_4-M_(1..3));
+    r = v*v;
+    self:"coords" = [[M_4,0,0,-M_1],[0,M_4,0,-M_2],[0,0,M_4,-M_3],[-M_1,-M_2,-M_3,(M_1^2+M_2^2+M_3^2-r)/M_4]];
+    DGS3DmOVEoK
+  ),visible->visible,color->color,alpha->alpha);
+);
+
 circle3d(A,B,C,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dCircle3points(A,B,C,size->size,visible->visible,color->color,alpha->alpha);
 );
