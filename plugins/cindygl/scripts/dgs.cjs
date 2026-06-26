@@ -886,43 +886,6 @@ dgs3dJoinPL(p1,l1,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   ),visible->visible,color->color,alpha->alpha)
 );
 
-// p0: vec4 (x,y,z,w), l: line , size: real = radius, pinned:bool = fixed position, visible: bool = should object be drawn
-pointOnLine3d(l,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
-  dgs3dPointOnLine(l,(0,0,0,1),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
-);
-dgs3dPointOnLine(l,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
-  regional(obj);
-  obj = dgs3dNewObject("point",[l],visible->visible,color->color,alpha->alpha);
-  obj:"size" = cglValOrDefault(size,cgl3d.defaults:"sphereSize");
-  obj:"coords" = dgs3dPoint4(p0);
-  obj:"recompute" = lambda(self,
-    regional(p,l,K);
-    // project old-position onto line
-    p = self:"coords";
-    l = dgs3dLineMatrix(self:"parents"_1:"coords");
-    K = transpose(kernel(l));
-    // project P into K
-    p = sum(K,v,(p*v)*v);
-    self:"coords" = p;
-    DGS3DmOVEoK
-  );
-  obj:"recompute".(obj);
-  obj:"redraw".(obj);
-  if(cglValOrDefault(pinned,false),
-    obj:"movable" = false;
-  ,
-    obj:"movable" = true;
-    dgs3dMovablePoints:(obj:"id") = obj;
-  );
-  obj
-);
-pointOnLine3d(l,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
-  dgs3dPointOnLine(l,(0,0,0,1),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
-);
-dgs3dPointOnLine(l,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
-  dgs3dPointOnLine(l,(0,0,0,1),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
-);
-
 // p1: point, p2: point, p3: point  or  p1: line, p2: line, p3: line, visible: bool = should object be drawn
 join3d(a,b,c,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dJoin3(a,b,c,visible->visible,color->color,alpha->alpha);
@@ -956,6 +919,42 @@ dgs3dJoin3L(l1,l2,l3,visible->true,color->cglNada,alpha->cglNada):=(
   ),visible->visible,color->color,alpha->alpha)
 );
 
+// p0: vec4 (x,y,z,w), l: line , size: real = radius, pinned:bool = fixed position, visible: bool = should object be drawn
+pointOnLine3d(l,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
+  dgs3dPointOnLine(l,(0,0,0,1),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
+);
+dgs3dPointOnLine(l,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
+  regional(obj);
+  obj = dgs3dNewObject("point",[l],visible->visible,color->color,alpha->alpha);
+  obj:"size" = cglValOrDefault(size,cgl3d.defaults:"sphereSize");
+  obj:"coords" = dgs3dPoint4(p0);
+  obj:"recompute" = lambda(self,
+    regional(p,l,K);
+    // project old-position onto line
+    p = self:"coords";
+    l = dgs3dLineMatrix(self:"parents"_1:"coords");
+    K = transpose(kernel(l));
+    // project P into K
+    p = sum(K,v,(p*v)*v); // TODO: does kernel always return orthogonal vectors
+    self:"coords" = p;
+    DGS3DmOVEoK
+  );
+  obj:"recompute".(obj);
+  obj:"redraw".(obj);
+  if(cglValOrDefault(pinned,false),
+    obj:"movable" = false;
+  ,
+    obj:"movable" = true;
+    dgs3dMovablePoints:(obj:"id") = obj;
+  );
+  obj
+);
+pointOnLine3d(l,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
+  dgs3dPointOnLine(l,(0,0,0,1),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
+);
+dgs3dPointOnLine(l,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
+  dgs3dPointOnLine(l,(0,0,0,1),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
+);
 // p0: vec3|vec4 = (x,y,z,w=1), s: plane , size: real = radius, pinned:bool = fixed position, visible: bool = should object be drawn
 pointOnPlane3d(s,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
   dgs3dPointOnPlane(s,p0,size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
