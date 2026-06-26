@@ -1734,6 +1734,63 @@ dgs3dQuadric9plane(planes,visible->true,color->cglNada,alpha->cglNada):=(
   ),visible->visible,color->color,alpha->alpha);
 );
 
+dgs3dComputeConicBy5(p,A,B,C,D,E):=(
+  // build transformation that maps (0,0,0,1) to p
+  T = ((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1));
+  if(|p_1|>=|p_2| & |p_1|>=|p_3|,
+    T_1 = T_4;
+  ,if(|p_2|>=|p_1| & |p_2|>=|p_3|,
+    T_2 = T_4;
+  ,if(|p_3|>=|p_1| & |p_3|>=|p_2|,
+    T_3 = T_4;
+  )));
+  T_4 = (p_1,p_2,p_3,0);
+  // make transformation orthogonal
+  T_4 = T_4/sqrt(T_4*T_4);
+  T_1 = T_1 - (T_1*T_4)*T_4;
+  T_2 = T_2 - (T_2*T_4)*T_4;
+  T_3 = T_3 - (T_3*T_4)*T_4;
+  T_3 = T_3/sqrt(T_3*T_3);
+  T_1 = T_1 - (T_1*T_3)*T_3;
+  T_2 = T_2 - (T_2*T_3)*T_3;
+  T_2 = T_2/sqrt(T_2*T_2);
+  T_1 = T_1 - (T_1*T_2)*T_2;
+  T_1 = T_1/sqrt(T_1*T_1);
+  // build conic through 5 transformed points
+  a = (T*A)_(1..3);
+  b = (T*B)_(1..3);
+  c = (T*C)_(1..3);
+  d = (T*D)_(1..3);
+  e = (T*E)_(1..3);
+  G = transpose([cross(d,a)])*[cross(b,e)];
+  H = transpose([cross(d,b)])*[cross(a,e)];
+  M = (c*G*c)*H-(c*H*c)*G;
+  M = M + transpose(M);
+  fnz = 0;
+  forall(M,forall(#,if(fnz==0,fnz=#))); // find first non-zero entry
+  M = conjugate(fnz)*M; // scale by conjugate of first non-zero entry to map complex multiples of real matrices to real matrices
+  transpose(T)*((M_1_1,M_1_2,M_1_3,0),(M_2_1,M_2_2,M_2_3,0),(M_3_1,M_3_2,M_3_3,0),(0,0,0,0))*T;
+);
+
+conicBy5Points(A,B,C,D,E,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dConic5points(A,B,C,D,E,size->size,visible->visible,color->color,alpha->alpha);
+);
+dgs3dConic5points(A,B,C,D,E,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewConic([A,B,C,D,E],lambda(self,
+    regional(A,B,C,D,E,T,M,p,l,,a,b,c,d,e,G,H);
+    A = self:"parents"_1:"coords";
+    B = self:"parents"_2:"coords";
+    C = self:"parents"_3:"coords";
+    D = self:"parents"_4:"coords";
+    E = self:"parents"_5:"coords";
+    // find plane through 3 points
+    p = dgs3dEpsilon444(A,B,C);
+    M = dgs3dComputeConicBy5(p,A,B,C,D,E);
+    self:"coords" = [M,p];
+    DGS3DmOVEoK
+  ),size->size,visible->visible,color->color,alpha->alpha);
+);
+
 ////////////////
 // Euclidean Operations
 ////////////////
@@ -1933,41 +1990,7 @@ dgs3dCircle3points(A,B,C,size->cglNada,visible->true,color->cglNada,alpha->cglNa
     p = dgs3dEpsilon444(A,B,C);
     l = dgs3dEpsilon44(p,(0,0,0,1));
     [I, J] = dgs3dIntersectLineQuadric(l,((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,0)));
-    // build transformation that maps (0,0,0,1) to p
-    T = ((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1));
-    if(|p_1|>=|p_2| & |p_1|>=|p_3|,
-      T_1 = T_4;
-    ,if(|p_2|>=|p_1| & |p_2|>=|p_3|,
-      T_2 = T_4;
-    ,if(|p_3|>=|p_1| & |p_3|>=|p_2|,
-      T_3 = T_4;
-    )));
-    T_4 = (p_1,p_2,p_3,0);
-    // make transformation orthogonal
-    T_4 = T_4/sqrt(T_4*T_4);
-    T_1 = T_1 - (T_1*T_4)*T_4;
-    T_2 = T_2 - (T_2*T_4)*T_4;
-    T_3 = T_3 - (T_3*T_4)*T_4;
-    T_3 = T_3/sqrt(T_3*T_3);
-    T_1 = T_1 - (T_1*T_3)*T_3;
-    T_2 = T_2 - (T_2*T_3)*T_3;
-    T_2 = T_2/sqrt(T_2*T_2);
-    T_1 = T_1 - (T_1*T_2)*T_2;
-    T_1 = T_1/sqrt(T_1*T_1);
-    // build conic through 5 transformed points
-    a = (T*A)_(1..3);
-    b = (T*B)_(1..3);
-    c = (T*C)_(1..3);
-    d = (T*I)_(1..3);
-    e = (T*J)_(1..3);
-    G = transpose([cross(d,a)])*[cross(b,e)];
-    H = transpose([cross(d,b)])*[cross(a,e)];
-    M = (c*G*c)*H-(c*H*c)*G;
-    M = M + transpose(M);
-    fnz = 0;
-    forall(M,forall(#,if(fnz==0,fnz=#))); // find first non-zero entry
-    M = conjugate(fnz)*M; // scale by conjugate of first non-zero entry to map complex multiples of real matrices to real matrices
-    M = transpose(T)*((M_1_1,M_1_2,M_1_3,0),(M_2_1,M_2_2,M_2_3,0),(M_3_1,M_3_2,M_3_3,0),(0,0,0,0))*T;
+    M = dgs3dComputeConicBy5(p,A,B,C,I,J);
     self:"coords" = [M,p];
     DGS3DmOVEoK
   ),size->size,visible->visible,color->color,alpha->alpha);
