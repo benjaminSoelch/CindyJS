@@ -1647,9 +1647,15 @@ dgs3dPolar(Q,x,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
     ,
       cglLogWarning("cannot compute polar of "+x:"type"+" on "+Q:"type");
     ));
+  ,if(Q:"type" == "biquadric",
+    if(x:"type" == "point",
+      dgs3dBiQuadricPolarLine(Q,x,size->size,visible->visible,color->color,alpha->alpha);
+    ,
+      cglLogWarning("cannot compute polar of "+x:"type"+" on "+Q:"type");
+    );
   ,
       cglLogWarning("cannot compute polar on "+Q:"type");
-  ));
+  )));
 );
 // Q: quadric, p: point => plane, visible: bool = should object be drawn
 dgs3dPolarPlane(Q,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
@@ -1696,6 +1702,18 @@ dgs3dConicPolarPoint(C,l,size->cglNada,visible->true,color->cglNada,alpha->cglNa
     L = dgs3dLineMatrix(self:"parents"_2:"coords");
     m = dgs3dLineFromDualMatrix(adjoint4(Q)*L*adjoint4(Q));
     self:"coords"= dgs3dEpsilon46(p,m);
+    DGS3DmOVEoK
+  ),size->size,visible->visible,color->color,alpha->alpha);
+);
+// C: conic, p: point => line, visible: bool = should object be drawn
+dgs3dBiQuadricPolarLine(C,P,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewLine([C,P],lambda(self,
+    regional(Q,R,P,p,q,r);
+    [Q,R] = self:"parents"_1:"coords";
+    P = self:"parents"_2:"coords";
+    q = Q*P;
+    r = R*P;
+    self:"coords"= dgs3dDualLine(dgs3dEpsilon44(q,r));
     DGS3DmOVEoK
   ),size->size,visible->visible,color->color,alpha->alpha);
 );
