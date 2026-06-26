@@ -1628,16 +1628,28 @@ polar3d(Q,x,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dPolar(Q,x,size->size,visible->visible,color->color,alpha->alpha);
 );
 dgs3dPolar(Q,x,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  if(x:"type" == "point",
-    dgs3dPolarPlane(Q,x,size->size,visible->visible,color->color,alpha->alpha);
-  ,if(x:"type" == "line",
-    dgs3dPolarLine(Q,x,size->size,visible->visible,color->color,alpha->alpha);
-  ,if(x:"type" == "plane",
-    dgs3dPolarPoint(Q,x,size->size,visible->visible,color->color,alpha->alpha);
-  // TODO? polar quadric
+  if(Q:"type" == "quadric",
+    if(x:"type" == "point",
+      dgs3dPolarPlane(Q,x,size->size,visible->visible,color->color,alpha->alpha);
+    ,if(x:"type" == "line",
+      dgs3dPolarLine(Q,x,size->size,visible->visible,color->color,alpha->alpha);
+    ,if(x:"type" == "plane",
+      dgs3dPolarPoint(Q,x,size->size,visible->visible,color->color,alpha->alpha);
+    // TODO? polar quadric
+    ,
+      cglLogWarning("cannot compute polar of "+x:"type"+" on "+Q:"type");
+    )));
+  ,if(Q:"type" == "conic",
+    if(x:"type" == "point",
+      dgs3dConicPolarLine(Q,x,size->size,visible->visible,color->color,alpha->alpha);
+    ,if(x:"type" == "line",
+      dgs3dConicPolarPoint(Q,x,size->size,visible->visible,color->color,alpha->alpha);
+    ,
+      cglLogWarning("cannot compute polar of "+x:"type"+" on "+Q:"type");
+    ));
   ,
-    cglLogWarning("cannot compute polar of "+x:"type");
-  )));
+      cglLogWarning("cannot compute polar on "+Q:"type");
+  ));
 );
 // Q: quadric, p: point => plane, visible: bool = should object be drawn
 dgs3dPolarPlane(Q,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
@@ -1660,6 +1672,30 @@ dgs3dPolarLine(Q,l,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
 dgs3dPolarPoint(Q,P,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dNewPoint([Q,P],lambda(self,
     self:"coords" = adjoint4(self:"parents"_1:"coords") * self:"parents"_2:"coords";
+    DGS3DmOVEoK
+  ),size->size,visible->visible,color->color,alpha->alpha);
+);
+// C: conic, p: point => line, visible: bool = should object be drawn
+dgs3dConicPolarLine(C,P,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewLine([C,P],lambda(self,
+    regional(Q,P,p,q);
+    [Q,p] = self:"parents"_1:"coords";
+    P = self:"parents"_2:"coords";
+    q = Q*P;
+    self:"coords"= dgs3dDualLine(dgs3dEpsilon44(p,q));
+    DGS3DmOVEoK
+  ),size->size,visible->visible,color->color,alpha->alpha);
+);
+// TODO? is this invariant of the quadric Q used to represent the conic?
+// C: conic, l: line => point, visible: bool = should object be drawn
+dgs3dConicPolarPoint(C,l,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewPoint([C,l],lambda(self,
+    regional(Q,P,p,q);
+    [Q,p] = self:"parents"_1:"coords";
+    Q = Q + transpose([p])*[p]; // polar degenerates if Q is othrogonal to p
+    L = dgs3dLineMatrix(self:"parents"_2:"coords");
+    m = dgs3dLineFromDualMatrix(adjoint4(Q)*L*adjoint4(Q));
+    self:"coords"= dgs3dEpsilon46(p,m);
     DGS3DmOVEoK
   ),size->size,visible->visible,color->color,alpha->alpha);
 );
