@@ -58,9 +58,14 @@ dgs3dMovementAxes(point):=(
       ,if(l:"type" == "conic",
         // movement orthogonal to plane is removed by projection
         {"type":"normal","n":(((l:"coords"_1)*point:"coords")_(1..3))}
+      ,if(l:"type" == "biquadric",
+        regional(p,q);
+        p = point:"coords"*l:"coords"_1;
+        q = point:"coords"*l:"coords"_2;
+        {"type":"parallel","v":cross(p_(1..3),q_(1..3))}
       ,
         cglLogError("unimplemented: moving point depending on "+(l:"type"));
-      ))));
+      )))));
     ,
       cglLogError("unimplemented: restricted movement");
     )
@@ -102,7 +107,7 @@ dgs3dPreFrame():=(
         // move point in plane spanned by axis and line normal to axis
         d2 = cross(axes:"v",(cgl3d.spaceTransform*(0,0,1,0))_(1..3));
         movePlaneNormal = cross(axes:"v",d2);
-        center = target:"coords"_(1..3);
+        center = target:"coords"_(1..3)/target:"coords"_4;
         movePlaneOffset = movePlaneNormal * center;
         oldT = (movePlaneOffset - movePlaneNormal * oldSpacePos) / (movePlaneNormal * oldDirection);
         newT = (movePlaneOffset - movePlaneNormal * newSpacePos) / (movePlaneNormal * newDirection);
@@ -1105,7 +1110,57 @@ pointOnConic3d(q,size->cglNada,visible->true,pinned->false,color->cglNada,alpha-
 dgs3dPointOnConic(q,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
   dgs3dPointOnConic(q,(0,0,0,1),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
 );
-// * point on quadric intersection
+// p0: vec3|vec4 = (x,y,z,w=1), q: bi-quadric-curve , size: real = radius, pinned:bool = fixed position, visible: bool = should object be drawn
+pointOnBiQuadric3d(q,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
+  dgs3dPointOnBiQuadric(q,p0,size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
+);
+dgs3dPointOnBiQuadric(q,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
+  regional(obj);
+  obj = dgs3dNewObject("point",[q],visible->visible,color->color,alpha->alpha);
+  obj:"size" = cglValOrDefault(size,cgl3d.defaults:"sphereSize");
+  obj:"coords" = dgs3dPoint4(p0);
+  obj:"recompute" = lambda(self,
+    regional(P,QR,Q,R,p,q,r,n,ABCD,dsts);
+    P = self:"coords";
+    QR = (self:"parents"_1):"coords";
+    Q = QR_1;
+    R = QR_2;
+    q = Q*P;
+    r = R*P;
+    n = cross(q_(1..3),r_(1..3));
+    p = (n_1,n_2,n_3,(-P_(1..3)*n)/P_4);
+    ABCD = apply(dgs3dIntersectionsQQP(Q,R,p),dgs3dRP3Normalize(#));
+    P = dgs3dRP3Normalize(P);
+    dsts = apply(ABCD,#=dgs3dRP3Normalize(#);(P-#)*(P-#));
+    P = ABCD_1;
+    d = dsts_1;
+    if(if(!isReal(d),true,dsts_2 < d),P=ABCD_2;d=dsts_2);
+    if(if(!isReal(d),true,dsts_3 < d),P=ABCD_3;d=dsts_3);
+    if(if(!isReal(d),true,dsts_4 < d),P=ABCD_4;d=dsts_4);
+    self:"coords" = P;
+    if(isReal(d),
+      DGS3DmOVEoK
+    ,
+      DGS3DmOVErETRY
+    );
+  );
+  obj:"recompute".(obj);
+  obj:"redraw".(obj);
+  if(cglValOrDefault(pinned,false),
+    obj:"movable" = false;
+  ,
+    obj:"movable" = true;
+    dgs3dMovablePoints:(obj:"id") = obj;
+  );
+  obj
+);
+pointOnBiQuadric3d(q,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
+  // TODO? can this result in an infinite projected point
+  dgs3dPointOnBiQuadric(q,(0,0,0,1),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
+);
+dgs3dPointOnBiQuadric(q,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
+  dgs3dPointOnBiQuadric(q,(0,0,0,1),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
+);
 
 // p1: plane, p2: plane|line, size:real = radius, visible: bool = should object be drawn
 meet3d(a,b,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
