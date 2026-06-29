@@ -2029,7 +2029,7 @@ dgs3dSphere4points(A,B,C,D,visible->true,color->cglNada,alpha->cglNada):=(
     regional(pts,A,b,v,c);
     pts = apply(self:"parents",#:"coords");
     b = apply(pts,-(|#_(1..3)|^2));
-    v = linearSolve(pts,b);
+    v = linearSolve(apply(pts,#*#_4),b);
     self:"coords" = [[1,0,0,0.5*v_1],[0,1,0,0.5*v_2],[0,0,1,0.5*v_3],[0.5*v_1,0.5*v_2,0.5*v_3,v_4]];
     DGS3DmOVEoK
   ),visible->visible,color->color,alpha->alpha);
