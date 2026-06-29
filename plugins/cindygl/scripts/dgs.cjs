@@ -1193,12 +1193,16 @@ dgs3dMeet2(a,b,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   ,if(a:"type" == "quadric" & b:"type" == "conic",
     dgs3dMeetQuadricConic(a,b,size->size,visible->visible,color->color,alpha->alpha);
   ,if(a:"type" == "biquadric" & b:"type" == "plane",
-    dgs3dMeetIntQ2Plane(a,b,size->size,visible->visible,color->color,alpha->alpha);
+    dgs3dMeetBiQuadricPlane(a,b,size->size,visible->visible,color->color,alpha->alpha);
   ,if(a:"type" == "plane" & b:"type" == "biquadric",
-    dgs3dMeetIntQ2Plane(b,a,size->size,visible->visible,color->color,alpha->alpha);
+    dgs3dMeetBiQuadricPlane(b,a,size->size,visible->visible,color->color,alpha->alpha);
+  ,if(a:"type" == "biquadric" & b:"type" == "quadric",
+    dgs3dMeetBiQuadricQuadric(a,b,size->size,visible->visible,color->color,alpha->alpha);
+  ,if(a:"type" == "quadric" & b:"type" == "biquadric",
+    dgs3dMeetBiQuadricQuadric(b,a,size->size,visible->visible,color->color,alpha->alpha);
   ,
     cglLogWarning("cannot meet "+a:"type"+" and "+b:"type");
-  )))))))))))))));
+  )))))))))))))))));
 );
 // P1: plane, P2: plane, size:real = radius, visible: bool = should object be drawn
 dgs3dMeet2P(P1,P2,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
@@ -1419,17 +1423,34 @@ dgs3dMeetQuadricConic(Q,C,size->cglNada,visible->true,color->cglNada,alpha->cglN
   );
   dgs3dFinishPointSet(obj);
 );
-// Q: quadric, C: quadric-intersection ; size:real = radius, visible: bool = should object be drawn
-dgs3dMeetIntQ2Plane(Q2,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+// Q2: bi-quadric, p: plane ; size:real = radius, visible: bool = should object be drawn
+dgs3dMeetBiQuadricPlane(Q2,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   regional(obj);
   obj = dgs3dNewObject("pointSet",[Q2,p],visible->visible,color->color,alpha->alpha);
   obj:"children" = apply(1..4,dgs3dNewObject("point",[obj],visible->visible,color->color,alpha->alpha));
   obj:"recompute" = lambda(self,
-    regional(Q2,p,AB,oldA,oldB,d11,d12,d21,d22);
+    regional(Q2,p,ABCD);
     Q2 = self:"parents"_1:"coords";
     p = self:"parents"_2:"coords";;
     ABCD = dgs3dIntersectionsQQP(Q2_1,Q2_2,p);
     dgs3dTracePointSet(self,ABCD);
+  );
+  dgs3dFinishPointSet(obj);
+);
+dgs3dIntersects3Q(Q1,Q2,Q3):=(
+  dgs3de3q3(dgs3dQuadAsVec(Q1),dgs3dQuadAsVec(Q2),dgs3dQuadAsVec(Q3));
+);
+// Q2: bi.quadric, q: quadric ; size:real = radius, visible: bool = should object be drawn
+dgs3dMeetBiQuadricQuadric(Q2,q,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  regional(obj);
+  obj = dgs3dNewObject("pointSet",[Q2,q],visible->visible,color->color,alpha->alpha);
+  obj:"children" = apply(1..8,dgs3dNewObject("point",[obj],visible->visible,color->color,alpha->alpha));
+  obj:"recompute" = lambda(self,
+    regional(Q2,q,sols);
+    Q2 = self:"parents"_1:"coords";
+    q = self:"parents"_2:"coords";;
+    sols = dgs3dIntersects3Q(Q2_1,Q2_2,q);
+    dgs3dTracePointSet(self,sols);
   );
   dgs3dFinishPointSet(obj);
 );
@@ -1444,7 +1465,7 @@ dgs3dMeet3Q(Q1,Q2,Q3,size->cglNada,visible->true,color->cglNada,alpha->cglNada):
     Q1 = self:"parents"_1:"coords";
     Q2 = self:"parents"_2:"coords";
     Q3 = self:"parents"_3:"coords";
-    sols = dgs3de3q3(dgs3dQuadAsVec(Q1),dgs3dQuadAsVec(Q2),dgs3dQuadAsVec(Q3));
+    sols = dgs3dIntersects3Q(Q1,Q2,Q3);
     dgs3dTracePointSet(self,sols);
   );
   dgs3dFinishPointSet(obj);
