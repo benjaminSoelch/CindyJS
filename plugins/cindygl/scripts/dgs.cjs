@@ -1782,9 +1782,8 @@ dgs3dQuadric9point(pts,visible->true,color->cglNada,alpha->cglNada):=(
   );
   dgs3dNewQuadric(pts,lambda(self,
     regional(pts,v);
-    pts = apply(self:"parents",p,dgs3dSqCoords(p:"coords"));
-    v = transpose(kernel(pts++[(0,0,0,0,0,0,0,0,0,0)]))_1;
-    self:"coords" = ((2*v_1,v_2,v_3,v_4),(v_2,2*v_5,v_6,v_7),(v_3,v_6,2*v_8,v_9),(v_4,v_7,v_9,2*v_10));
+    pts = apply(self:"parents",#:"coords");
+    self:"coords" = dgs3dComputeQuadricBy9(pts);
     DGS3DmOVEoK
   ),visible->visible,color->color,alpha->alpha);
 );
@@ -1798,10 +1797,8 @@ dgs3dQuadric9plane(planes,visible->true,color->cglNada,alpha->cglNada):=(
   );
   dgs3dNewQuadric(planes,lambda(self,
     regional(planes,v,M);
-    planes = apply(self:"parents",p,dgs3dSqCoords(p:"coords"));
-    v = transpose(kernel(planes++[(0,0,0,0,0,0,0,0,0,0)]))_1;
-    M = ((2*v_1,v_2,v_3,v_4),(v_2,2*v_5,v_6,v_7),(v_3,v_6,2*v_8,v_9),(v_4,v_7,v_9,2*v_10));
-    self:"coords" = adjoint4(M);
+    planes = apply(self:"parents",#:"coords");
+    self:"coords" = adjoint4(dgs3dComputeQuadricBy9(planes));
     DGS3DmOVEoK
   ),visible->visible,color->color,alpha->alpha);
 );
@@ -1843,6 +1840,18 @@ dgs3dComputeConicBy5(p,A,B,C,D,E):=(
   M = conjugate(fnz)*M; // scale by conjugate of first non-zero entry to map complex multiples of real matrices to real matrices
   transpose(T)*((M_1_1,M_1_2,M_1_3,0),(M_2_1,M_2_2,M_2_3,0),(M_3_1,M_3_2,M_3_3,0),(0,0,0,0))*T;
 );
+dgs3dComputeQuadricBy9(pts):=(
+  regional(v,ptsSq);
+  ptsSq = apply(pts,dgs3dSqCoords(#));
+  v = transpose(kernel(append(ptsSq,(0,0,0,0,0,0,0,0,0,0))))_1;
+  ((2*v_1,v_2,v_3,v_4),(v_2,2*v_5,v_6,v_7),(v_3,v_6,2*v_8,v_9),(v_4,v_7,v_9,2*v_10));
+);
+dgs3dComputeBiQuadricBy8(pts):=(
+  regional(A,B);
+  A = dgs3dComputeQuadricBy9(append(pts,(random(),random(),random(),random())));
+  B = dgs3dComputeQuadricBy9(append(pts,(random(),random(),random(),random())));
+  [A,B]
+);
 
 conicBy5Points(A,B,C,D,E,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dConic5points(A,B,C,D,E,size->size,visible->visible,color->color,alpha->alpha);
@@ -1859,6 +1868,17 @@ dgs3dConic5points(A,B,C,D,E,size->cglNada,visible->true,color->cglNada,alpha->cg
     p = dgs3dEpsilon444(A,B,C);
     M = dgs3dComputeConicBy5(p,A,B,C,D,E);
     self:"coords" = [M,p];
+    DGS3DmOVEoK
+  ),size->size,visible->visible,color->color,alpha->alpha);
+);
+biQuadricBy8Points(pts,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dBiQuadric8points(pts,size->size,visible->visible,color->color,alpha->alpha);
+);
+dgs3dBiQuadric8points(pts,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewBiQuadric(pts,lambda(self,
+    regional(pts);
+    pts = apply(self:"parents",#:"coords");
+    self:"coords" = dgs3dComputeBiQuadricBy8(pts);
     DGS3DmOVEoK
   ),size->size,visible->visible,color->color,alpha->alpha);
 );
