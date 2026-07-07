@@ -522,10 +522,11 @@ function getHelperCanvas(width, height) {
  * reads a rectangular block of pixels from the upper left corner.
  * The colors are representent as a 4 component RGBA vector with entries in [0,1]
  */
-function readPixelsIndirection(img, x, y, width, height) {
+function readPixelsIndirection(img, x, y, width, height, modifs) {
     let res = [];
     if (img.readPixels) {
-        res = img.readPixels(x, y, width, height);
+        let internalRowOrder = modifs["internalRowOrder"] && evaluate(modifs["internalRowOrder"]).value === true;
+        res = img.readPixels(x, y, width, height, internalRowOrder);
     } else {
         //use canvas-approach
         let data, ctx;
@@ -683,7 +684,7 @@ evaluator.imagergb$4 = function (args, modifs) {
 
 evaluator.readpixels$1 = function (args, modifs) {
     const img = imageFromValue(evaluateAndVal(args[0]));
-    const data = readPixelsIndirection(img, 0, 0, img.width, img.height);
+    const data = readPixelsIndirection(img, 0, 0, img.width, img.height, modifs);
     const pixels = [];
     for (let i = 0; i + 3 < data.length; i += 4) {
         pixels.push(

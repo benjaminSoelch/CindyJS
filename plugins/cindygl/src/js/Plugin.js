@@ -921,7 +921,6 @@ let CindyGL = function(api) {
             }
         } else {return;}
         updateModifierTypes(objVal);
-        // TODO: update modifier-types if neccessary
         return;
     }
     api.defineFunction("cgl3dObjectSetModifier", 3, (args, modifs) => {

@@ -390,14 +390,13 @@ function getPixelType() {
     else return gl.UNSIGNED_BYTE;
 }
 
+function sampleToFloat(sample) {
+    if (can_use_texture_float) return sample;
+    else if (can_use_texture_half_float) return decodeFloat16(sample);
+    else return sample / 255;
+}
 function toFloat(samples) {
-    let res = [];
-    for (let i = 0; i < samples.length; i++) {
-        if (can_use_texture_float) res.push(samples[i]);
-        else if (can_use_texture_half_float) res.push(decodeFloat16(samples[i]));
-        else res.push(samples[i] / 255);
-    }
-    return res;
+    return samples.map(sampleToFloat)
 }
 
 function smallestPowerOfTwoGreaterOrEqual(a) {

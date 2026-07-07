@@ -313,13 +313,17 @@ CanvasWrapper.prototype.readRawPixels = function(x, y, width, height) {
  * reads a rectangular block of pixels from the upper left corner.
  * The colors are represented as a 4 component RGBA vector with entries in [0,1]
  */
-CanvasWrapper.prototype.readPixels = function(x, y, width, height) {
+CanvasWrapper.prototype.readPixels = function(x, y, width, height, internalRowOrder) {
     //gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1); does not affect readPixels :(, hence this mess:
     let pixels = this.readRawPixels(x,y,width,height);
+    if(internalRowOrder) {
+        return toFloat(pixels);
+    }
     //reverse row order
-    let res = [];
-    for (let i = height - 1; i >= 0; i--)
-        res = res.concat(toFloat(pixels.slice(i * width * 4, (i + 1) * width * 4)));
+    let res = new Array(pixels.length);
+    // element-wise conversion is a factor of 10 faster than block-wise conversion with array.concat
+    for (let i = height - 1; i >= 0; i--)for(let x=0;x <4*width; x++)
+        res[4*((height-1)-i)*width+x] = sampleToFloat(pixels[4*i*width+x]);
     return res;
 };
 
