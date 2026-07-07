@@ -698,5 +698,41 @@ evaluator.readpixels$1 = function (args, modifs) {
     }
     return List.turnIntoCSList(pixels);
 };
+evaluator.readpixels$5 = function (args, modifs) {
+    const img = imageFromValue(evaluateAndVal(args[0]));
+    const x = evaluateAndVal(args[1]);
+    const y = evaluateAndVal(args[2]);
+    const w = evaluateAndVal(args[3]);
+    const h = evaluateAndVal(args[4]);
+    if (
+        !img ||
+        x.ctype !== "number" ||
+        y.ctype !== "number" ||
+        w.ctype !== "number" ||
+        h.ctype !== "number" ||
+        !img.ready
+    )
+        return nada;
+    const data = readPixelsIndirection(
+        img,
+        Math.round(x.value.real),
+        Math.round(y.value.real),
+        Math.round(w.value.real),
+        Math.round(h.value.real),
+        modifs
+    );
+    const pixels = [];
+    for (let i = 0; i + 3 < data.length; i += 4) {
+        pixels.push(
+            List.turnIntoCSList([
+                CSNumber.real(data[i + 0]),
+                CSNumber.real(data[i + 1]),
+                CSNumber.real(data[i + 2]),
+                CSNumber.real(data[i + 3]),
+            ])
+        );
+    }
+    return List.turnIntoCSList(pixels);
+};
 
 export { imageFromValue };
