@@ -94,7 +94,7 @@ CodeBuilder.builtIns=new Map([
     ["cglSpacePos",{type:"pixelAttribute",code:"",expr:"cgl_spacePos",valueType:type.vec3,writable:false}],
     ["cglViewDirection",{type:"pixelAttribute",code:"",expr:"cgl_viewDirection0",valueType:type.vec3,writable:false}],
     [BUILTIN_CGLDEPTH,{type:"pixelAttribute",code:"",expr:"cgl_depth",valueType:type.float,writable:true}],
-    // TODO? make available constants dependent on bounding box type
+    // TODO? make available constants dependent on bounding box type (?JSON-value cglBounds)
     // only for some bounding box types
     ["cglCenter",{type:"uniform",code:"",expr:"uCenter",valueType:type.vec3,writable:false}],
     ["cglRadius",{type:"uniform",code:"",expr:"uRadius",valueType:type.float,writable:false}],
@@ -362,7 +362,7 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
 
     function resolveLambdaData(expr, bindings, scope, forceconstant) {
         let lambdaExpr = expr['obj'];
-        let argsExpr = expr['key'];
+        let argsExpr = expr['args'];
         let exprData = undefined;
         if(lambdaExpr['ctype'] === 'variable'){
             let exprName = lambdaExpr['name'];
@@ -385,10 +385,10 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
         }
         if(exprData === undefined) exprData = self.evaluateAndVal(lambdaExpr);
         if(exprData['ctype'] !== 'lambda'){ return;}
-        if (expr['args'].length !== exprData['params'].length){
+        if (argsExpr.length !== exprData['params'].length){
             cglLogError(`wrong number of arguments for lambda function expected ${
                 exprData['params'].length
-            } got ${expr['args'].length}`);
+            } got ${argsExpr.length}`);
             return;
         }
         const localScope = scope != 'global' ? scope : '_main';
@@ -418,7 +418,7 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
             if (!myfunctions[localScope].variables) myfunctions[localScope].variables = [];
             myfunctions[localScope].variables.push(iname);
             self.initvariable(iname, false);
-            variables[iname].assigments.push(expr['args'][index]);
+            variables[iname].assigments.push(argsExpr[index]);
         });
         // clone expression to allow more than one instantiation
         expr['obj'] = cloneExpression(exprData['body']);

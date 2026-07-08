@@ -3,7 +3,6 @@ function dot3(u,v){
 }
 const BoundingBoxType = {
     none: 0, // full screen
-    // XXX? add support for bounding boxes to 2D-mode?
     // rect: 1, // draw on rectangle [vec2,vec2]
     sphere: 2, // draw on bounding cube of sphere [vec3,float]
     cylinder: 3, // draw in bounding cuboid of cylinder [vec3,vec3,float]
@@ -350,7 +349,7 @@ Renderer.prototype.updateAttributes = function() {
         // TODO? compress vertex data using element index table
         // find name and location of vertex modifier attributes
         this.boundingBox['vModifiers'].forEach((value)=>{
-            // compute name if it does not curently exist
+            // compute name if it does not currently exist
             let aName = value.aName || Renderer.vModifierPrefixV+index;
             let aLoc = gl.getAttribLocation(this.shaderProgram.handle, aName);
             if(aLoc == -1)
@@ -876,7 +875,6 @@ Renderer.prototype.resetAttribLocations = function() {
 
 ////////////////////////////////////////////
 // Scene renderers
-// TODO? move to seperate file
 ////////////////////////////////////////////
 // interface Cgl3dSceneRenderer:
 // functions:
@@ -1082,13 +1080,19 @@ function Cgl3dLayeredSceneRenderer(iw,ih,canvaswrapper,layerCount) {
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT1, gl.TEXTURE_2D, this.tmpLayers[0].depthTexture, 0);
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT2, gl.TEXTURE_2D, this.tmpLayers[1].colorTexture, 0);
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT3, gl.TEXTURE_2D, this.tmpLayers[1].depthTexture, 0);
+        const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+        if (status !== gl.FRAMEBUFFER_COMPLETE) {
+            throw new Error(`Failed to create merge framebuffer: ${status}`);
+        }
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.renderBuffer);
-        // TODO check if framebuffer is complete
     } else {
         this.tmpLayers = [];
     }
     this.renderLayer = new CglSceneLayer(iw,ih);
-    // TODO check if framebuffer is complete
+    const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+    if (status !== gl.FRAMEBUFFER_COMPLETE) {
+        throw new Error(`Failed to create render framebuffer: ${status}`);
+    }
 };
 
 /** @param {CglSceneLayer} newRenderLayer */
@@ -1170,15 +1174,6 @@ Cgl3dLayeredSceneRenderer.prototype.renderTranslucent = function(objects) {
             gl.disable(gl.CULL_FACE); // don't cull faces while sorting layers
             // ensure all four drawBuffers are linked to framebuffer
             gl.drawBuffers([gl.COLOR_ATTACHMENT0,gl.COLOR_ATTACHMENT1,gl.COLOR_ATTACHMENT2,gl.COLOR_ATTACHMENT3]);
-            /* TODO? sort/merge multiple layers in a single call
-                maximum input textures: limits:
-                output: 4: guaranteed ; 6: 96.74%  8: 95.19%
-                    (source: https://web3dsurvey.com/webgl2/parameters/MAX_DRAW_BUFFERS)
-                input: 8: ~100% ; 16: 99.96%
-                    (source: https://web3dsurvey.com/webgl2/parameters/MAX_TEXTURE_IMAGE_UNITS)
-                -> 2layers input/output should work, very likely that 3 and 4 also work
-                more than layers 4 at once unlikely (unless depth textures are merged)
-            */
             for(let i=0;i<layerCount-1;i++){
                 sortLayers(this.layers[i],this.renderLayer,false); // move closer pixel to left texture
                 this.layers[i]=this.swapTmpLayer(0,this.layers[i]);
@@ -1195,7 +1190,6 @@ Cgl3dLayeredSceneRenderer.prototype.renderTranslucent = function(objects) {
 };
 Cgl3dLayeredSceneRenderer.prototype.finishRender = function() {
     const layerCount = this.layers.length;
-    // TODO? render multiple layers in a single call
     if(this.canvaswrapper!=null) {
         this.canvaswrapper.bindOutputFramebuffer(); //render to texture stored in canvaswrapper
         this.canvaswrapper.generation = ++this.canvaswrapper.canvas.generation;
