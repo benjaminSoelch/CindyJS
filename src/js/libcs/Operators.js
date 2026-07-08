@@ -3654,6 +3654,13 @@ evaluator.keycode$0 = function (args, modifs) {
     return CSNumber.real(cskeycode);
 };
 
+evaluator.eventsource$0 = function (args, modifs) {
+    if (cseventsource) {
+        return General.string(cseventsource);
+    }
+    return nada;
+};
+
 evaluator.mouse$0 = function (args, modifs) {
     //OK
     if (modifs.id) {
