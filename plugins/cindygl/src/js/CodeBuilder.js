@@ -216,6 +216,8 @@ CodeBuilder.prototype.computeType = function(expr) { //expression
                     }
                 }
             }
+        } else if(expr['oper']=='eval$2') { // type of eval determined by expression in first arg
+            return generalize(this.getType(expr['args'][0]));
         }
         let allconstant = true;
         if(getPlainName(expr['oper'])=='genJSON') {
@@ -359,10 +361,7 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
         ans[varname] = ivar;
         return ans;
     }
-
-    function resolveLambdaData(expr, bindings, scope, forceconstant) {
-        let lambdaExpr = expr['obj'];
-        let argsExpr = expr['args'];
+    function resolveLambdaData(expr,lambdaExpr,argsExpr, bindings, scope, forceconstant) {
         let exprData = undefined;
         if(lambdaExpr['ctype'] === 'variable'){
             let exprName = lambdaExpr['name'];
@@ -421,9 +420,9 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
             variables[iname].assigments.push(argsExpr[index]);
         });
         // clone expression to allow more than one instantiation
-        expr['obj'] = cloneExpression(exprData['body']);
+        let exprBody = cloneExpression(exprData['body']);;
         // expression added to code in indirect way -> some functions may not yet have been copied
-        self.copyRequiredFunctions(expr['obj']);
+        self.copyRequiredFunctions(exprBody);
         expr.params = exprData['params'].map(param=>{
             // create independent copy of parameter
             let newParam = Object.assign({}, param);
@@ -436,7 +435,7 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
         });
         const oldMods = self.activeModifiers;
         self.activeModifiers = Object.assign({},self.activeModifiers,exprData['modifs']);
-        rec(expr['obj'],nbindings,localScope,forceconstant);
+        rec(exprBody,nbindings,localScope,forceconstant);
         self.activeModifiers = oldMods;
         // prepare variable for result of expression
         expr.resName = generateUniqueHelperString();
@@ -444,6 +443,7 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
         myfunctions[localScope].variables.push(expr.resName);
         self.initvariable(expr.resName, false);
         variables[expr.resName].assigments.push(expr);
+        return exprBody;
     }
     //dfs over executed code
     function rec(expr, bindings, scope, forceconstant) {
@@ -473,7 +473,23 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
             );
         }
         if (expr['ctype'] === 'invokelambda') {
-            resolveLambdaData(expr,bindings,scope,forceconstant);
+            let body = resolveLambdaData(expr,expr['obj'],expr['args'],bindings,scope,forceconstant);
+            if (body !== undefined)
+                expr['obj'] = body;
+        }
+        if (expr['ctype'] === 'function' && expr['oper'] === 'eval$2') {
+            let lambda = expr['args'][0];
+            let args = expr['args'][1];
+            if (args['ctype'] === "function" && args['oper'] === 'genList') {
+                args = args['args'];
+            } else if (args['ctype'] === "list") {
+                args = args['value'];
+            } else {
+                args = [args];
+            }
+            let body = resolveLambdaData(expr,lambda,args,bindings,scope,forceconstant);
+            if (body !== undefined)
+                expr['args'][0] = body;
         }
         if (expr['ctype'] === 'field') rec(expr['obj'], bindings, scope, forceconstant);
         if (expr['ctype'] === 'userdata') {
@@ -967,7 +983,46 @@ function opAssign(left,rigth){
 
 CodeBuilder.prototype.compile = function(expr, generateTerm) {
     var self = this; //for some reason recursion on this does not work, hence we create a copy; see http://stackoverflow.com/questions/18994712/recursive-call-within-prototype-function
-
+    function generateLambdaEval(expr,body,args,generateTerm) {
+        let code = "";
+        // assign arguments to parameters
+        expr.params.forEach((param,index)=>{
+            if(param['inline'])return;// skip inlined parameters
+            code+=self.compile(opAssign(param,args[index]),false).code;
+        });
+        // assign values to modifiers
+        expr.modifs.forEach(([key,value,bindings])=>{
+            if(value['ctype']==='lambda')
+                return; // skip textures and lambda values
+            if(value['ctype']==='string' || value['ctype']==='image') {
+                // TODO? seperate map for image uniforms
+                // create fake uniform variable to make image information accessible to TextureReader
+                self.uniforms[bindings[key] || key] = {
+                    expr: value,
+                    type: type.image,
+                    forceconstant: false
+                };
+                return;
+            }
+            code+=self.compile(opAssign({ctype:'variable',name:key,bindings:bindings},value),false).code;
+        });
+        // evaluate lambda expression
+        let result = self.compile(body,generateTerm);
+        // store computed result in variable to ensure correct evaluation order for multiple lambda-calls in single expression
+        if(result.term) {
+            let resType = self.getType(body);
+            if(result.term && resType !== type.voidt) {
+                result.code += `${expr.resName} = ${result.term};\n`;
+                result.term = expr.resName;
+            } else {
+                result.code += result.term;
+                result.term = "";
+            }
+        }
+        // insert assignemnt code before expression code
+        result.code = code+result.code;
+        return result;
+    }
     let ctype = this.getType(expr);
     if (expr['isuniform']) {
         let uname = expr['uvariable'];
@@ -1286,6 +1341,16 @@ CodeBuilder.prototype.compile = function(expr, generateTerm) {
             } : {
                 code: glsl
             });
+        } else if(fname === "eval$2") {
+            let args = expr['args'][1];
+            if (args['ctype'] === "function" && args['oper'] === 'genList') {
+                args = args['args'];
+            } else if (args['ctype'] === "list") {
+                args = args['value'];
+            } else {
+                args = [args];
+            }
+            return generateLambdaEval(expr,expr['args'][0],args,generateTerm);
         }
 
         let r = expr['args'].map(e => self.compile(e, true)); //recursion on all arguments
@@ -1428,45 +1493,7 @@ CodeBuilder.prototype.compile = function(expr, generateTerm) {
             });
         }
     } else if (expr['ctype'] === 'invokelambda') {
-        let code = "";
-        let args = expr['args'];
-        // assign arguments to parameters
-        expr.params.forEach((param,index)=>{
-            if(param['inline'])return;// skip inlined parameters
-            code+=this.compile(opAssign(param,args[index]),false).code;
-        });
-        // assign values to modifiers
-        expr.modifs.forEach(([key,value,bindings])=>{
-            if(value['ctype']==='lambda')
-                return; // skip textures and lambda values
-            if(value['ctype']==='string' || value['ctype']==='image') {
-                // TODO? seperate map for image uniforms
-                // create fake uniform variable to make image information accessible to TextureReader
-                this.uniforms[bindings[key] || key] = {
-                    expr: value,
-                    type: type.image,
-                    forceconstant: false
-                };
-                return;
-            }
-            code+=this.compile(opAssign({ctype:'variable',name:key,bindings:bindings},value),false).code;
-        });
-        // evaluate lambda expression
-        let result = this.compile(expr["obj"],generateTerm);
-        // store computed result in variable to ensure correct evaluation order for multiple lambda-calls in single expression
-        if(result.term) {
-            let resType = this.getType(expr["obj"]);
-            if(result.term && resType !== type.voidt) {
-                result.code += `${expr.resName} = ${result.term};\n`;
-                result.term = expr.resName;
-            } else {
-                result.code += result.term;
-                result.term = "";
-            }
-        }
-        // insert assignemnt code before expression code
-        result.code = code+result.code;
-        return result;
+        return generateLambdaEval(expr,expr['obj'],expr['args'],generateTerm);
     } else if (expr['ctype'] === 'userdata') {
         let objt = this.getType(expr['obj']);
         let key = expr['key'].value;
