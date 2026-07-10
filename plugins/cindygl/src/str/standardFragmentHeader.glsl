@@ -15,10 +15,7 @@ uniform vec3 cgl_viewPos;
 uniform vec3 cgl_viewNormal;
 uniform vec4 cgl_viewRect;
 uniform mat4 inverse_trafo;
-uniform vec3 uCenter;
-uniform vec3 uOrientation;
-uniform mat3 uCubeAxes;
-uniform float uRadius;
+
 float cgl_depth;
 vec3 cgl_viewDirection0;
 float cgl_point_depth(vec3 v){

@@ -94,12 +94,6 @@ CodeBuilder.builtIns=new Map([
     ["cglSpacePos",{type:"pixelAttribute",code:"",expr:"cgl_spacePos",valueType:type.vec3,writable:false}],
     ["cglViewDirection",{type:"pixelAttribute",code:"",expr:"cgl_viewDirection0",valueType:type.vec3,writable:false}],
     [BUILTIN_CGLDEPTH,{type:"pixelAttribute",code:"",expr:"cgl_depth",valueType:type.float,writable:true}],
-    // TODO? make available constants dependent on bounding box type (?JSON-value cglBounds)
-    // only for some bounding box types
-    ["cglCenter",{type:"uniform",code:"",expr:"uCenter",valueType:type.vec3,writable:false}],
-    ["cglRadius",{type:"uniform",code:"",expr:"uRadius",valueType:type.float,writable:false}],
-    ["cglOrientation",{type:"uniform",code:"",expr:"uOrientation",valueType:type.vec3,writable:false}],
-    ["cglCubeAxes",{type:"uniform",code:"",expr:"uCubeAxes",valueType:type.mat3,writable:false}],
 ]);
 CodeBuilder.cindygl3dPrefix="cgl";
 

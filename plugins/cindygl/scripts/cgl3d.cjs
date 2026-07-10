@@ -310,7 +310,7 @@ cgl3d.compute.sphereNormal = (direction,center,isBack) => (
   vc=cglSpacePos-center;
   // -> l*l <d,d> + l * 2<v-c,d> + <v-c,v-c> - r*r
   b2=(vc*direction); // 1/2 * b
-  c=vc*vc-cglRadius*cglRadius;
+  c=vc*vc-cglBounds().radius*cglBounds().radius;
   D4=b2*b2-c; // 1/4* ( b*b - 4 *a*c)
   if(D4<0,cglDiscard()); // discard rays that do not intersect the sphere
   r=re(sqrt(D4));
@@ -358,7 +358,7 @@ cgl3d.projection.sphereEquirect = (normal) => (
 
 cgl3d.shader.sphere = (direction,isBack) => (
   regional(normal,texturePos,color);
-  normal = cgl3d.compute.sphereNormal.(direction,cglCenter,isBack);
+  normal = cgl3d.compute.sphereNormal.(direction,cglBounds().center,isBack);
   texturePos = cglProjection.(normal);
   color = cglPixelExpr.(texturePos,cglSpacePos + cglRawDepth*direction,normal);
   cglLight.(color,direction,normal);
@@ -368,7 +368,7 @@ cgl3d.shader.sphere = (direction,isBack) => (
 // cylinder
 /////////////////////
 
-// the two distances where the viewRay in the given direction intersects the cylinder defined by cglCenter, cglOrientation and cglRadius
+// the two distances where the viewRay in the given direction intersects the cylinder defined by cglBounds().center, cglBounds().orientation and cglBounds().radius
 cgl3d.compute.cylinderDepths = (direction) => (
   regional(w,W,BA,U,VA,S,T,a,b,c,D,r);
     // P lies on infinite cylinder around axis AB with radius r iff
@@ -381,16 +381,16 @@ cgl3d.compute.cylinderDepths = (direction) => (
     // <S-l*T,S-l*T>-r²=0 -> l² <T,T> + l 2<S,T> + <S,S> - r^2 =0
 
     // pick point on viewRay closer to cylinder to increase numeric stability
-    w = |cglSpacePos-cglCenter|;
+    w = |cglSpacePos-cglBounds().center|;
     W = cglSpacePos + w*direction;
-    BA = cglOrientation;
+    BA = cglBounds().orientation;
     U = BA/(BA*BA);
-    VA = (W-cglCenter);
+    VA = (W-cglBounds().center);
     S = VA - (VA*BA)*U;
     T = direction - (direction*BA)*U;
     a = T*T;
     b = S*T;
-    c = S*S -cglRadius*cglRadius;
+    c = S*S -cglBounds().radius*cglBounds().radius;
     D= b*b-a*c;
     if(D<0,cglDiscard()); // discard rays that do not intersect the cylinder
     r = re(sqrt(D));
@@ -458,83 +458,83 @@ cglCapVoidShader = lambda((direction,cylinderDepths,delta,U,cutVector),
 );
 cglCapOpenShaderNoBack = lambda((direction,cylinderDepths,delta,U,cutVector),
     regional(v2,delta2,normal);
-    v2 = (cglSpacePos+cylinderDepths_2*direction)-cglCenter;
+    v2 = (cglSpacePos+cylinderDepths_2*direction)-cglBounds().center;
     delta2 = v2*cutVector;
     if(delta2*delta>1,cglDiscard());
     cgl3d.compute.pixelDepth.(cylinderDepths_2,direction);
-    normal = normalize(v2-delta2*cglOrientation);
+    normal = normalize(v2-delta2*cglBounds().orientation);
     (normal_1,normal_2,normal_3,delta2);
 );
 cglCapOpenShaderBack = cglCapVoidShader;
 cglCapRoundShaderFront = lambda((direction,cylinderDepths,delta,U,cutVector),
     regional(m,normal);
-    m = cglCenter+delta*cglOrientation;
+    m = cglBounds().center+delta*cglBounds().orientation;
     normal = cgl3d.compute.sphereNormal.(direction,m,false);
     (normal_1,normal_2,normal_3,delta);
 );
 cglCapRoundShaderBack = lambda((direction,cylinderDepths,delta,U,cutVector),
     regional(m,normal);
-    m = cglCenter+delta*cglOrientation;
+    m = cglBounds().center+delta*cglBounds().orientation;
     normal = cgl3d.compute.sphereNormal.(direction,m,true);
     (normal_1,normal_2,normal_3,delta);
 );
 cglCapFlatShaderFront = lambda((direction,cylinderDepths,delta,U,cutVector),
     regional(m,a,normal);
-    m = cglCenter+delta*cglOrientation;
+    m = cglBounds().center+delta*cglBounds().orientation;
     // <v + a*d,o> = <m,o>
-    a = (m*cglOrientation-cglSpacePos*cglOrientation)/(direction*cglOrientation);
-    if(|cglSpacePos + a*direction - m| > cglRadius,cglDiscard());
+    a = (m*cglBounds().orientation-cglSpacePos*cglBounds().orientation)/(direction*cglBounds().orientation);
+    if(|cglSpacePos + a*direction - m| > cglBounds().radius,cglDiscard());
     cgl3d.compute.pixelDepth.(a,direction);
-    normal = normalize(cglOrientation*delta);
+    normal = normalize(cglBounds().orientation*delta);
     (normal_1,normal_2,normal_3,delta)
 );
 cglCapFlatShaderBack = lambda((direction,cylinderDepths,delta,U,cutVector),
     regional(m,a,normal);
-    m = cglCenter+delta*cglOrientation;
+    m = cglBounds().center+delta*cglBounds().orientation;
     // <v + a*d,o> = <m,o>
-    a = (m*cglOrientation-cglSpacePos*cglOrientation)/(direction*cglOrientation);
-    if(|cglSpacePos + a*direction - m| > cglRadius,cglDiscard());
+    a = (m*cglBounds().orientation-cglSpacePos*cglBounds().orientation)/(direction*cglBounds().orientation);
+    if(|cglSpacePos + a*direction - m| > cglBounds().radius,cglDiscard());
     cgl3d.compute.pixelDepth.(a,direction);
-    normal = -normalize(cglOrientation*delta);
+    normal = -normalize(cglBounds().orientation*delta);
     (normal_1,normal_2,normal_3,delta)
 );
 cglCapAngleFlatShaderFront = lambda((direction,cylinderDepths,delta,U,cutVector),
     regional(m,a,p,o,normal);
-    m = cglCenter+delta*cglOrientation;
+    m = cglBounds().center+delta*cglBounds().orientation;
     // <v + a*d,n> = <m,n>
     a = (m*cutVector-cglSpacePos*cutVector)/(direction*cutVector);
     p = cglSpacePos + a*direction;
-    o = normalize(cglOrientation);
-    if(|p-m - ((p-m)*o)*o| > cglRadius,cglDiscard());
+    o = normalize(cglBounds().orientation);
+    if(|p-m - ((p-m)*o)*o| > cglBounds().radius,cglDiscard());
     cgl3d.compute.pixelDepth.(a,direction);
     normal = delta*normalize(cutVector);
-    delta = (p-cglCenter)*U;
+    delta = (p-cglBounds().center)*U;
     (normal_1,normal_2,normal_3,delta)
 );
 cglCapAngleFlatShaderBack = lambda((direction,cylinderDepths,delta,U,cutVector),
     regional(m,a,p,o,normal);
-    m = cglCenter+delta*cglOrientation;
+    m = cglBounds().center+delta*cglBounds().orientation;
     // <v + a*d,n> = <m,n>
     a = (m*cutVector-cglSpacePos*cutVector)/(direction*cutVector);
     p = cglSpacePos + a*direction;
-    o = normalize(cglOrientation);
-    if(|p-m - ((p-m)*o)*o| > cglRadius,cglDiscard());
+    o = normalize(cglBounds().orientation);
+    if(|p-m - ((p-m)*o)*o| > cglBounds().radius,cglDiscard());
     cgl3d.compute.pixelDepth.(a,direction);
     normal = -delta*normalize(cutVector);
-    delta = (p-cglCenter)*U;
+    delta = (p-cglBounds().center)*U;
     (normal_1,normal_2,normal_3,delta)
 );
 cglCapAngleVoidRoundShaderFront = lambda((direction,cylinderDepths,delta,U,cutVector),
   regional(res,v2);
   res = cglCapRoundShaderFront.(direction,cylinderDepths,delta,U,cutVector);
-  v2 = cglSpacePos + cglRawDepth * direction - cglCenter;
+  v2 = cglSpacePos + cglRawDepth * direction - cglBounds().center;
   if((delta*(v2*cutVector)>1) % (delta*(v2*U)<1),cglDiscard());
   res
 );
 cglCapAngleVoidRoundShaderBack = lambda((direction,cylinderDepths,delta,U,cutVector),
   regional(res,v2);
   res = cglCapRoundShaderBack.(direction,cylinderDepths,delta,U,cutVector);
-  v2 = cglSpacePos + cglRawDepth * direction - cglCenter;
+  v2 = cglSpacePos + cglRawDepth * direction - cglBounds().center;
   if((delta*(v2*cutVector)>1) % (delta*(v2*U)<1),cglDiscard());
   res
 );
@@ -553,10 +553,10 @@ cglCapCutFlat2 = lambda((v2,U),
 );
 cglCapCutRound1 = lambda((v2,U),
   // v2 = pos3d - center ->  pos3d - m = v2 + center - (center-orientation) = v2 - orientation
-  cglCapCutFlat1.(v2,U) & (|v2 + cglOrientation| > cglRadius)
+  cglCapCutFlat1.(v2,U) & (|v2 + cglBounds().orientation| > cglBounds().radius)
 );
 cglCapCutRound2 = lambda((v2,U),
-  cglCapCutFlat2.(v2,U) & (|v2 - cglOrientation| > cglRadius)
+  cglCapCutFlat2.(v2,U) & (|v2 - cglBounds().orientation| > cglBounds().radius)
 );
 cglCapCutAngle1 = lambda((v2,U),
   v2*cglCutDir1<-1
@@ -609,9 +609,9 @@ cgl3d.connect.flat = 1;
 cgl3d.shader.cylinder = (direction) => (
   regional(l,BA,U,v1,delta,normalAndHeight,v2,normal,texturePos,color,pos3d);
   l = cgl3d.compute.cylinderDepths.(direction);
-  BA = cglOrientation;
+  BA = cglBounds().orientation;
   U = BA/(BA*BA);
-  v1 = (cglSpacePos+l_1*direction)-cglCenter;
+  v1 = (cglSpacePos+l_1*direction)-cglBounds().center;
   delta = (v1*U);
   if(cglCut1.(delta,v1)<-1, // cap1
     // opt TODO? is there a less nested algorithm for correctly handling intersecting end-caps
@@ -620,55 +620,55 @@ cgl3d.shader.cylinder = (direction) => (
       // <v + a*d,n> = <m,n>
       cutVector1=cglGetCutVector1.(U);
       cutVector2=cglGetCutVector2.(U);
-      a1 = ((cglCenter-cglOrientation)*cutVector1-cglSpacePos*cutVector1)/(direction*cutVector1);
-      a2 = ((cglCenter+cglOrientation)*cutVector2-cglSpacePos*cutVector2)/(direction*cutVector2);
+      a1 = ((cglBounds().center-cglBounds().orientation)*cutVector1-cglSpacePos*cutVector1)/(direction*cutVector1);
+      a2 = ((cglBounds().center+cglBounds().orientation)*cutVector2-cglSpacePos*cutVector2)/(direction*cutVector2);
       if(a1<a2,
         normalAndHeight = cglCap2front.(direction,l,1,U,cglGetCutVector2.(U));
-        v2 = cglSpacePos + cglRawDepth*direction - cglCenter;
+        v2 = cglSpacePos + cglRawDepth*direction - cglBounds().center;
         if(cglCapCut1.(v2,U), // cap1 and cap2
           normalAndHeight = cglCap1front.(direction,l,-1,U,cglGetCutVector1.(U));
-          v2 = cglSpacePos + cglRawDepth*direction - cglCenter;
+          v2 = cglSpacePos + cglRawDepth*direction - cglBounds().center;
           if(cglCapCut2.(v2,U),cglDiscard()); // both intersections with caps are cut of by other cap
         );
       ,
         normalAndHeight = cglCap1front.(direction,l,-1,U,cglGetCutVector1.(U));
-        v2 = cglSpacePos + cglRawDepth*direction - cglCenter;
+        v2 = cglSpacePos + cglRawDepth*direction - cglBounds().center;
         if(cglCapCut2.(v2,U), // cap1 and cap2
           normalAndHeight = cglCap2front.(direction,l,1,U,cglGetCutVector2.(U));
-          v2 = cglSpacePos + cglRawDepth*direction - cglCenter;
+          v2 = cglSpacePos + cglRawDepth*direction - cglBounds().center;
           if(cglCapCut1.(v2,U),cglDiscard()); // both intersections with caps are cut of by other cap
         );
       );
     ,
       normalAndHeight = cglCap1front.(direction,l,-1,U,cglGetCutVector1.(U));
-      v2 = cglSpacePos + cglRawDepth*direction - cglCenter;
+      v2 = cglSpacePos + cglRawDepth*direction - cglBounds().center;
       // opt TODO? omit check for second cap if both caps are cut orthogonal to cylinder
       if(cglCapCut2.(v2,U), // cap1 and cap2
         normalAndHeight = cglCap2front.(direction,l,1,U,cglGetCutVector2.(U));
-        v2 = cglSpacePos + cglRawDepth*direction - cglCenter;
+        v2 = cglSpacePos + cglRawDepth*direction - cglBounds().center;
         if(cglCapCut1.(v2,U),cglDiscard()); // both intersections with caps are cut of by other cap
       );
     );
     normal = (normalAndHeight_1,normalAndHeight_2,normalAndHeight_3);
     delta = normalAndHeight_4;
     pos3d = (cglSpacePos+cglRawDepth*direction);
-    texturePos = cglProjection.(normalize((pos3d-cglCenter)-delta*BA),max(-1,min(delta,1)),cglOrientation);
+    texturePos = cglProjection.(normalize((pos3d-cglBounds().center)-delta*BA),max(-1,min(delta,1)),cglBounds().orientation);
   ,if(cglCut2.(delta,v1)>1, // cap2
     normalAndHeight = cglCap2front.(direction,l,1,U,cglGetCutVector2.(U));
-    v2 = cglSpacePos + cglRawDepth*direction - cglCenter;
+    v2 = cglSpacePos + cglRawDepth*direction - cglBounds().center;
     if(cglCapCut1.(v2,U), // cap1 and cap2
       normalAndHeight = cglCap1front.(direction,l,-1,U,cglGetCutVector1.(U));
-      v2 = cglSpacePos + cglRawDepth*direction - cglCenter;
+      v2 = cglSpacePos + cglRawDepth*direction - cglBounds().center;
       if(cglCapCut2.(v2,U),cglDiscard()); // both intersections with caps are cut of by other cap
     );
     normal = (normalAndHeight_1,normalAndHeight_2,normalAndHeight_3);
     delta = normalAndHeight_4;
     pos3d = (cglSpacePos+cglRawDepth*direction);
-    texturePos = cglProjection.(normalize((pos3d-cglCenter)-delta*BA),max(-1,min(delta,1)),cglOrientation);
+    texturePos = cglProjection.(normalize((pos3d-cglBounds().center)-delta*BA),max(-1,min(delta,1)),cglBounds().orientation);
   , // intersection with body of cylinder
     cgl3d.compute.pixelDepth.(l_1,direction);
     normal = normalize(v1-delta*BA);
-    texturePos = cglProjection.(normal,max(-1,min(delta,1)),cglOrientation);
+    texturePos = cglProjection.(normal,max(-1,min(delta,1)),cglBounds().orientation);
   ));
   color = cglPixelExpr.(texturePos,cglSpacePos + cglRawDepth*direction,normal);
   cglLight.(color,direction,normal);
@@ -676,9 +676,9 @@ cgl3d.shader.cylinder = (direction) => (
 cgl3d.shader.cylinderBack = (direction) => (
   regional(l,BA,U,v2,delta,normalAndHeight,v3,normal,texturePos,color,pos3d);
   l = cgl3d.compute.cylinderDepths.(direction);
-  BA = cglOrientation;
+  BA = cglBounds().orientation;
   U = BA/(BA*BA);
-  v2 = (cglSpacePos+l_2*direction)-cglCenter;
+  v2 = (cglSpacePos+l_2*direction)-cglBounds().center;
   delta = (v2*U);
   if(cglCut1.(delta,v2)<-1, // cap 1
     if(cglCut2.(delta,v2)>1, // cap1 & cap2
@@ -686,54 +686,54 @@ cgl3d.shader.cylinderBack = (direction) => (
       // <v + a*d,n> = <m,n>
       cutVector1=cglGetCutVector1.(U);
       cutVector2=cglGetCutVector2.(U);
-      a1 = ((cglCenter-cglOrientation)*cutVector1-cglSpacePos*cutVector1)/(direction*cutVector1);
-      a2 = ((cglCenter+cglOrientation)*cutVector2-cglSpacePos*cutVector2)/(direction*cutVector2);
+      a1 = ((cglBounds().center-cglBounds().orientation)*cutVector1-cglSpacePos*cutVector1)/(direction*cutVector1);
+      a2 = ((cglBounds().center+cglBounds().orientation)*cutVector2-cglSpacePos*cutVector2)/(direction*cutVector2);
       if(a1<a2,
         normalAndHeight = cglCap2back.(direction,l,1,U,cglGetCutVector2.(U));
-        v3 = cglSpacePos + cglRawDepth*direction - cglCenter;
+        v3 = cglSpacePos + cglRawDepth*direction - cglBounds().center;
         if(cglCapCut1.(v3,U), // cap1 and cap2
           normalAndHeight = cglCap1back.(direction,l,-1,U,cglGetCutVector1.(U));
-          v3 = cglSpacePos + cglRawDepth*direction - cglCenter;
+          v3 = cglSpacePos + cglRawDepth*direction - cglBounds().center;
           if(cglCapCut2.(v3,U),cglDiscard()); // both intersections with caps are cut of by other cap
         );
       ,
         normalAndHeight = cglCap1back.(direction,l,-1,U,cglGetCutVector1.(U));
-        v3 = cglSpacePos + cglRawDepth*direction - cglCenter;
+        v3 = cglSpacePos + cglRawDepth*direction - cglBounds().center;
         if(cglCapCut2.(v3,U), // cap1 and cap2
           normalAndHeight = cglCap2back.(direction,l,1,U,cglGetCutVector2.(U));
-          v3 = cglSpacePos + cglRawDepth*direction - cglCenter;
+          v3 = cglSpacePos + cglRawDepth*direction - cglBounds().center;
           if(cglCapCut1.(v3,U),cglDiscard()); // both intersections with caps are cut of by other cap
         );
       );
     ,
       normalAndHeight = cglCap1back.(direction,l,-1,U,cglGetCutVector1.(U));
-      v3 = cglSpacePos + cglRawDepth*direction - cglCenter;
+      v3 = cglSpacePos + cglRawDepth*direction - cglBounds().center;
       if(cglCapCut2.(v3,U), // cap1 and cap2
         normalAndHeight = cglCap2back.(direction,l,1,U,cglGetCutVector2.(U));
-        v3 = cglSpacePos + cglRawDepth*direction - cglCenter;
+        v3 = cglSpacePos + cglRawDepth*direction - cglBounds().center;
         if(cglCapCut1.(v3,U),cglDiscard()); // both intersections with caps are cut of by other cap
       );
     );
     normal = (normalAndHeight_1,normalAndHeight_2,normalAndHeight_3);
     delta = normalAndHeight_4;
     pos3d = (cglSpacePos+cglRawDepth*direction);
-    texturePos = cglProjection.(normalize((pos3d-cglCenter)-delta*BA),max(-1,min(delta,1)),cglOrientation);
+    texturePos = cglProjection.(normalize((pos3d-cglBounds().center)-delta*BA),max(-1,min(delta,1)),cglBounds().orientation);
   ,if(cglCut2.(delta,v2)>1, // cap2
     normalAndHeight = cglCap2back.(direction,l,1,U,cglGetCutVector2.(U));
-    v3 = cglSpacePos + cglRawDepth*direction - cglCenter;
+    v3 = cglSpacePos + cglRawDepth*direction - cglBounds().center;
     if(cglCapCut1.(v3,U), // cap1 and cap2
       normalAndHeight = cglCap1back.(direction,l,-1,U,cglGetCutVector1.(U));
-      v3 = cglSpacePos + cglRawDepth*direction - cglCenter;
+      v3 = cglSpacePos + cglRawDepth*direction - cglBounds().center;
       if(cglCapCut2.(v3,U),cglDiscard()); // both intersections with caps are cut of by other cap
     );
     normal = (normalAndHeight_1,normalAndHeight_2,normalAndHeight_3);
     delta = normalAndHeight_4;
     pos3d = (cglSpacePos+cglRawDepth*direction);
-    texturePos = cglProjection.(normalize((pos3d-cglCenter)-delta*BA),max(-1,min(delta,1)),cglOrientation);
+    texturePos = cglProjection.(normalize((pos3d-cglBounds().center)-delta*BA),max(-1,min(delta,1)),cglBounds().orientation);
   , // intersection with body of cylinder
     cgl3d.compute.pixelDepth.(l_2,direction);
     normal = normalize(v2-delta*BA);
-    texturePos = cglProjection.(normal,max(-1,min(delta,1)),cglOrientation);
+    texturePos = cglProjection.(normal,max(-1,min(delta,1)),cglBounds().orientation);
   ));
   color = cglPixelExpr.(texturePos,cglSpacePos + cglRawDepth*direction,normal);
   cglLight.(color,direction,normal);
@@ -865,7 +865,7 @@ cgl3d.shader.torus = (direction,layer) => (
     arcDirection,arcCenter,normal,color,texturePos);
   // compute torus coordinates from cylinder bounding box arguments
   //   reduces number of needed uniforms
-  center = cglCenter;
+  center = cglBounds().center;
   radius1 = cglRadii_1;
   radius2 = cglRadii_2;
   v=|center-cglSpacePos|;
@@ -875,14 +875,14 @@ cgl3d.shader.torus = (direction,layer) => (
   vc=V-center;
   // -> l*l <d,d> + l * 2<v-c,d> + <v-c,v-c> - r*r
   b0=(vc*direction);
-  c0=vc*vc-cglRadius*cglRadius;//cglRadius = r1+r2
+  c0=vc*vc-cglBounds().radius*cglBounds().radius;//cglBounds().radius = r1+r2
   // add small buffer distance to balance out numeric instability in bounding sphere
   D0=b0*b0-c0+0.001;
   if(D0<0,cglDiscard());
   x0=-b0-re(sqrt(D0));
   x1=-b0+re(sqrt(D0));
-  orientation = normalize(cglOrientation);
-  V = V - cglCenter; // update coordinate system such that center is at (0,0,0)
+  orientation = normalize(cglBounds().orientation);
+  V = V - cglBounds().center; // update coordinate system such that center is at (0,0,0)
   // Equation for torus in orthogonal coord-system with unit vectors v1,v2,o
   // (sqrt(<P,v1>²+<P,v2>²)-r1)² + <P,o>² = r2²  =>
   // (<P,P> + r1²-r2²)² = 4 r1 ² (<P-<P,o>o,P-<P,o>o>)
@@ -1495,23 +1495,23 @@ cgl3d.cutoff.screenCube = {"expr": lambda((rayStart,direction),
 ),"bounds": cgl3d.bounds.unbounded,"modifs":{}};
 
 cgl3d.cutoff.sphere = (center,radius) => {"expr":lambda((rayStart,direction),
-  cgl3d.compute.sphereDepths.(rayStart,direction,cglCenter,cglRadius)
+  cgl3d.compute.sphereDepths.(rayStart,direction,cglBounds().center,cglBounds().radius)
 ),"bounds":cgl3d.bounds.sphere.(center,radius),"modifs":{}};
 cgl3d.cutoff.cylinder = (center,orientation,radius) => {"expr":lambda((rayStart,direction),
-  cgl3d.compute.cappedCylinderDepths.(rayStart,direction,cglCenter,cglOrientation,cglRadius)
+  cgl3d.compute.cappedCylinderDepths.(rayStart,direction,cglBounds().center,cglBounds().orientation,cglBounds().radius)
 ),"bounds":cgl3d.bounds.cylinder.(center,orientation,radius),"modifs":{}};
 cgl3d.cutoff.cube = (center,sideLength) => {"expr":lambda((rayStart,direction),
-  cgl3d.compute.cuboidDepths.(rayStart,direction,cglCenter,cglCubeAxes_1,cglCubeAxes_2,cglCubeAxes_3)
+  cgl3d.compute.cuboidDepths.(rayStart,direction,cglBounds().center,cglBounds().v1,cglBounds().v2,cglBounds().v3)
 ),"bounds":cgl3d.bounds.cuboid.(center,[sideLength,0,0],[0,sideLength,0],[0,0,sideLength]),"modifs":{}};
-cgl3d.cutoff.cube = (center,sideLength,up,front) => {
+/*cgl3d.cutoff.cube = (center,sideLength,up,front) => {
   "expr":lambda((rayStart,direction),
-    cgl3d.compute.cuboidDepths.(rayStart,direction,cglCenter,cglCubeAxes_1,cglCubeAxes_2,cglCubeAxes_3)),
+    cgl3d.compute.cuboidDepths.(rayStart,direction,cglBounds().center,cglBounds().v1,cglBounds().v2,cglBounds().v3)),
   "bounds":cgl3d.bounds.cuboid.(center,sideLength*normalize(up),sideLength*normalize(front),
     sideLength*normalize(cross(up,front))),"modifs":{}
-};
+};*/
 cgl3d.cutoff.cuboid = (center,v1,v2,v3) => {
   "expr":lambda((rayStart,direction),
-    cgl3d.compute.cuboidDepths.(rayStart,direction,cglCenter,cglCubeAxes_1,cglCubeAxes_2,cglCubeAxes_3)),
+    cgl3d.compute.cuboidDepths.(rayStart,direction,cglBounds().center,cglBounds().v1,cglBounds().v2,cglBounds().v3)),
   "bounds":cgl3d.bounds.cuboid.(center,v1,v2,v3),"modifs":{}
 };
 

@@ -445,6 +445,7 @@ Renderer.prototype.setBoundingBoxUniforms = function() {
         if(this.cpg.uniforms[uname].dependsOnBounds)
             this.setUniformValue(uname);
     }
+    // vertex shader internally depends on bounding box uniforms
     if (this.shaderProgram.uniform.hasOwnProperty('uCenter')){
         if(this.boundingBox['center'] !== undefined) {
             this.shaderProgram.uniform["uCenter"]
