@@ -828,7 +828,7 @@ let CindyGL = function(api) {
     };
 
     api.defineFunction("cglBounds",0, (args, modifs) => {
-        cglLogWarning("the behaviour of the cglBounds() function is not stable yet");
+        calledCglBounds = true;
         if(CindyGL.boundsPrevObj===CindyGL.currentBounds && CindyGL.boundsPrevValue) {
             return CindyGL.boundsPrevValue;
         }
@@ -1148,6 +1148,8 @@ let CindyGL = function(api) {
         return nada;
     });
 }
+// marker to allow detecting if an evaluate call called cglBounds
+let calledCglBounds = false;
 
 // Exports for CindyXR
 CindyGL.gl = null;

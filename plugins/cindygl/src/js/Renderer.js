@@ -441,6 +441,10 @@ Renderer.prototype.setCoordinateUniforms3D = function() {
  * sets uniform space transformation matrices
  */
 Renderer.prototype.setBoundingBoxUniforms = function() {
+    for (let uname in this.cpg.uniforms) {
+        if(this.cpg.uniforms[uname].dependsOnBounds)
+            this.setUniformValue(uname);
+    }
     if (this.shaderProgram.uniform.hasOwnProperty('uCenter')){
         if(this.boundingBox['center'] !== undefined) {
             this.shaderProgram.uniform["uCenter"]
@@ -602,30 +606,35 @@ Renderer.prototype.setModifierUniforms = function(plotModifiers){
     });
 }
 
-Renderer.prototype.setUniforms = function() {
-    function setUniform(setter, t, val) {
-        if (!setter) return; //skip inactive uniforms
-        Renderer.setUniformValue(setter,Renderer.computeUniformValue(setter,t,val));
+function setUniform(setter, t, val) {
+    if (!setter) return; //skip inactive uniforms
+    Renderer.setUniformValue(setter,Renderer.computeUniformValue(setter,t,val));
+}
+/**
+ * @param {string} uname
+ */
+Renderer.prototype.setUniformValue = function(uname) {
+    let val = this.api.evaluateAndVal(this.cpg.uniforms[uname].expr);
+    let t = this.cpg.uniforms[uname].type;
+
+    if (!issubtypeof(constant(val), t)) {
+        cglLogDebug(`Type of ${uname} changed (${typeToString(constant(val))} is no subtype of  ${typeToString(t)}); forcing rebuild.`);
+        this.rebuild(true);
+        this.shaderProgram.use(gl);
+        this.setUniforms();
+        return;
     }
 
+    if (this.shaderProgram.uniform[uname]) {
+        let setter = this.shaderProgram.uniform[uname];
+        setUniform(setter, t, val);
+    }
+};
 
+Renderer.prototype.setUniforms = function() {
     for (let uname in this.cpg.uniforms) {
-
-        let val = this.api.evaluateAndVal(this.cpg.uniforms[uname].expr);
-        let t = this.cpg.uniforms[uname].type;
-
-        if (!issubtypeof(constant(val), t)) {
-            cglLogDebug(`Type of ${uname} changed (${typeToString(constant(val))} is no subtype of  ${typeToString(t)}); forcing rebuild.`);
-            this.rebuild(true);
-            this.shaderProgram.use(gl);
-            this.setUniforms();
-            return;
-        }
-
-        if (this.shaderProgram.uniform[uname]) {
-            let setter = this.shaderProgram.uniform[uname];
-            setUniform(setter, t, val);
-        }
+        if(!this.cpg.uniforms[uname].dependsOnBounds)
+            this.setUniformValue(uname);
     }
 
     [

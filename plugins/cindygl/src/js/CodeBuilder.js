@@ -827,11 +827,13 @@ CodeBuilder.prototype.determineUniforms = function(expr) {
 
 CodeBuilder.prototype.determineUniformTypes = function() {
     for (let uname in this.uniforms) {
+        calledCglBounds = false;
         let tval = this.evaluateAndVal(this.uniforms[uname].expr);
         if (!tval["ctype"] || tval["ctype"] === "undefined") {
             cglLogError("can not evaluate:",this.uniforms[uname].expr);
             return false;
         }
+        this.uniforms[uname].dependsOnBounds = calledCglBounds;
         this.uniforms[uname].type = this.uniforms[uname].forceconstant ? constant(tval) : guessTypeOfValue(tval);
         //cglLogDebug(`guessed type ${typeToString(this.uniforms[uname].type)} for ${(this.uniforms[uname].expr['name']) || (this.uniforms[uname].expr['oper'])}`);
     }
