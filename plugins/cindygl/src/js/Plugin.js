@@ -140,6 +140,7 @@ let CindyGL = function(api) {
             modifierTypes.set(key, {type: value.eltType,isuniform: false,used: false});
             mergedTypes.set(key, {type: value.eltType,isuniform: false,used: false});
         });
+        CindyGL.currentBounds = boundingBox;
         if (typeof(prog.renderers)==="undefined") prog.renderers = [];
         /**@type {Renderer} */
         let renderer;
@@ -219,10 +220,16 @@ let CindyGL = function(api) {
                 value: value
             };
         }
-        if(value instanceof Array){
+        if(Array.isArray(value)){
             return {
                 ctype: 'list',
                 value: value.map(toCjs)
+            };
+        }
+        if (value !== null && typeof value === "object" && value.constructor.name === "Object") {
+            return {
+                ctype: "JSON",
+                value: Object.fromEntries(Object.entries(value).map(([k,v])=>[k,toCjs(v)])),
             };
         }
         console.log("unknown CindyScript value: ",value);
@@ -820,6 +827,17 @@ let CindyGL = function(api) {
         CindyGL.sceneRenderer = null;
     };
 
+    api.defineFunction("cglBounds",0, (args, modifs) => {
+        cglLogWarning("the behaviour of the cglBounds() function is not stable yet");
+        if(CindyGL.boundsPrevObj===CindyGL.currentBounds && CindyGL.boundsPrevValue) {
+            return CindyGL.boundsPrevValue;
+        }
+        if (!(CindyGL.currentBounds)) return {"ctype":"JSON","value":{}};
+        let bounds = toCjs(CindyGL.currentBounds);
+        CindyGL.boundsPrevValue = bounds;
+        CindyGL.boundsPrevObj = CindyGL.currentBounds;
+        return bounds;
+    });
     const OBJECT_BOUND_KEYS = ["center","radius","orientation"];
     api.defineFunction("cgl3dObjectId", 1, (args, modifs) => {
         let arg = api.evaluate(args[0]);
@@ -1135,5 +1153,8 @@ let CindyGL = function(api) {
 CindyGL.gl = null;
 CindyGL.generateCanvasWrapperIfRequired = generateCanvasWrapperIfRequired;
 CindyGL.sceneRenderer = null;
+CindyGL.boundsPrevObj = null;
+CindyGL.boundsPrevValue = null;
+CindyGL.currentBounds = null;
 CindyGL.initGLIfRequired = initGLIfRequired;
 CindyJS.registerPlugin(1, "CindyGL", CindyGL);
