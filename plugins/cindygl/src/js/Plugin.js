@@ -141,6 +141,8 @@ let CindyGL = function(api) {
             mergedTypes.set(key, {type: value.eltType,isuniform: false,used: false});
         });
         CindyGL.currentBounds = boundingBox;
+        CindyGL.currentModifiers = plotModifiers;
+        CindyGL.currentVModifiers = vModifiers;
         if (typeof(prog.renderers)==="undefined") prog.renderers = [];
         /**@type {Renderer} */
         let renderer;
@@ -838,6 +840,18 @@ let CindyGL = function(api) {
         CindyGL.boundsPrevObj = CindyGL.currentBounds;
         return bounds;
     });
+    api.defineFunction("cglModif",1, (args, modifs) => {
+        cglLogWarning("cglModif is currently experimental and may be removed in a future version");
+        calledCglBounds = true;
+        let key = api.evaluate(args[0]);
+        if (CindyGL.currentModifiers == null || key.ctype !== "string") return nada;
+        let mod = CindyGL.currentModifiers.get(key.value);
+        if (mod !== undefined) return mod;
+        if (CindyGL.currentVModifiers == null) return nada; // double equal treats null and undefined as equal
+        mod = CindyGL.currentVModifiers.get(key.value);
+        if (mod === undefined) return nada;
+        return mod;
+    });
     const OBJECT_BOUND_KEYS = ["center","radius","orientation"];
     api.defineFunction("cgl3dObjectId", 1, (args, modifs) => {
         let arg = api.evaluate(args[0]);
@@ -1151,12 +1165,14 @@ let CindyGL = function(api) {
 // marker to allow detecting if an evaluate call called cglBounds
 let calledCglBounds = false;
 
-// Exports for CindyXR
-CindyGL.gl = null;
-CindyGL.generateCanvasWrapperIfRequired = generateCanvasWrapperIfRequired;
 CindyGL.sceneRenderer = null;
 CindyGL.boundsPrevObj = null;
 CindyGL.boundsPrevValue = null;
 CindyGL.currentBounds = null;
+CindyGL.currentModifiers = null;
+CindyGL.currentVModifiers = null;
+// Exports for CindyXR
+CindyGL.gl = null;
+CindyGL.generateCanvasWrapperIfRequired = generateCanvasWrapperIfRequired;
 CindyGL.initGLIfRequired = initGLIfRequired;
 CindyJS.registerPlugin(1, "CindyGL", CindyGL);

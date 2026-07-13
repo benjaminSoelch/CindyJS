@@ -210,7 +210,9 @@ CodeBuilder.prototype.computeType = function(expr) { //expression
                     }
                 }
             }
-        } else if(expr['oper']=='eval$2') { // type of eval determined by expression in first arg
+        } else if(expr['oper'] === "cglmodif$1") {
+            return generalize(expr.modType.type);
+        } else if(expr['oper'] === 'eval$2') { // type of eval determined by expression in first arg
             return generalize(this.getType(expr['args'][0]));
         }
         let allconstant = true;
@@ -700,6 +702,21 @@ CodeBuilder.prototype.determineUniforms = function(expr) {
         } else if (expr['ctype'] === 'function' &&
                 CodeBuilder.builtIns.has(getPlainName(expr['oper']))) {
             expr['isbuiltin'] = true;
+            return expr["dependsOnPixel"] = true;
+        } else if (expr['ctype'] === 'function' && expr['oper'] === "cglmodif$1") {
+            let key = self.evaluateAndVal(expr['args'][0]);
+            if (key.ctype !== 'string') {
+                cglLogError("expected argument of `cglModif` to be a constant string");
+            }
+            const modType = self.modifierTypes.get(key.value);
+            if (modType == null) {
+                cglLogError(`cannot find modifier "${key.value}"`);
+                return false;
+            }
+            expr.modType = modType;
+            if (modType.isuniform) return expr["dependsOnPixel"] = false;
+            modType.used = true;
+            modType.uniformName = generateUniqueHelperString();
             return expr["dependsOnPixel"] = true;
         }
 
@@ -1337,6 +1354,13 @@ CodeBuilder.prototype.compile = function(expr, generateTerm) {
             } : {
                 code: glsl
             });
+        }  else if(fname === "cglmodif$1") {
+            return (generateTerm ? {
+                term: expr.modType.uniformName,
+                code: ''
+            } : {
+                code: expr.modType.uniformName
+            });
         } else if(fname === "eval$2") {
             let args = expr['args'][1];
             if (args['ctype'] === "function" && args['oper'] === 'genList') {
@@ -1574,7 +1598,7 @@ CodeBuilder.prototype.generateListOfUniforms = function() {
         if(value.isuniform) {
             ans.push(`uniform ${webgltype(value.type)} ${this.modifierNames.get(name)};`);
         } else { // TODO? locations
-            ans.push(`in ${webgltype(value.type)} ${this.modifierNames.get(name)};`);
+            ans.push(`in ${webgltype(value.type)} ${value.uniformName||this.modifierNames.get(name)};`);
         }
     });
     return ans.join('\n');

@@ -931,6 +931,8 @@ Cgl3dSimpleSceneRenderer.prototype.renderOpaque = function(objects) {
         if(!obj3d) return; // skip non-objects
         if(!obj3d.visible) return;// skip invisible objects
         CindyGL.currentBounds = obj3d.boundingBox;
+        CindyGL.currentModifiers = obj3d.plotModifiers;
+        CindyGL.currentVModifiers = obj3d.boundingBox['vModifiers'];
         obj3d.renderer.render3d(this.iw, this.ih,obj3d.boundingBox,obj3d.plotModifiers,null, null,this.imageCanvas);
         if(!obj3d.renderer.opaque){
             this.wrongOpacity.add(obj3d);
@@ -947,6 +949,8 @@ Cgl3dSimpleSceneRenderer.prototype.renderTranslucent = function(objects) {
         if(!obj3d.visible)
             return;// skip invisible objects
         CindyGL.currentBounds = obj3d.boundingBox;
+        CindyGL.currentModifiers = obj3d.plotModifiers;
+        CindyGL.currentVModifiers = obj3d.boundingBox['vModifiers'];
         obj3d.renderer.render3d(this.iw, this.ih,obj3d.boundingBox,obj3d.plotModifiers,null, null,this.imageCanvas);
         if(obj3d.renderer.opaque){
             this.wrongOpacity.add(obj3d);
@@ -1136,6 +1140,8 @@ Cgl3dLayeredSceneRenderer.prototype.renderOpaque = function(objects) {
         if(!obj3d.visible)
             return;// skip invisible objects
         CindyGL.currentBounds = obj3d.boundingBox;
+        CindyGL.currentModifiers = obj3d.plotModifiers;
+        CindyGL.currentVModifiers = obj3d.boundingBox['vModifiers'];
         obj3d.renderer.render3d(this.iw, this.ih,obj3d.boundingBox,obj3d.plotModifiers, null, this.renderBuffer, this.canvaswrapper != null);
         if(!obj3d.renderer.opaque){
             this.wrongOpacity.add(obj3d);
@@ -1157,6 +1163,8 @@ Cgl3dLayeredSceneRenderer.prototype.renderTranslucent = function(objects) {
             if(!obj3d.visible)
                 return;// skip invisible objects
             CindyGL.currentBounds = obj3d.boundingBox;
+            CindyGL.currentModifiers = obj3d.plotModifiers;
+            CindyGL.currentVModifiers = obj3d.boundingBox['vModifiers'];
             if(obj3d.renderer.opaque) {
                 this.wrongOpacity.add(obj3d);
             }
@@ -1175,6 +1183,8 @@ Cgl3dLayeredSceneRenderer.prototype.renderTranslucent = function(objects) {
             if(!obj3d.visible)
                 return;// skip invisible objects
             CindyGL.currentBounds = obj3d.boundingBox;
+            CindyGL.currentModifiers = obj3d.plotModifiers;
+            CindyGL.currentVModifiers = obj3d.boundingBox['vModifiers'];
             gl.bindFramebuffer(gl.FRAMEBUFFER, this.renderBuffer);
             gl.enable(gl.DEPTH_TEST); // ignore pixels behind opaque objects
             // reset and clear render layer
