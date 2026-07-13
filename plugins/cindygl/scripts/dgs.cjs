@@ -921,7 +921,7 @@ dgs3dJoin3L(l1,l2,l3,visible->true,color->cglNada,alpha->cglNada):=(
 
 // p0: vec4 (x,y,z,w), l: line , size: real = radius, pinned:bool = fixed position, visible: bool = should object be drawn
 pointOnLine3d(l,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
-  dgs3dPointOnLine(l,(0,0,0,1),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
+  dgs3dPointOnLine(l,p0,size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
 );
 dgs3dPointOnLine(l,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
   regional(obj);
