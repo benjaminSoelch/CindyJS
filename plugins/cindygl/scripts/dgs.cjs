@@ -287,16 +287,18 @@ dgs3dRP3Normalize(p):=(
 );
 // adjoint of 4x4 matrix
 adjoint4(M):=( // in CindyJS there does not seem to be a adjoint built-in ...
+  // TODO? precompute equation
   apply(1..4,i,apply(1..4,j,
     det(apply(M_(remove(1..4,j)),#_(remove(1..4,i))))*(-1)^(i+j)
   ));
 );
 // adjoint of 3x3 matrix
 adjoint3(M):=(
-  // TODO? use explicit equation
-  apply(1..3,i,apply(1..3,j,
-    det(apply(M_(remove(1..3,j)),#_(remove(1..3,i))))*(-1)^(i+j)
-  ));
+  [
+    [(M_2_2*M_3_3-M_3_2*M_2_3), -(M_2_1*M_3_3-M_3_1*M_2_3), (M_2_1*M_3_2-M_3_1*M_2_2)],
+    [-(M_1_2*M_3_3-M_3_2*M_1_3), (M_1_1*M_3_3-M_3_1*M_1_3), -(M_1_1*M_3_2-M_3_1*M_1_2)],
+    [(M_1_2*M_2_3-M_2_2*M_1_3), -(M_1_1*M_2_3-M_2_1*M_1_3), (M_1_1*M_2_2-M_2_1*M_1_2)]
+  ]
 );
 // squared coordinates
 dgs3dSqCoords(p):=(
