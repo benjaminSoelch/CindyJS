@@ -559,7 +559,7 @@ dgs3dNewObject(type,parents,visible->true,color->cglNada,alpha->cglNada):=(
     obj:"redraw" = lambda(self,dgs3dRenderBiQuadric(self));
   ,if(type == "pointSet",
     // nothing to do
-  ,if(type == "transform",
+  ,if(type == "transform" % type == "mobiusTrafo",
     // TODO? store all-transforms in JSON
   ,
     cglLogWarning("unknown object type: "+type);
@@ -626,6 +626,14 @@ dgs3dNewQuadric(parents,recompute,visible->true,color->cglNada,alpha->cglNada):=
 dgs3dNewTrafo(parents,recompute):=(
   regional(obj);
   obj = dgs3dNewObject("transform",parents);
+  obj:"recompute" = recompute;
+  obj:"recompute".(obj);
+  obj:"redraw".(obj);
+  obj
+);
+dgs3dNewMobiusTrafo(parents,recompute):=(
+  regional(obj);
+  obj = dgs3dNewObject("mobiusTrafo",parents);
   obj:"recompute" = recompute;
   obj:"recompute".(obj);
   obj:"redraw".(obj);
@@ -2218,6 +2226,99 @@ dgs3dTransformBy5P(As,Bs):=(
     DGS3DmOVEoK
   ))
 );
+dgs3dAffineTransformBy4P(As,Bs):=(
+  dgs3dNewTrafo(concat(As,Bs),lambda(self,
+    regional(A,B,R,S);
+    A = apply(self:"parents"_(1..4),dgs3ddehom4(#:"coords"));
+    B = apply(self:"parents"_(5..8),dgs3ddehom4(#:"coords"));
+    R = transpose(A);
+    S = transpose(B);
+    self:"coords" = S*inverse(R);
+    DGS3DmOVEoK
+  ))
+);
+// mobius transform mapping inf -> p1, 0 -> p2, e1 -> p3 and e1-e2-plane to sphere through (p1,p2,p3,p4) where (p1,p2,p3,p4) = As
+dgs3dComputeHalfMobiusTrafo(As):=(
+  regional(c,v1,v2,v3,p4,m1,s,f4,m2,m3);
+  // determine möbius transform T(v) = sM(v-a)/<v-a,v-a> + c
+  // 1. T(inf) = c
+  c = As_1_(1..3);
+  v1 = As_2_(1..3) - c;
+  v2 = As_3_(1..3) - c;
+  v3 = As_4_(1..3) - c;
+  v1 = v1/(v1*v1);
+  v2 = v2/(v2*v2);
+  v3 = v3/(v3*v3);
+  // use T(0) = p2 and T(e1) = p3 to obtain value of M*e1
+  // sM^-1 v2 = e_1-a ;  sM^-1 v1 = -a  -> s (v2-v1) = M  e_1
+  m1 = (v2-v1);
+  s = 1/|m1|;
+  m1 = s*m1;
+  // determine M*e2 from T(x*e1+y*e2) = p4
+  f4 = s*(v3-v1); // f4 = x*M1 + y*M2
+  m2 = f4 - (f4*m1)*m1;
+  m2 = m2/|m2|;
+  m3 = -cross(m1,m2); // choose matrix with negative determinant to get orientation preserving transformation
+  [s*transpose((m1,m2,m3)),-s*(m1,m2,m3)*v1,c]
+);
+// compute S = (M1,a1,c1) with inverse of T = (M0,a0,c0)
+dgs3dComputeComposeMobiusInverse(M1,a1,c1,M0,a0,c0):=(
+  regional(L,p,q);
+  if(a0==a1,
+    print((M1,a1,c1,M0,a0,c0));
+    cglLogError("unimplemented");
+  ,
+    // S*T^-1(p) = inf -> p = T(S^-1(inf)) = T(a1)
+    p = M0*(a1-a0)/((a1-a0)*(a1-a0))+c0; // p = T(a1) -> S*T^-1(p) = S(a1)  = inf
+    q = M1*(a0-a1)/((a0-a1)*(a0-a1))+c1; // S(a0) = S*T^-1(inf)
+    // compute (S*T^-1(e_i+p)) -q to get columns of L // TODO? is there a simpler equation
+    L = transpose(apply(((1,0,0,1),(0,1,0,1),(0,0,1,1)),x,
+      regional(p1,p2);
+      p1 = dgs3dComputeApplyMobiusTrafo((transpose(M0),c0,a0),x+(p_1,p_2,p_3,0));
+      p2 = dgs3dComputeApplyMobiusTrafo((M1,a1,c1),p1);
+      p2_(1..3) - q;
+    ));
+    [L,p,q];
+  )
+);
+dgs3dComputeApplyMobiusTrafo(T,p):=(
+  regional(v,M,a,c);
+  if(length(T)==1,
+    T*p
+  ,
+    [M,a,c] = T;
+    v = dgs3ddehom4(p)_(1..3);
+    if(v==a,
+      regional(inf);
+      inf = 1e64;
+      (inf,inf,inf,1)
+    ,
+      v = M*(v-a)/((v-a)*(v-a))+c;
+      (v_1,v_2,v_3,1)
+    )
+  )
+);
+dgs3dMobiusTransformBy4P(As,Bs):=(
+  dgs3dNewMobiusTrafo(concat(As,Bs),lambda(self,
+    regional(M0,a0,c0,M1,a1,c1);
+    [M0,a0,c0] = dgs3dComputeHalfMobiusTrafo(A);
+    [M1,a1,c1] = dgs3dComputeHalfMobiusTrafo(B);
+    self:"coords" = dgs3dComputeComposeMobiusInverse(M1,a1,c1,M0,a0,c0);
+    DGS3DmOVEoK
+  ))
+);
+dgs3dMobiusTransformPoint(T,P,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewPoint([T,P],lambda(self,
+    regional(T,P);
+    T = self:"parents"_1:"coords";
+    P = self:"parents"_2:"coords";
+    self:"coords" = dgs3dComputeApplyMobiusTrafo(T,P);
+    DGS3DmOVEoK
+  ),size->size,visible->visible,color->color,alpha->alpha)
+);
+// TODO: is there a smart way to mobius transform line, circle, plane, sphere?
+// (better than choose 3 points on line/circle ; 4 on plane/sphere and apply trafo to points)
+
 transform3d(T,x,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dTransform(T,x,size->size,visible->visible,color->color,alpha->alpha);
 );
@@ -2240,9 +2341,15 @@ dgs3dTransform(Q,x,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
     ,
       cglLogWarning("cannot transform "+x:"type");
     )))))));
+  ,if(T.type == "mobiusTrafo",
+    if(x:"type" == "point",
+      dgs3dMobiusTransformPoint(T,x,size->size,visible->visible,color->color,alpha->alpha);
+    ,
+      cglLogWarning("cannot apply mobius transform to "+x:"type");
+    );
   ,
     cglLogWarning("the first parameter of transform should be a  tranformation got: "+x:"type");
-  );
+  ));
 );
 dgs3dTransformPoint(T,P,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dNewPoint([T,P],lambda(self,
