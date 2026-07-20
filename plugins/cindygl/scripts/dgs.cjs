@@ -615,9 +615,10 @@ dgs3dNewPlane(parents,recompute,visible->true,color->cglNada,alpha->cglNada):=(
   obj:"redraw".(obj);
   obj
 );
-dgs3dNewQuadric(parents,recompute,visible->true,color->cglNada,alpha->cglNada):=(
+dgs3dNewQuadric(parents,recompute,visible->true,color->cglNada,alpha->cglNada,isSphere->false):=(
   regional(obj);
   obj = dgs3dNewObject("quadric",parents,visible->visible,color->color,alpha->alpha);
+  obj:"isSphere" = isSphere;
   obj:"recompute" = recompute;
   obj:"recompute".(obj);
   obj:"redraw".(obj);
@@ -2083,7 +2084,7 @@ dgs3dSphere4points(A,B,C,D,visible->true,color->cglNada,alpha->cglNada):=(
     v = linearSolve(apply(pts,#*#_4),b);
     self:"coords" = [[1,0,0,0.5*v_1],[0,1,0,0.5*v_2],[0,0,1,0.5*v_3],[0.5*v_1,0.5*v_2,0.5*v_3,v_4]];
     DGS3DmOVEoK
-  ),visible->visible,color->color,alpha->alpha);
+  ),visible->visible,color->color,alpha->alpha,isSphere->true);
 );
 // M,R: point => quadric, visible: bool = should object be drawn
 sphere3dMR(M,R,visible->true,color->cglNada,alpha->cglNada):=(
@@ -2097,7 +2098,7 @@ dgs3dSphere2P(M,R,visible->true,color->cglNada,alpha->cglNada):=(
     r = v*v;
     self:"coords" = [[M_4,0,0,-M_1],[0,M_4,0,-M_2],[0,0,M_4,-M_3],[-M_1,-M_2,-M_3,(M_1^2+M_2^2+M_3^2-r)/M_4]];
     DGS3DmOVEoK
-  ),visible->visible,color->color,alpha->alpha);
+  ),visible->visible,color->color,alpha->alpha,isSphere->true);
 );
 
 circle3d(A,B,C,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
@@ -2301,8 +2302,10 @@ dgs3dComputeApplyMobiusTrafo(T,p):=(
 dgs3dMobiusTransformBy4P(As,Bs):=(
   dgs3dNewMobiusTrafo(concat(As,Bs),lambda(self,
     regional(M0,a0,c0,M1,a1,c1);
-    [M0,a0,c0] = dgs3dComputeHalfMobiusTrafo(A);
-    [M1,a1,c1] = dgs3dComputeHalfMobiusTrafo(B);
+    As = apply(self:"parents"_(1..4),dgs3ddehom4(#:"coords"));
+    Bs = apply(self:"parents"_(5..8),dgs3ddehom4(#:"coords"));
+    [M0,a0,c0] = dgs3dComputeHalfMobiusTrafo(As);
+    [M1,a1,c1] = dgs3dComputeHalfMobiusTrafo(Bs);
     self:"coords" = dgs3dComputeComposeMobiusInverse(M1,a1,c1,M0,a0,c0);
     DGS3DmOVEoK
   ))
@@ -2316,8 +2319,55 @@ dgs3dMobiusTransformPoint(T,P,size->cglNada,visible->true,color->cglNada,alpha->
     DGS3DmOVEoK
   ),size->size,visible->visible,color->color,alpha->alpha)
 );
-// TODO: is there a smart way to mobius transform line, circle, plane, sphere?
-// (better than choose 3 points on line/circle ; 4 on plane/sphere and apply trafo to points)
+dgs3dMobiusTransformPlane(T,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewQuadric([T,p],lambda(self,
+    regional(T,v);
+    T = self:"parents"_1:"coords";
+    v = self:"parents"_2:"coords";
+    self:"coords" = if(length(T)==1,
+      v = adjoint4(T_1)*v;
+      ((0,0,0,v_1),(0,0,0,v_2),(0,0,0,v_3),(v_1,v_2,v_3,2*v_4))
+    ,
+      regional(MT,p,q,c,k,l,r);
+      (MT,q,p) = T; // decompose inverse trafo
+      c = v_4;
+      v = v_(1..3);
+      k = q*v + c;
+      l = MT*v;
+      // k <y,y> + 2<y,l/2-kp> + k<p,p>-<p,l> = 0
+      v = 0.5*l - k*p;
+      r = k*(p*p)-p*l;
+      ((k,0,0,v_1),(0,k,0,v_2),(0,0,k,v_3),(v_1,v_2,v_3,r));
+    );
+    DGS3DmOVEoK
+  ),size->size,visible->visible,color->color,alpha->alpha,isSphere->true)
+);
+dgs3dMobiusTransformSphere(T,s,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewQuadric([T,s],lambda(self,
+    regional(T,S);
+    T = self:"parents"_1:"coords";
+    S = self:"parents"_2:"coords";
+    self:"coords" = if(length(T)==1,
+      transpose(adjoint4(T_1))*S*adjoint4(T_1)
+    ,
+      regional(MT,p,q,a,v,c,k,l,r);
+      (MT,q,p) = T; // decompose inverse trafo
+      // write S as a<x,x> + <x,v> + c = 0
+      a = (S_1_1+S_2_2+S_3_3)/3;
+      v = (S_1_4,S_2_4,S_3_4)+S_4_(1..3);
+      c = S_4_4;
+      k = a*q*q + q*v + c;
+      l = MT*(2*a*q + v);
+      // k <y,y> + 2<y,l/2-kp> + k<p,p>-<p,l> = 0
+      v = 0.5*l - k*p;
+      r = k*(p*p)-p*l + a*(MT_1*MT_1);
+      ((k,0,0,v_1),(0,k,0,v_2),(0,0,k,v_3),(v_1,v_2,v_3,r));
+    );
+    DGS3DmOVEoK
+  ),size->size,visible->visible,color->color,alpha->alpha,isSphere->true)
+);
+// TODO: is there a smart way to mobius transform line, circle?
+// (better than choose 3 points on line/circle)
 
 transform3d(T,x,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dTransform(T,x,size->size,visible->visible,color->color,alpha->alpha);
@@ -2344,9 +2394,13 @@ dgs3dTransform(Q,x,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   ,if(T.type == "mobiusTrafo",
     if(x:"type" == "point",
       dgs3dMobiusTransformPoint(T,x,size->size,visible->visible,color->color,alpha->alpha);
+    ,if(x:"type" == "plane",
+      dgs3dMobiusTransformPlane(T,x,size->size,visible->visible,color->color,alpha->alpha);
+    ,if((x:"type" == "quadric") & (x:"isSphere" == true),
+      dgs3dMobiusTransformSphere(T,x,size->size,visible->visible,color->color,alpha->alpha);
     ,
       cglLogWarning("cannot apply mobius transform to "+x:"type");
-    );
+    )));
   ,
     cglLogWarning("the first parameter of transform should be a  tranformation got: "+x:"type");
   ));

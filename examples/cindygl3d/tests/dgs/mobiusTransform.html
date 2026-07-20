@@ -34,14 +34,14 @@
             T = dgs3dMobiusTransformBy4P((P,Q,R,S),(P',Q',R',S'));
             l = join3d(P,Q);
            // l' = transform3d(T,l,color->"gray");
+            c = circle3d(P,Q,R,color->"yellow");
+           // c' = transform3d(T,c,color->"blue");
             p = join3d(P,Q,R,color->"orange");
-            X = pointOnPlane3d(p,color->"orange");
-          //  p' = transform3d(T,p,color->"blue");
+            p' = transform3d(T,p,color->"cyan");
             q = sphere3d(P,Q,R,S,color->"yellow");
-          //  q' = transform3d(T,q,color->"cyan");
+            q' = transform3d(T,q,color->"blue");
+            X = pointOnPlane3d(p,color->"orange");
             X' = transform3d(T,X,color->"white");
-            sphere3d(P',Q',R',X',color->"cyan");
-            sphere3d(P',Q',R',S',color->"blue");
         </script>
         <script id="csdraw" type="text/x-cindyscript">
             dgs3dPreFrame();
