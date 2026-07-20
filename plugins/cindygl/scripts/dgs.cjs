@@ -2512,11 +2512,10 @@ dgs3dTransform(Q,x,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
       dgs3dMobiusTransformSphere(T,x,visible->visible,color->color,alpha->alpha);
     ,if((x:"type" == "conic") & (x:"isCircle" == true),
       dgs3dMobiusTransformCircle(T,x,size->size,visible->visible,color->color,alpha->alpha);
+    // TODO? treat intersection of two spheres as circle
     ,if((x:"type" == "mobiusTrafo"),
       dgs3dMobiusTransformTransform(T,x,visible->visible,color->color,alpha->alpha);
-    // TODO: treat intersection of two spheres as circle
-    // TODO: transformation of transformation
-    // ?image of quadric (? conic/bi-quadric) as 2nd-class object
+    // TODO?? image of quadric/conic/bi-quadric under Möbius-Trafo as 2nd-class object
     ,
       cglLogWarning("cannot apply mobius transform to "+x:"type");
     ))))));
