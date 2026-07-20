@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>Cindy JS</title>
+        <script type="text/javascript" src="../../../../build/js/Cindy.js"></script>
+        <script type="text/javascript" src="../../../../build/js/CindyGL.js"></script>
+        <link rel="stylesheet" href="../../../../css/cindy.css" />
+    </head>
+
+    <body style="font-family: Arial">
+        <script id="csmousedown" type="text/x-cindyscript">
+            dgs3dHandleMouseDown()
+        </script>
+        <script id="csmouseup" type="text/x-cindyscript">
+            dgs3dHandleMouseUp()
+        </script>
+        <script id="csinit" type="text/x-cindyscript">
+            dgs3dPrepare();
+            zoom = 1.0;
+            updateZoom():=(
+                if(zoom>5,zoom=5);
+                if(zoom<0.2,zoom=0.2);
+                zoom3d(zoom);
+                dgs3dHandleZoom(zoom);
+            );
+            cgl3d.defaults.sphereSize=0.1;
+            cgl3d.defaults.cylinderSize=0.05;
+
+            (P,Q,R) = apply(1..3,point3d((random(),random(),random()),color->"yellow",pinned->true));
+            S = point3d((random(),random(),random()),color->"yellow",size->0.07,pinned->true);
+            v = normalize(cross((P:"coords"-Q:"coords")_(1..3),(P:"coords"-R:"coords")_(1..3)));
+            (P',Q',R',S') = apply((P,Q,R,S),x,point3d(x:"coords"+(v_1,v_2,v_3,0),color->"blue",pinned->true,size->x:"size"));
+            T = dgs3dMobiusTransformBy4P((P,Q,R,S),(P',Q',R', S'));
+            print(T:"coords");
+            l = join3d(P,Q);
+            l' = transform3d(T,l,color->"gray");
+            c = circle3d(P,Q,R,color->"yellow");
+           // c' = transform3d(T,c,color->"blue");
+            p = join3d(P,Q,R,color->"orange");
+            p' = transform3d(T,p,color->"cyan");
+            q = sphere3d(P,Q,R,S,color->"yellow");
+            q' = transform3d(T,q,color->"blue");
+            X = pointOnPlane3d(p,color->"orange");
+            X' = transform3d(T,X,color->"white");
+        </script>
+        <script id="csdraw" type="text/x-cindyscript">
+            dgs3dPreFrame();
+
+            render3d();
+        </script>
+
+            <div id="CSCanvas" style="border: 0px"></div>
+
+        <script type="text/javascript">
+            // zoom using mouse wheel, inverted direction for compatability with old raycaster script
+            window.addEventListener("wheel", // use only sign as value range may differ depending on browser
+              event => cdy.evokeCS(`zoom=zoom*${Math.pow(0.95,Math.sign(event.deltaY))};updateZoom();`)
+            );
+            const cdy = CindyJS({
+                canvasname: "CSCanvas",
+                scripts: "cs*",
+                animation: { autoplay: true },
+                ports: [
+                    {
+                        id: "CSCanvas",
+                        width: 512,
+                        height: 512,
+                        transform: [{ visibleRect: [-3, -3, 3, 3] }],
+                    },
+                ],
+                import: {
+                    "init": ["../../../../plugins/cindygl/scripts/cgl3d.cjs","../../../../plugins/cindygl/scripts/dgs.cjs"]
+                }
+            });
+        </script>
+    </body>
+</html>

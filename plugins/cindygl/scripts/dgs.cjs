@@ -1872,6 +1872,7 @@ dgs3dComputeConicBy5(p,A,B,C,D,E):=(
   M = conjugate(fnz)*M; // scale by conjugate of first non-zero entry to map complex multiples of real matrices to real matrices
   transpose(T)*((M_1_1,M_1_2,M_1_3,0),(M_2_1,M_2_2,M_2_3,0),(M_3_1,M_3_2,M_3_3,0),(0,0,0,0))*T;
 );
+// TODO: how to handle colinear points
 dgs3dComputeCircleBy3(A,B,C):=(
   p = dgs3dEpsilon444(A,B,C); // plane through A,B,c
   l = dgs3dEpsilon44(p,(0,0,0,1)); // line at infinity
@@ -2267,9 +2268,10 @@ dgs3dComputeHalfMobiusTrafo(As):=(
 // compute S = (M1,a1,c1) with inverse of T = (M0,a0,c0)
 dgs3dComputeComposeMobiusInverse(M1,a1,c1,M0,a0,c0):=(
   regional(L,p,q);
-  if(a0==a1,
-    print((M1,a1,c1,M0,a0,c0));
-    cglLogError("unimplemented");
+  if(|a1-a0|<1e-10,
+    L = M1*transpose(M0)/(M0_1*M0_1);
+    p = c1 - L*c0;
+    [((L_1_1,L_1_2,L_1_3,p_1),(L_2_1,L_2_2,L_2_3,p_2),(L_3_1,L_3_2,L_3_3,p_3),(0,0,0,1))]
   ,
     // S*T^-1(p) = inf -> p = T(S^-1(inf)) = T(a1)
     p = M0*(a1-a0)/((a1-a0)*(a1-a0))+c0; // p = T(a1) -> S*T^-1(p) = S(a1)  = inf
@@ -2281,13 +2283,13 @@ dgs3dComputeComposeMobiusInverse(M1,a1,c1,M0,a0,c0):=(
       p2 = dgs3dComputeApplyMobiusTrafo((M1,a1,c1),p1);
       p2_(1..3) - q;
     ));
-    [L,p,q];
+    [L,p,q]
   )
 );
 dgs3dComputeApplyMobiusTrafo(T,p):=(
   regional(v,M,a,c);
   if(length(T)==1,
-    T*p
+    (T_1)*p
   ,
     [M,a,c] = T;
     v = dgs3ddehom4(p)_(1..3);
@@ -2327,7 +2329,7 @@ dgs3dMobiusTransformPlane(T,p,visible->true,color->cglNada,alpha->cglNada):=(
     T = self:"parents"_1:"coords";
     v = self:"parents"_2:"coords";
     self:"coords" = if(length(T)==1,
-      v = adjoint4(T_1)*v;
+      v = transpose(adjoint4(T_1))*v;
       ((0,0,0,v_1),(0,0,0,v_2),(0,0,0,v_3),(v_1,v_2,v_3,2*v_4))
     ,
       regional(MT,p,q,c,k,l,r);
@@ -2350,7 +2352,8 @@ dgs3dMobiusTransformSphere(T,s,visible->true,color->cglNada,alpha->cglNada):=(
     T = self:"parents"_1:"coords";
     S = self:"parents"_2:"coords";
     self:"coords" = if(length(T)==1,
-      transpose(adjoint4(T_1))*S*adjoint4(T_1)
+      T = adjoint4(T_1);
+      transpose(T)*S*T
     ,
       regional(MT,p,q,a,v,c,k,l,r);
       (MT,q,p) = T; // decompose inverse trafo
@@ -2376,10 +2379,12 @@ dgs3dMobiusTransformLine(T,l,size->cglNada,visible->true,color->cglNada,alpha->c
     l = dgs3dLineMatrix(self:"parents"_2:"coords");
     self:"coords" = if(length(T)==1,
       regional(L,m,M,p1,p2);
-      m = dgs3dLineFromMatrix(transpose(T_1)*l*T_1);
+      T = adjoint4(T_1);
+      m = dgs3dLineFromMatrix(transpose(T)*l*T);
       // find two planes through line
       M = dgs3dLineMatrix(dgs3dDualLine(m));
       (p1,p2) = transpose(kernel(M));
+      p1 = p1 - (p1_(1..3)*p2_(1..3))/(p2_(1..3)*p2_(1..3))*p2;
       (transpose([p1])*[p1],p2)
     ,
       regional(p1,p2,q1,q2,q3);
