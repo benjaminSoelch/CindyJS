@@ -33,7 +33,7 @@
             S' = point3d((random(),random(),random()),color->"blue",size->0.07);
             T = dgs3dMobiusTransformBy4P((P,Q,R,S),(P',Q',R',S'));
             l = join3d(P,Q);
-           // l' = transform3d(T,l,color->"gray");
+            l' = transform3d(T,l,color->"gray");
             c = circle3d(P,Q,R,color->"yellow");
            // c' = transform3d(T,c,color->"blue");
             p = join3d(P,Q,R,color->"orange");

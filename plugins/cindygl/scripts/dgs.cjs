@@ -1872,6 +1872,13 @@ dgs3dComputeConicBy5(p,A,B,C,D,E):=(
   M = conjugate(fnz)*M; // scale by conjugate of first non-zero entry to map complex multiples of real matrices to real matrices
   transpose(T)*((M_1_1,M_1_2,M_1_3,0),(M_2_1,M_2_2,M_2_3,0),(M_3_1,M_3_2,M_3_3,0),(0,0,0,0))*T;
 );
+dgs3dComputeCircleBy3(A,B,C):=(
+  p = dgs3dEpsilon444(A,B,C); // plane through A,B,c
+  l = dgs3dEpsilon44(p,(0,0,0,1)); // line at infinity
+  [I, J] = dgs3dIntersectLineQuadric(l,((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,0)));
+  M = dgs3dComputeConicBy5(p,A,B,C,I,J);
+  [M,p]
+);
 dgs3dComputeQuadricBy9(pts):=(
   regional(v,ptsSq);
   ptsSq = apply(pts,dgs3dSqCoords(#));
@@ -2110,12 +2117,7 @@ dgs3dCircle3points(A,B,C,size->cglNada,visible->true,color->cglNada,alpha->cglNa
     A = self:"parents"_1:"coords";
     B = self:"parents"_2:"coords";
     C = self:"parents"_3:"coords";
-    // find plane through 3 points
-    p = dgs3dEpsilon444(A,B,C);
-    l = dgs3dEpsilon44(p,(0,0,0,1));
-    [I, J] = dgs3dIntersectLineQuadric(l,((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,0)));
-    M = dgs3dComputeConicBy5(p,A,B,C,I,J);
-    self:"coords" = [M,p];
+    self:"coords" = dgs3dComputeCircleBy3(A,B,C);
     DGS3DmOVEoK
   ),size->size,visible->visible,color->color,alpha->alpha);
 );
@@ -2319,7 +2321,7 @@ dgs3dMobiusTransformPoint(T,P,size->cglNada,visible->true,color->cglNada,alpha->
     DGS3DmOVEoK
   ),size->size,visible->visible,color->color,alpha->alpha)
 );
-dgs3dMobiusTransformPlane(T,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+dgs3dMobiusTransformPlane(T,p,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dNewQuadric([T,p],lambda(self,
     regional(T,v);
     T = self:"parents"_1:"coords";
@@ -2340,9 +2342,9 @@ dgs3dMobiusTransformPlane(T,p,size->cglNada,visible->true,color->cglNada,alpha->
       ((k,0,0,v_1),(0,k,0,v_2),(0,0,k,v_3),(v_1,v_2,v_3,r));
     );
     DGS3DmOVEoK
-  ),size->size,visible->visible,color->color,alpha->alpha,isSphere->true)
+  ),visible->visible,color->color,alpha->alpha,isSphere->true)
 );
-dgs3dMobiusTransformSphere(T,s,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+dgs3dMobiusTransformSphere(T,s,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dNewQuadric([T,s],lambda(self,
     regional(T,S);
     T = self:"parents"_1:"coords";
@@ -2364,10 +2366,33 @@ dgs3dMobiusTransformSphere(T,s,size->cglNada,visible->true,color->cglNada,alpha-
       ((k,0,0,v_1),(0,k,0,v_2),(0,0,k,v_3),(v_1,v_2,v_3,r));
     );
     DGS3DmOVEoK
-  ),size->size,visible->visible,color->color,alpha->alpha,isSphere->true)
+  ),visible->visible,color->color,alpha->alpha,isSphere->true)
 );
-// TODO: is there a smart way to mobius transform line, circle?
-// (better than choose 3 points on line/circle)
+// TODO: is there a smarter way to mobius transform lines & circles (instead of sampling 3 points and connecting images)?
+dgs3dMobiusTransformLine(T,l,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewConic([T,l],lambda(self,
+    regional(T,l);
+    T = self:"parents"_1:"coords";
+    l = dgs3dLineMatrix(self:"parents"_2:"coords");
+    self:"coords" = if(length(T)==1,
+      regional(L,m,M,p1,p2);
+      m = dgs3dLineFromMatrix(transpose(T_1)*l*T_1);
+      // find two planes through line
+      M = dgs3dLineMatrix(dgs3dDualLine(m));
+      (p1,p2) = transpose(kernel(M));
+      (transpose([p1])*[p1],p2)
+    ,
+      regional(p1,p2,q1,q2,q3);
+      // find two points on line
+      (p1,p2) = transpose(kernel(l));
+      q1 = dgs3dComputeApplyMobiusTrafo(T,p1);
+      q2 = dgs3dComputeApplyMobiusTrafo(T,p2);
+      q3 = dgs3dComputeApplyMobiusTrafo(T,p1+p2);
+      dgs3dComputeCircleBy3(q1,q2,q3)
+    );
+    DGS3DmOVEoK
+  ),size->size,visible->visible,color->color,alpha->alpha)
+);
 
 transform3d(T,x,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dTransform(T,x,size->size,visible->visible,color->color,alpha->alpha);
@@ -2394,13 +2419,17 @@ dgs3dTransform(Q,x,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   ,if(T.type == "mobiusTrafo",
     if(x:"type" == "point",
       dgs3dMobiusTransformPoint(T,x,size->size,visible->visible,color->color,alpha->alpha);
+    ,if(x:"type" == "line",
+      dgs3dMobiusTransformLine(T,x,size->size,visible->visible,color->color,alpha->alpha);
     ,if(x:"type" == "plane",
       dgs3dMobiusTransformPlane(T,x,size->size,visible->visible,color->color,alpha->alpha);
     ,if((x:"type" == "quadric") & (x:"isSphere" == true),
       dgs3dMobiusTransformSphere(T,x,size->size,visible->visible,color->color,alpha->alpha);
+    // TODO: circle
+    // ?image of quadric (? conic/bi-quadric) as 2nd-calss object
     ,
       cglLogWarning("cannot apply mobius transform to "+x:"type");
-    )));
+    ))));
   ,
     cglLogWarning("the first parameter of transform should be a  tranformation got: "+x:"type");
   ));
