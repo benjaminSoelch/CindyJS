@@ -2304,6 +2304,44 @@ dgs3dComputeApplyMobiusTrafo(T,p):=(
     )
   )
 );
+dgs3dComputeInverseMobius(T):=(
+  if(length(T)==1,
+    [adjoint4(T)]
+  ,
+    regional(M,a,c);
+    (M,a,c) = T;
+    [transpose(M),c,a]
+  )
+);
+dgs3dComputeComposeMobius(S,T):=(
+  regional(M0,a0,c0,M1,a1,c1);
+  // TODO! double-check composition in semi-degenerate cases
+  if(length(S) == 1,
+    if(length(T)== 1,
+      [S_1*T_1];
+    ,
+      S = S_1;
+      M0 = (S_1_(1..3),S_2_(1..3),S_3_(1..3));
+      c0 = (S_1_4,S_2_4,S_3_4);
+      (M1,a1,c1) = T;
+      // N( M(x-a)/(x-a)^2 + c )+b = NM(x-a)/(x-a)^2 + Nc+b
+      (M0*M1,a1,M0*c1+c0)
+    )
+  ,
+    if(length(T)== 1,
+      T = T_1;
+      (M0,a0,c0) = S;
+      M1 = (T_1_(1..3),T_2_(1..3),T_3_(1..3));
+      c1 = (T_1_4,T_2_4,T_3_4);
+      // M((Nx+b)-a)/(Nx+b-a)^2+c = MN(x-N^-1(a-b))/(s^2(x-N^-1(a-b))^2)+c where N=s*orth
+      (M0*M1/(M1_1*M1_1),inverse(M1)*(a0-c1),c0)
+    ,
+      (M0,a0,c0) = S;
+      (M1,a1,c1) = T;
+      dgs3dComputeComposeMobiusInverse(M0,a0,c0,transpose(M1),c1,a1);
+    )
+  )
+);
 dgs3dMobiusTransformBy4P(As,Bs):=(
   dgs3dNewMobiusTrafo(concat(As,Bs),lambda(self,
     regional(M0,a0,c0,M1,a1,c1);
@@ -2430,6 +2468,16 @@ dgs3dMobiusTransformCircle(T,c,size->cglNada,visible->true,color->cglNada,alpha-
     DGS3DmOVEoK
   ),size->size,visible->visible,color->color,alpha->alpha,isCircle->true)
 );
+dgs3dMobiusTransformTransform(T,S,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewTrafo((T,S),lambda(self,
+    regional(S,T,R);
+    T = self:"parents"_1:"coords";
+    S = self:"parents"_2:"coords";
+    // need trafo with: Tx -> TSx
+    self:"coords" = dgs3dComputeComposeMobius(T,dgs3dComputeComposeMobius(S,dgs3dComputeInverseMobius(T)));
+    DGS3DmOVEoK
+  ))
+);
 
 transform3d(T,x,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dTransform(T,x,size->size,visible->visible,color->color,alpha->alpha);
@@ -2459,17 +2507,19 @@ dgs3dTransform(Q,x,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
     ,if(x:"type" == "line",
       dgs3dMobiusTransformLine(T,x,size->size,visible->visible,color->color,alpha->alpha);
     ,if(x:"type" == "plane",
-      dgs3dMobiusTransformPlane(T,x,size->size,visible->visible,color->color,alpha->alpha);
+      dgs3dMobiusTransformPlane(T,x,visible->visible,color->color,alpha->alpha);
     ,if((x:"type" == "quadric") & (x:"isSphere" == true),
-      dgs3dMobiusTransformSphere(T,x,size->size,visible->visible,color->color,alpha->alpha);
+      dgs3dMobiusTransformSphere(T,x,visible->visible,color->color,alpha->alpha);
     ,if((x:"type" == "conic") & (x:"isCircle" == true),
       dgs3dMobiusTransformCircle(T,x,size->size,visible->visible,color->color,alpha->alpha);
+    ,if((x:"type" == "mobiusTrafo"),
+      dgs3dMobiusTransformTransform(T,x,visible->visible,color->color,alpha->alpha);
     // TODO: treat intersection of two spheres as circle
     // TODO: transformation of transformation
-    // ?image of quadric (? conic/bi-quadric) as 2nd-calss object
+    // ?image of quadric (? conic/bi-quadric) as 2nd-class object
     ,
       cglLogWarning("cannot apply mobius transform to "+x:"type");
-    )))));
+    ))))));
   ,
     cglLogWarning("the first parameter of transform should be a  tranformation got: "+x:"type");
   ));
@@ -2529,7 +2579,14 @@ dgs3dTransformBiQuadric(T,c,size->cglNada,visible->true,color->cglNada,alpha->cg
   ),visible->visible,color->color,alpha->alpha)
 );
 dgs3dTransformTrafo(T,S):=(
-  cglLogError("unimplemented")
+  dgs3dNewTrafo((T,S),lambda(self,
+    regional(S,T);
+    T = self:"parents"_1:"coords";
+    S = self:"parents"_2:"coords";
+    // need trafo with: Tx -> TSx
+    self:"coords" = T*S*inverse(T);
+    DGS3DmOVEoK
+  ))
 );
 
 // TODO: ? support redefining objects
