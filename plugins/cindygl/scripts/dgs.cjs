@@ -589,10 +589,11 @@ dgs3dNewLine(parents,recompute,size->cglNada,visible->true,color->cglNada,alpha-
   obj:"redraw".(obj);
   obj
 );
-dgs3dNewConic(parents,recompute,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+dgs3dNewConic(parents,recompute,size->cglNada,visible->true,color->cglNada,alpha->cglNada,isCircle->false):=(
   regional(obj);
   obj = dgs3dNewObject("conic",parents,visible->visible,color->color,alpha->alpha);
   obj:"size" = cglValOrDefault(size,cgl3d.defaults:"cylinderSize");
+  obj:"isCircle" = isCircle;
   obj:"recompute" = recompute;
   obj:"recompute".(obj);
   obj:"redraw".(obj);
@@ -1909,7 +1910,7 @@ dgs3dConic5points(A,B,C,D,E,size->cglNada,visible->true,color->cglNada,alpha->cg
     M = dgs3dComputeConicBy5(p,A,B,C,D,E);
     self:"coords" = [M,p];
     DGS3DmOVEoK
-  ),size->size,visible->visible,color->color,alpha->alpha);
+  ),size->size,visible->visible,color->color,alpha->alpha,isCircle->false);
 );
 biQuadricBy8Points(pts,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dBiQuadric8points(pts,size->size,visible->visible,color->color,alpha->alpha);
@@ -2120,7 +2121,7 @@ dgs3dCircle3points(A,B,C,size->cglNada,visible->true,color->cglNada,alpha->cglNa
     C = self:"parents"_3:"coords";
     self:"coords" = dgs3dComputeCircleBy3(A,B,C);
     DGS3DmOVEoK
-  ),size->size,visible->visible,color->color,alpha->alpha);
+  ),size->size,visible->visible,color->color,alpha->alpha,isCircle->true);
 );
 
 ////////////////
@@ -2189,7 +2190,7 @@ dgs3dMeetQP(Q,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
     S = transpose(T)*R*T;
     self:"coords" = [S,p];
     DGS3DmOVEoK
-  ),size->size,visible->visible,color->color,alpha->alpha);
+  ),size->size,visible->visible,color->color,alpha->alpha,isCircle->Q:"isSphere");
 );
 // Q1: quadric, Q2: quadric => biquadric; size:real = radius, visible: bool = should object be drawn
 dgs3dMeet2Q(Q1,Q2,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
@@ -2323,26 +2324,48 @@ dgs3dMobiusTransformPoint(T,P,size->cglNada,visible->true,color->cglNada,alpha->
     DGS3DmOVEoK
   ),size->size,visible->visible,color->color,alpha->alpha)
 );
+dgs3dComputeMobiusTransformPlane(T,v):=(
+  if(length(T)==1,
+    v = transpose(adjoint4(T_1))*v;
+    ((0,0,0,v_1),(0,0,0,v_2),(0,0,0,v_3),(v_1,v_2,v_3,2*v_4))
+  ,
+    regional(MT,p,q,c,k,l,r);
+    (MT,q,p) = T; // decompose inverse trafo
+    c = v_4;
+    v = v_(1..3);
+    k = q*v + c;
+    l = MT*v;
+    // k <y,y> + 2<y,l/2-kp> + k<p,p>-<p,l> = 0
+    v = 0.5*l - k*p;
+    r = k*(p*p)-p*l;
+    ((k,0,0,v_1),(0,k,0,v_2),(0,0,k,v_3),(v_1,v_2,v_3,r));
+  )
+);
+dgs3dComputeMobiusTransformSphere(T,S):=(
+  if(length(T)==1,
+    T = adjoint4(T_1);
+    transpose(T)*S*T
+  ,
+    regional(MT,p,q,a,v,c,k,l,r);
+    (MT,q,p) = T; // decompose inverse trafo
+    // write S as a<x,x> + <x,v> + c = 0
+    a = (S_1_1+S_2_2+S_3_3)/3;
+    v = (S_1_4,S_2_4,S_3_4)+S_4_(1..3);
+    c = S_4_4;
+    k = a*q*q + q*v + c;
+    l = MT*(2*a*q + v);
+    // k <y,y> + 2<y,l/2-kp> + k<p,p>-<p,l> = 0
+    v = 0.5*l - k*p;
+    r = k*(p*p)-p*l + a*(MT_1*MT_1);
+    ((k,0,0,v_1),(0,k,0,v_2),(0,0,k,v_3),(v_1,v_2,v_3,r));
+  );
+);
 dgs3dMobiusTransformPlane(T,p,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dNewQuadric([T,p],lambda(self,
     regional(T,v);
     T = self:"parents"_1:"coords";
     v = self:"parents"_2:"coords";
-    self:"coords" = if(length(T)==1,
-      v = transpose(adjoint4(T_1))*v;
-      ((0,0,0,v_1),(0,0,0,v_2),(0,0,0,v_3),(v_1,v_2,v_3,2*v_4))
-    ,
-      regional(MT,p,q,c,k,l,r);
-      (MT,q,p) = T; // decompose inverse trafo
-      c = v_4;
-      v = v_(1..3);
-      k = q*v + c;
-      l = MT*v;
-      // k <y,y> + 2<y,l/2-kp> + k<p,p>-<p,l> = 0
-      v = 0.5*l - k*p;
-      r = k*(p*p)-p*l;
-      ((k,0,0,v_1),(0,k,0,v_2),(0,0,k,v_3),(v_1,v_2,v_3,r));
-    );
+    self:"coords" = dgs3dComputeMobiusTransformPlane(T,v);
     DGS3DmOVEoK
   ),visible->visible,color->color,alpha->alpha,isSphere->true)
 );
@@ -2351,27 +2374,11 @@ dgs3dMobiusTransformSphere(T,s,visible->true,color->cglNada,alpha->cglNada):=(
     regional(T,S);
     T = self:"parents"_1:"coords";
     S = self:"parents"_2:"coords";
-    self:"coords" = if(length(T)==1,
-      T = adjoint4(T_1);
-      transpose(T)*S*T
-    ,
-      regional(MT,p,q,a,v,c,k,l,r);
-      (MT,q,p) = T; // decompose inverse trafo
-      // write S as a<x,x> + <x,v> + c = 0
-      a = (S_1_1+S_2_2+S_3_3)/3;
-      v = (S_1_4,S_2_4,S_3_4)+S_4_(1..3);
-      c = S_4_4;
-      k = a*q*q + q*v + c;
-      l = MT*(2*a*q + v);
-      // k <y,y> + 2<y,l/2-kp> + k<p,p>-<p,l> = 0
-      v = 0.5*l - k*p;
-      r = k*(p*p)-p*l + a*(MT_1*MT_1);
-      ((k,0,0,v_1),(0,k,0,v_2),(0,0,k,v_3),(v_1,v_2,v_3,r));
-    );
+    self:"coords" = dgs3dComputeMobiusTransformSphere(T,S);
     DGS3DmOVEoK
   ),visible->visible,color->color,alpha->alpha,isSphere->true)
 );
-// TODO: is there a smarter way to mobius transform lines & circles (instead of sampling 3 points and connecting images)?
+// TODO: is there a smarter way to mobius transform lines (instead of sampling 3 points and connecting images)?
 dgs3dMobiusTransformLine(T,l,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dNewConic([T,l],lambda(self,
     regional(T,l);
@@ -2384,8 +2391,7 @@ dgs3dMobiusTransformLine(T,l,size->cglNada,visible->true,color->cglNada,alpha->c
       // find two planes through line
       M = dgs3dLineMatrix(dgs3dDualLine(m));
       (p1,p2) = transpose(kernel(M));
-      p1 = p1 - (p1_(1..3)*p2_(1..3))/(p2_(1..3)*p2_(1..3))*p2;
-      (transpose([p1])*[p1],p2)
+      (((0,0,0,p1_1),(0,0,0,p1_2),(0,0,0,p1_3),(p1_1,p1_2,p1_3,2*p1_4)),p2)
     ,
       regional(p1,p2,q1,q2,q3);
       // find two points on line
@@ -2396,7 +2402,33 @@ dgs3dMobiusTransformLine(T,l,size->cglNada,visible->true,color->cglNada,alpha->c
       dgs3dComputeCircleBy3(q1,q2,q3)
     );
     DGS3DmOVEoK
-  ),size->size,visible->visible,color->color,alpha->alpha)
+  ),size->size,visible->visible,color->color,alpha->alpha,isCircle->true)
+);
+dgs3dMobiusTransformCircle(T,c,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewConic([T,c],lambda(self,
+    regional(T,Q,P,s,p,S1,S2,R,q);
+    T = self:"parents"_1:"coords";
+    (Q,p) = self:"parents"_2:"coords";
+    // add multiple of degenerate quadric given by p to ensure Q is a sphere
+    P = transpose([p])*[p];
+    if(|P_1_2|>|P_1_3| & |P_1_2|>|P_2_3|,
+      s = Q_1_2/P_1_2;
+    ,if(|P_1_3|>|P_2_3|,
+      s = Q_1_3/P_1_3;
+    ,
+      s = Q_2_3/P_2_3;
+    ));
+    Q = Q - s*P;
+    // transform plane and sphere
+    S1 = dgs3dComputeMobiusTransformSphere(T,Q);
+    S2 = dgs3dComputeMobiusTransformPlane(T,p);
+    // find plane in pencil through two spheres
+    Q = S2_1_1*S1-S1_1_1*S2; // make top-left 3x3 submatrix zero
+    q = (Q_1_4+Q_4_1,Q_2_4+Q_4_2,Q_3_4+Q_4_3,Q_4_4);
+    R = S1_1_1*S1+S2_1_1*S2; // swap factors and one single to ensure linearly independent choice
+    self:"coords" = (R,q);
+    DGS3DmOVEoK
+  ),size->size,visible->visible,color->color,alpha->alpha,isCircle->true)
 );
 
 transform3d(T,x,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
@@ -2430,11 +2462,14 @@ dgs3dTransform(Q,x,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
       dgs3dMobiusTransformPlane(T,x,size->size,visible->visible,color->color,alpha->alpha);
     ,if((x:"type" == "quadric") & (x:"isSphere" == true),
       dgs3dMobiusTransformSphere(T,x,size->size,visible->visible,color->color,alpha->alpha);
-    // TODO: circle
+    ,if((x:"type" == "conic") & (x:"isCircle" == true),
+      dgs3dMobiusTransformCircle(T,x,size->size,visible->visible,color->color,alpha->alpha);
+    // TODO: treat intersection of two spheres as circle
+    // TODO: transformation of transformation
     // ?image of quadric (? conic/bi-quadric) as 2nd-calss object
     ,
       cglLogWarning("cannot apply mobius transform to "+x:"type");
-    ))));
+    )))));
   ,
     cglLogWarning("the first parameter of transform should be a  tranformation got: "+x:"type");
   ));
@@ -2482,7 +2517,7 @@ dgs3dTransformConic(T,c,size->cglNada,visible->true,color->cglNada,alpha->cglNad
     (q,p) = self:"parents"_2:"coords";
     self:"coords" = [transpose(T)*q*T,transpose(T)*p];
     DGS3DmOVEoK
-  ),visible->visible,color->color,alpha->alpha)
+  ),visible->visible,color->color,alpha->alpha,isCircle->false)
 );
 dgs3dTransformBiQuadric(T,c,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dNewBiQuadric([T,c],lambda(self,
