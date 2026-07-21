@@ -599,10 +599,11 @@ dgs3dNewConic(parents,recompute,size->cglNada,visible->true,color->cglNada,alpha
   obj:"redraw".(obj);
   obj
 );
-dgs3dNewBiQuadric(parents,recompute,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+dgs3dNewBiQuadric(parents,recompute,size->cglNada,visible->true,color->cglNada,alpha->cglNada,isCircle->false):=(
   regional(obj);
   obj = dgs3dNewObject("biquadric",parents,visible->visible,color->color,alpha->alpha);
   obj:"size" = cglValOrDefault(size,cgl3d.defaults:"cylinderSize");
+  obj:"isCircle" = isCircle;
   obj:"recompute" = recompute;
   obj:"recompute".(obj);
   obj:"redraw".(obj);
@@ -1921,7 +1922,7 @@ dgs3dBiQuadric8points(pts,size->cglNada,visible->true,color->cglNada,alpha->cglN
     pts = apply(self:"parents",#:"coords");
     self:"coords" = dgs3dComputeBiQuadricBy8(pts);
     DGS3DmOVEoK
-  ),size->size,visible->visible,color->color,alpha->alpha);
+  ),size->size,visible->visible,color->color,alpha->alpha,isCircle->false);
 );
 
 ////////////////
@@ -2200,7 +2201,7 @@ dgs3dMeet2Q(Q1,Q2,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
     Q2 = self:"parents"_2:"coords";
     self:"coords" = [Q1,Q2];
     DGS3DmOVEoK
-  ),size->size,visible->visible,color->color,alpha->alpha);
+  ),size->size,visible->visible,color->color,alpha->alpha,isCircle->Q1:"isSphere"&Q2:"isSphere");
 );
 // ? quadric by mix of points, lines and planes
 
@@ -2470,6 +2471,29 @@ dgs3dMobiusTransformCircle(T,c,size->cglNada,visible->true,color->cglNada,alpha-
     DGS3DmOVEoK
   ),size->size,visible->visible,color->color,alpha->alpha,isCircle->true)
 );
+dgs3dMobiusTransformCircle2(T,c,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewConic([T,c],lambda(self,
+    regional(T,Q,P,s,p,S1,S2,R,q);
+    T = self:"parents"_1:"coords";
+    (Q1,Q2) = self:"parents"_2:"coords";
+    // TODO? is it neccessary to ensure both arguments are spheres
+    print((Q1,Q2));
+    // transform plane and sphere
+    S1 = dgs3dComputeMobiusTransformSphere(T,Q1);
+    S2 = dgs3dComputeMobiusTransformSphere(T,Q2);
+    // find plane in pencil through two spheres
+    if(S1_1_1==0,
+      Q = S1;
+      R = S2;
+    ,
+      Q = S2_1_1*S1-S1_1_1*S2; // make top-left 3x3 submatrix zero
+      R = S1_1_1*S1+S2_1_1*S2; // swap factors and one single to ensure linearly independent choice
+    );
+    q = (Q_1_4+Q_4_1,Q_2_4+Q_4_2,Q_3_4+Q_4_3,Q_4_4);
+    self:"coords" = (R,q);
+    DGS3DmOVEoK
+  ),size->size,visible->visible,color->color,alpha->alpha,isCircle->true)
+);
 dgs3dMobiusTransformTransform(T,S,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dNewTrafo((T,S),lambda(self,
     regional(S,T,R);
@@ -2514,13 +2538,14 @@ dgs3dTransform(Q,x,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
       dgs3dMobiusTransformSphere(T,x,visible->visible,color->color,alpha->alpha);
     ,if((x:"type" == "conic") & (x:"isCircle" == true),
       dgs3dMobiusTransformCircle(T,x,size->size,visible->visible,color->color,alpha->alpha);
-    // TODO? treat intersection of two spheres as circle
+    ,if((x:"type" == "biquadric") & (x:"isCircle" == true),
+      dgs3dMobiusTransformCircle2(T,x,size->size,visible->visible,color->color,alpha->alpha);
     ,if((x:"type" == "mobiusTrafo"),
       dgs3dMobiusTransformTransform(T,x,visible->visible,color->color,alpha->alpha);
     // TODO?? image of quadric/conic/bi-quadric under Möbius-Trafo as 2nd-class object
     ,
       cglLogWarning("cannot apply mobius transform to "+x:"type");
-    ))))));
+    )))))));
   ,
     cglLogWarning("the first parameter of transform should be a  tranformation got: "+x:"type");
   ));
@@ -2577,7 +2602,7 @@ dgs3dTransformBiQuadric(T,c,size->cglNada,visible->true,color->cglNada,alpha->cg
     (q,r) = self:"parents"_2:"coords";
     self:"coords" = [transpose(T)*q*T,transpose(T)*r*T];
     DGS3DmOVEoK
-  ),visible->visible,color->color,alpha->alpha)
+  ),visible->visible,color->color,alpha->alpha,isCircle->false)
 );
 dgs3dTransformTrafo(T,S):=(
   dgs3dNewTrafo((T,S),lambda(self,
