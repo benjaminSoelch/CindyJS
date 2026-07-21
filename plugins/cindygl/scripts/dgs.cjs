@@ -2419,26 +2419,24 @@ dgs3dMobiusTransformSphere(T,s,visible->true,color->cglNada,alpha->cglNada):=(
 // TODO: is there a smarter way to mobius transform lines (instead of sampling 3 points and connecting images)?
 dgs3dMobiusTransformLine(T,l,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dNewConic([T,l],lambda(self,
-    regional(T,l);
+    regional(T,l,p1,p2,S1,S2,Q,R,q);
     T = self:"parents"_1:"coords";
-    l = dgs3dLineMatrix(self:"parents"_2:"coords");
-    self:"coords" = if(length(T)==1,
-      regional(L,m,M,p1,p2);
-      T = adjoint4(T_1);
-      m = dgs3dLineFromMatrix(transpose(T)*l*T);
-      // find two planes through line
-      M = dgs3dLineMatrix(dgs3dDualLine(m));
-      (p1,p2) = transpose(kernel(M));
-      (((0,0,0,p1_1),(0,0,0,p1_2),(0,0,0,p1_3),(p1_1,p1_2,p1_3,2*p1_4)),p2)
+    // find two planes through line
+    l = dgs3dLineMatrix(dgs3dDualLine(self:"parents"_2:"coords"));
+    (p1,p2) = transpose(kernel(l));
+    // transform planes
+    S1 = dgs3dComputeMobiusTransformPlane(T,p1);
+    S2 = dgs3dComputeMobiusTransformPlane(T,p2);
+    // find plane in pencil through two spheres
+    if(S1_1_1==0,
+      Q = S1;
+      R = S2;
     ,
-      regional(p1,p2,q1,q2,q3);
-      // find two points on line
-      (p1,p2) = transpose(kernel(l));
-      q1 = dgs3dComputeApplyMobiusTrafo(T,p1);
-      q2 = dgs3dComputeApplyMobiusTrafo(T,p2);
-      q3 = dgs3dComputeApplyMobiusTrafo(T,p1+p2);
-      dgs3dComputeCircleBy3(q1,q2,q3)
+      Q = S2_1_1*S1-S1_1_1*S2; // make top-left 3x3 submatrix zero
+      R = S1_1_1*S1+S2_1_1*S2; // swap factors and one single to ensure linearly independent choice
     );
+    q = (Q_1_4+Q_4_1,Q_2_4+Q_4_2,Q_3_4+Q_4_3,Q_4_4);
+    self:"coords" = (R,q);
     DGS3DmOVEoK
   ),size->size,visible->visible,color->color,alpha->alpha,isCircle->true)
 );
@@ -2458,12 +2456,17 @@ dgs3dMobiusTransformCircle(T,c,size->cglNada,visible->true,color->cglNada,alpha-
     ));
     Q = Q - s*P;
     // transform plane and sphere
-    S1 = dgs3dComputeMobiusTransformSphere(T,Q);
-    S2 = dgs3dComputeMobiusTransformPlane(T,p);
+    S1 = dgs3dComputeMobiusTransformPlane(T,p);
+    S2 = dgs3dComputeMobiusTransformSphere(T,Q);
     // find plane in pencil through two spheres
-    Q = S2_1_1*S1-S1_1_1*S2; // make top-left 3x3 submatrix zero
+    if(S1_1_1==0,
+      Q = S1;
+      R = S2;
+    ,
+      Q = S2_1_1*S1-S1_1_1*S2; // make top-left 3x3 submatrix zero
+      R = S1_1_1*S1+S2_1_1*S2; // swap factors and one single to ensure linearly independent choice
+    );
     q = (Q_1_4+Q_4_1,Q_2_4+Q_4_2,Q_3_4+Q_4_3,Q_4_4);
-    R = S1_1_1*S1+S2_1_1*S2; // swap factors and one single to ensure linearly independent choice
     self:"coords" = (R,q);
     DGS3DmOVEoK
   ),size->size,visible->visible,color->color,alpha->alpha,isCircle->true)
