@@ -2416,7 +2416,6 @@ dgs3dMobiusTransformSphere(T,s,visible->true,color->cglNada,alpha->cglNada):=(
     DGS3DmOVEoK
   ),visible->visible,color->color,alpha->alpha,isSphere->true)
 );
-// TODO: is there a smarter way to mobius transform lines (instead of sampling 3 points and connecting images)?
 dgs3dMobiusTransformLine(T,l,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dNewConic([T,l],lambda(self,
     regional(T,l,p1,p2,S1,S2,Q,R,q);
