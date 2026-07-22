@@ -316,7 +316,7 @@ CodeBuilder.prototype.getType = function(expr) { //expression, current function
 
 
 CodeBuilder.prototype.evaluateAndVal = function(expr) {
-    if(Object.keys(this.activeModifiers).length == 0) {
+    if(Object.keys(this.activeModifiers).length == 0 && this.lambdaSelf == null) {
         // no active modifiers
         return this.api.evaluateAndVal(expr);
     }
@@ -331,6 +331,18 @@ CodeBuilder.prototype.evaluateAndVal = function(expr) {
         "args": [],
         "modifs": {},
     };
+    if(this.lambdaSelf != null) {
+        if(this.lambdaSelf["ctype"] === "JSON") {
+            this.lambdaSelf["value"]["_val"] = exprWithModifs["obj"];
+        } else {
+            cglLogError("unexpected type for lambda-self",this.lambdaSelf);
+        }
+        exprWithModifs["obj"] = {
+            "ctype": "field",
+            "obj": this.lambdaSelf,
+            "key": "_val"
+        };
+    }
     return this.api.evaluateAndVal(exprWithModifs);
 }
 
@@ -440,7 +452,10 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
         });
         const oldMods = self.activeModifiers;
         self.activeModifiers = Object.assign({},self.activeModifiers,exprData['modifs']);
+        const oldLambdaSelf = self.lambdaSelf;
+        self.lambdaSelf = self.evaluateAndVal(expr.lambdaSelf);
         rec(exprBody,nbindings,localScope,forceconstant);
+        self.lambdaSelf = oldLambdaSelf;
         self.activeModifiers = oldMods;
         // prepare variable for result of expression
         expr.resName = generateUniqueHelperString();
@@ -1635,6 +1650,7 @@ CodeBuilder.prototype.generateColorPlotProgram = function(expr,modifierTypes,mod
     this.modifierTypes = modifierTypes;
     this.modifierNames = new Map();
     this.activeModifiers = {}; // TODO? treat plot-modifiers as active modifiers
+    this.lambdaSelf = null;
     this.readsDepth = false;
     this.writesDepth = false;
 

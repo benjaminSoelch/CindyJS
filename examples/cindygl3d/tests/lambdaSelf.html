@@ -19,9 +19,9 @@
         </script>
         <script id="csinit" type="text/x-cindyscript">
             use("CindyGL");
-            s = {"color":(0,1,0),"f":(x,y)=>(self().color+(x,y,0))};
+            s = {"color":(0,1,0),"f":(v)=>(self().color+self().g.(x,y,0)),"g":(x,y)=>(x,y,0)};
             test(x,y):=(
-                cglModif("t").f.(s.f.(x,y))
+                cglModif("t").f.(s.g.(x,y))
             );
         </script>
         <script id="csdraw" type="text/x-cindyscript">
