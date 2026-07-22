@@ -381,7 +381,8 @@ function webgltype(ctype) {
         return `l${ctype.length}_${webgltype(ctype.parameters)}`;
     }
     if (ctype.type === 'tuple') {
-        return `t${ctype.elements.length}_${ctype.elements.map(t=>webgltype(t)).join("_")}`;
+        // join names of all non-lambda elements
+        return `t${ctype.elements.length}_${ctype.elements.filter(t=>t.type!=='lambda').map(t=>webgltype(t)).join("_")}`;
     }
 
     cglLogError(`No WebGL implementation for type ${typeToString(ctype)} found`);

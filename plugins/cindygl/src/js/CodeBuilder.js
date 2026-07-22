@@ -214,6 +214,8 @@ CodeBuilder.prototype.computeType = function(expr) { //expression
             return generalize(expr.modType.type);
         } else if(expr['oper'] === 'eval$2') { // type of eval determined by expression in first arg
             return generalize(this.getType(expr['args'][0]));
+        } else if(expr['oper'] === "self$0") {
+            return generalize(this.getType(expr.selfVal));
         }
         let allconstant = true;
         if(getPlainName(expr['oper'])=='genJSON') {
@@ -416,7 +418,13 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
             variables[iname].assigments.push(argsExpr[index]);
         });
         // clone expression to allow more than one instantiation
-        let exprBody = cloneExpression(exprData['body']);;
+        expr.lambdaSelf = null;
+        if (lambdaExpr['ctype'] === "field" || lambdaExpr['ctype'] === "userdata") {
+            // TODO? ensure lambdaSelf is only evaluated once
+            expr.lambdaSelf = lambdaExpr['obj'];
+            rec(expr.lambdaSelf,bindings,localScope,forceconstant);
+        }
+        let exprBody = cloneExpression(exprData['body']);
         // expression added to code in indirect way -> some functions may not yet have been copied
         self.copyRequiredFunctions(exprBody);
         expr.params = exprData['params'].map(param=>{
@@ -641,7 +649,7 @@ CodeBuilder.prototype.determineUniforms = function(expr) {
         if (variables[v].assigments.length >= 1 || variables[v].iterationvariable)
             variableDependendsOnPixel[v] = true;
     //run expression to get all expr["dependsOnPixel"]
-    dependsOnPixel(expr);
+    dependsOnPixel(expr, null);
 
 
     let visitedFunctions = {
@@ -649,10 +657,10 @@ CodeBuilder.prototype.determineUniforms = function(expr) {
     };
 
     let uniforms = this.uniforms;
-    computeUniforms(expr, false);
+    computeUniforms(expr, false, null);
 
 
-    function dependsOnPixel(expr) {
+    function dependsOnPixel(expr, lambdaSelf) {
         //Have we already found out that expr depends on pixel?
         if (expr.hasOwnProperty("dependsOnPixel")) {
             return expr["dependsOnPixel"];
@@ -718,16 +726,19 @@ CodeBuilder.prototype.determineUniforms = function(expr) {
             modType.used = true;
             modType.uniformName = generateUniqueHelperString();
             return expr["dependsOnPixel"] = true;
+        } else if (lambdaSelf!=null && expr['ctype'] === 'function' && expr['oper'] === "self$0") {
+            expr.selfVal = lambdaSelf;
+            return expr["dependsOnPixel"] = true;
         }
 
         //repeat is pixel dependent iff it's code is pixel dependent. Then it also makes the running variable pixel dependent.
         if (expr['oper'] === "repeat$2" || expr['oper'] === "forall$2" || expr['oper'] === "apply$2") {
-            if (dependsOnPixel(expr['args'][1])) {
+            if (dependsOnPixel(expr['args'][1], lambdaSelf)) {
                 variableDependendsOnPixel[expr['args'][1].bindings['#']] = true;
                 return expr["dependsOnPixel"] = true;
             } else return expr["dependsOnPixel"] = false;
         } else if (expr['oper'] === "repeat$3" || expr['oper'] === "forall$3" || expr['oper'] === "apply$3") {
-            if (dependsOnPixel(expr['args'][2])) {
+            if (dependsOnPixel(expr['args'][2], lambdaSelf)) {
                 variableDependendsOnPixel[expr['args'][2].bindings[expr['args'][1]['name']]] = true;
                 expr['args'][1]["dependsOnPixel"] = true;
                 return expr["dependsOnPixel"] = true;
@@ -736,7 +747,7 @@ CodeBuilder.prototype.determineUniforms = function(expr) {
 
         //run recursion on all dependent arguments
         for (let i in expr['args']) {
-            if (dependsOnPixel(expr['args'][i])) {
+            if (dependsOnPixel(expr['args'][i], lambdaSelf)) {
                 return expr["dependsOnPixel"] = true;
             }
         }
@@ -744,48 +755,52 @@ CodeBuilder.prototype.determineUniforms = function(expr) {
         //Oh yes, it also might be a user-defined function!
         if (expr['ctype'] === 'function' && myfunctions.hasOwnProperty(expr['oper'])) {
             let rfun = expr['oper'];
-            if (dependsOnPixel(myfunctions[rfun].body)) {
+            if (dependsOnPixel(myfunctions[rfun].body, lambdaSelf)) {
                 return expr["dependsOnPixel"] = true;
             }
         }
 
         //p.x
         if (expr['ctype'] === 'field') {
-            return expr["dependsOnPixel"] = dependsOnPixel(expr['obj']);
+            return expr["dependsOnPixel"] = dependsOnPixel(expr['obj'], lambdaSelf);
         }
         if (expr['ctype'] === 'userdata') {
-            return expr["dependsOnPixel"] = dependsOnPixel(expr['obj']) || dependsOnPixel(expr['key']);
+            return expr["dependsOnPixel"] = dependsOnPixel(expr['obj'], lambdaSelf) || dependsOnPixel(expr['key'], lambdaSelf);
         }
         if (expr['ctype'] === 'invokelambda') {
-            return expr["dependsOnPixel"] = dependsOnPixel(expr['obj']);
+            if(expr.lambdaSelf != null)
+                expr["dependsOnPixel"] = dependsOnPixel(expr.lambdaSelf, lambdaSelf);
+            return expr["dependsOnPixel"] |= dependsOnPixel(expr['obj'],expr.lambdaSelf);
         }
         if (expr['ctype'] === 'jsonatom') {
-            return expr["dependsOnPixel"] = dependsOnPixel(expr['value']);
+            return expr["dependsOnPixel"] = dependsOnPixel(expr['value'], lambdaSelf);
         }
         return expr["dependsOnPixel"] = false;
     }
 
     //now find use those elements in expression trees that have no expr["dependsOnPixel"] and as high as possible having that property
-    function computeUniforms(expr, forceconstant) {
-        if (dependsOnPixel(expr)) {
+    function computeUniforms(expr, forceconstant, lambdaSelf) {
+        if (dependsOnPixel(expr, lambdaSelf)) {
             //then run recursively on all childs
             for (let i in expr['args']) {
                 let needtobeconstant = forceconstant || (expr['oper'] === "repeat$2" && i == 0) || (expr['oper'] === "repeat$3" && i == 0) || (expr['oper'] === "_" && i == 1);
-                computeUniforms(expr['args'][i], needtobeconstant);
+                computeUniforms(expr['args'][i], needtobeconstant, lambdaSelf);
             }
 
             if (expr['ctype'] === 'field') {
-                computeUniforms(expr['obj'], forceconstant);
+                computeUniforms(expr['obj'], forceconstant, lambdaSelf);
             }
             if (expr['ctype'] === 'invokelambda') {
-                computeUniforms(expr['obj'], forceconstant);
+                if(expr.lambdaSelf != null)
+                    computeUniforms(expr.lambdaSelf, forceconstant,  lambdaSelf);
+                computeUniforms(expr['obj'], forceconstant, expr.lambdaSelf);
             }
             if (expr['ctype'] === 'userdata') {
-                computeUniforms(expr['obj'], forceconstant);
-                computeUniforms(expr['key'], forceconstant);
+                computeUniforms(expr['obj'], forceconstant, lambdaSelf);
+                computeUniforms(expr['key'], forceconstant, lambdaSelf);
             }
             if (expr['ctype'] === 'jsonatom') {
-                computeUniforms(expr['value'], forceconstant);
+                computeUniforms(expr['value'], forceconstant, lambdaSelf);
             }
 
             //Oh yes, it also might be a user-defined function!
@@ -793,7 +808,7 @@ CodeBuilder.prototype.determineUniforms = function(expr) {
                 let rfun = expr['oper'];
                 if (!visitedFunctions.hasOwnProperty(rfun)) { //only do this once per function
                     visitedFunctions[rfun] = true;
-                    computeUniforms(myfunctions[rfun].body, forceconstant);
+                    computeUniforms(myfunctions[rfun].body, forceconstant, lambdaSelf);
                 }
             }
         } else {
@@ -1371,6 +1386,8 @@ CodeBuilder.prototype.compile = function(expr, generateTerm) {
                 args = [args];
             }
             return generateLambdaEval(expr,expr['args'][0],args,generateTerm);
+        } else if(fname === "self$0") {
+            return this.compile(expr.selfVal,generateTerm);
         }
 
         let r = expr['args'].map(e => self.compile(e, true)); //recursion on all arguments
@@ -1615,7 +1632,7 @@ CodeBuilder.prototype.generateColorPlotProgram = function(expr,modifierTypes,mod
 
     this.modifierTypes = modifierTypes;
     this.modifierNames = new Map();
-    this.activeModifiers = {};
+    this.activeModifiers = {}; // TODO? treat plot-modifiers as active modifiers
     this.readsDepth = false;
     this.writesDepth = false;
 

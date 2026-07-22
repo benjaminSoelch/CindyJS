@@ -19,7 +19,8 @@ let computeidx = (k, n) => {
 //get childs of types that are formed from structs
 function genchilds(t) {
     if (t.type === 'tuple') {
-        return t.elements.map((t,i) => ({
+        // ignore lambda elements, assign all other elements an id in increasing order
+        return t.elements.filter(t=>(t.type!=='lambda')).map((t,i) => ({
             type: t,
             name: `a${i}`
         }))

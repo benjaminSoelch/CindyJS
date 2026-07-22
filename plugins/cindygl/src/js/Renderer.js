@@ -559,6 +559,7 @@ Renderer.computeUniformValue = function (setter,uniformType,val){
     } else if (uniformType.type === 'tuple') {
         let elts=[];
         uniformType.elements.forEach((t,k)=> {
+            if (t.type === 'lambda') return; // ignore lambda elements
             let setterKey = `a${k}`;
             elts.push([
                 setterKey,
