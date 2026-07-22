@@ -422,6 +422,7 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
         if (lambdaExpr['ctype'] === "field" || lambdaExpr['ctype'] === "userdata") {
             // TODO? ensure lambdaSelf is only evaluated once
             expr.lambdaSelf = lambdaExpr['obj'];
+            expr.lambdaSelf.used = false;
             rec(expr.lambdaSelf,bindings,localScope,forceconstant);
         }
         let exprBody = cloneExpression(exprData['body']);
@@ -728,6 +729,7 @@ CodeBuilder.prototype.determineUniforms = function(expr) {
             return expr["dependsOnPixel"] = true;
         } else if (lambdaSelf!=null && expr['ctype'] === 'function' && expr['oper'] === "self$0") {
             expr.selfVal = lambdaSelf;
+            lambdaSelf.used = true;
             return expr["dependsOnPixel"] = true;
         }
 
@@ -791,9 +793,9 @@ CodeBuilder.prototype.determineUniforms = function(expr) {
                 computeUniforms(expr['obj'], forceconstant, lambdaSelf);
             }
             if (expr['ctype'] === 'invokelambda') {
-                if(expr.lambdaSelf != null)
-                    computeUniforms(expr.lambdaSelf, forceconstant,  lambdaSelf);
                 computeUniforms(expr['obj'], forceconstant, expr.lambdaSelf);
+                if(expr.lambdaSelf != null && expr.lambdaSelf.used)
+                    computeUniforms(expr.lambdaSelf, forceconstant,  lambdaSelf);
             }
             if (expr['ctype'] === 'userdata') {
                 computeUniforms(expr['obj'], forceconstant, lambdaSelf);
