@@ -453,7 +453,7 @@ CodeBuilder.prototype.determineVariables = function(expr, bindings) {
         const oldMods = self.activeModifiers;
         self.activeModifiers = Object.assign({},self.activeModifiers,exprData['modifs']);
         const oldLambdaSelf = self.lambdaSelf;
-        self.lambdaSelf = self.evaluateAndVal(expr.lambdaSelf);
+        self.lambdaSelf = expr.lambdaSelf != null ? self.evaluateAndVal(expr.lambdaSelf) : null;
         rec(exprBody,nbindings,localScope,forceconstant);
         self.lambdaSelf = oldLambdaSelf;
         self.activeModifiers = oldMods;
