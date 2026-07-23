@@ -2554,7 +2554,7 @@ dgs3dMobiusTransformQuadric(T,q,visible->true,color->cglNada,alpha->cglNada):=(
       };
       [lambda((spacePos,data),x=(spacePos-data.p);
         x*transpose(data.M)*data.A*data.M*x
-          +2*(x*x)*(data.q*data.A+data.b/2)*data.M*x
+          +(x*x)*(2*data.q*data.A+data.b)*data.M*x
           +(x*x)^2*(data.q*data.A*data.q+data.b*data.q+data.c)
       ),data]
     );
