@@ -561,9 +561,14 @@ dgs3dNewObject(type,parents,visible->true,color->cglNada,alpha->cglNada):=(
     // nothing to do
   ,if(type == "transform" % type == "mobiusTrafo",
     // TODO? store all-transforms in JSON
+  ,if(type == "surface",
+    // ? store surfaces in JSON
+    obj:"color" = cglColor(cglValOrDefault(color,(1,0.25,0)));
+    obj:"alpha" = cglValOrDefault(alpha,0.5);
+    obj:"redraw" = lambda(self,dgs3dRenderSurface(self));
   ,
     cglLogWarning("unknown object type: "+type);
-  ))))))));
+  )))))))));
   forall(parents,parent,
     if(isJSON(parent),
       parent:"children" = append(parent:"children",obj);
@@ -637,6 +642,14 @@ dgs3dNewTrafo(parents,recompute):=(
 dgs3dNewMobiusTrafo(parents,recompute):=(
   regional(obj);
   obj = dgs3dNewObject("mobiusTrafo",parents);
+  obj:"recompute" = recompute;
+  obj:"recompute".(obj);
+  obj:"redraw".(obj);
+  obj
+);
+dgs3dNewSurface(parents,recompute,visible->true,color->cglNada,alpha->cglNada):=(
+  regional(obj);
+  obj = dgs3dNewObject("surface",parents,visible->visible,color->color,alpha->alpha);
   obj:"recompute" = recompute;
   obj:"recompute".(obj);
   obj:"redraw".(obj);
@@ -772,6 +785,22 @@ dgs3dRenderBiQuadric(self):=(
     ,
       cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["Q1","Q2","r","cglColor","cglAlpha"],
         [self:"coords"_1,self:"coords"_2,self:"size",self:"color",self:"alpha"]);
+      cgl3d.setVisible.(self:"drawId",true);
+    );
+  ,if(self:"drawId"!=-1,
+      cgl3d.setVisible.(self:"drawId",false);
+  ));
+);
+dgs3dRenderSurface(self):=(
+  if(self:"visible" == true, // treat undefined as falsy
+    if(self:"drawId"==-1,
+      // TODO? use custom cutoff-region instead of default
+      self:"drawId" = surface3d(f.((x,y,z),data),degree->8,
+        plotModifiers->{"f":self:"coords"_1,"data":self:"coords"_2},
+        alpha->self:"alpha",color->self:"color");
+    ,
+      cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["f","data","cglColor","cglAlpha"],
+        [self:"coords"_1,self:"coords"_2,self:"color",self:"alpha"]);
       cgl3d.setVisible.(self:"drawId",true);
     );
   ,if(self:"drawId"!=-1,
@@ -2504,6 +2533,34 @@ dgs3dMobiusTransformTransform(T,S,visible->true,color->cglNada,alpha->cglNada):=
     DGS3DmOVEoK
   ))
 );
+dgs3dMobiusTransformQuadric(T,q,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewSurface([T,q],lambda(self,
+    regional(T,M,a,c,q,data);
+    T = self:"parents"_1:"coords";
+    q = self:"parents"_2:"coords";
+    self:"coords" = if(length(T)==1,
+      T = adjoint4(T_1);
+      data = {"M":transpose(T)*q*T};
+      [lambda((spacePos,data),spacePos*data.M*spacePos)]
+    ,
+      [M,a,c] = T;
+      data = {
+        "M": M,
+        "p": a,
+        "q": c,
+        "A": apply(q_(1..3),#_(1..3)),
+        "b": (q_1_4+q_4_1,q_2_4+q_4_2,q_3_4+q_4_2),
+        "c": q_4_4
+      };
+      [lambda((spacePos,data),x=(spacePos-data.p);
+        x*transpose(data.M)*data.A*data.M*x
+          +2*(x*x)*(data.q*data.A+data.b/2)*data.M*x
+          +(x*x)^2*(data.q*data.A*data.q+data.b*data.q+data.c)
+      ),data]
+    );
+    DGS3DmOVEoK
+  ),visible->visible,color->color,alpha->alpha,isSphere->true)
+);
 
 transform3d(T,x,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dTransform(T,x,size->size,visible->visible,color->color,alpha->alpha);
@@ -2540,12 +2597,15 @@ dgs3dTransform(Q,x,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
       dgs3dMobiusTransformCircle(T,x,size->size,visible->visible,color->color,alpha->alpha);
     ,if((x:"type" == "biquadric") & (x:"isCircle" == true),
       dgs3dMobiusTransformCircle2(T,x,size->size,visible->visible,color->color,alpha->alpha);
-    ,if((x:"type" == "mobiusTrafo"),
+    ,if(x:"type" == "mobiusTrafo",
       dgs3dMobiusTransformTransform(T,x,visible->visible,color->color,alpha->alpha);
-    // TODO?? image of quadric/conic/bi-quadric under Möbius-Trafo as 2nd-class object
+    ,if(x:"type" == "quadric",
+      dgs3dMobiusTransformQuadric(T,x,visible->visible,color->color,alpha->alpha);
+    // TODO? image of conic/bi-quadric under Möbius-Trafo as 2nd-class object
+    //    "surfacePlaneIntersection"/ "surfaceIntersection" renderers
     ,
       cglLogWarning("cannot apply mobius transform to "+x:"type");
-    )))))));
+    ))))))));
   ,
     cglLogWarning("the first parameter of transform should be a  tranformation got: "+x:"type");
   ));

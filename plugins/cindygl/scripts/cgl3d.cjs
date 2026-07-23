@@ -2838,6 +2838,7 @@ cglSurface3d(F,// lambda: p: vec3 -> float
       );
     );
 );
+// TODO! prefix internal variables with cgl..  to avoid name collisions with globals
 surface3d(cgl3dSurfaceExpr.(x,y,z),
   color->cgl3d.defaults.surfaceColor,texture->cglNada,
   colorBack->cglNada,textureBack->cglNada,alpha->cgl3d.defaults.surfaceAlpha,
