@@ -655,7 +655,23 @@ dgs3dNewSurface(parents,recompute,visible->true,color->cglNada,alpha->cglNada):=
   obj:"redraw".(obj);
   obj
 );
-// TODO? newPointSet newPointOn 
+dgs3dNewPointSet(parents,childCount,recompute,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  regional(obj);
+  obj = dgs3dNewObject("pointSet",parents,visible->visible,color->color,alpha->alpha);
+  obj:"children" = apply(1..childCount,
+    regional(child);
+    child = dgs3dNewObject("point",[obj],visible->visible,color->color,alpha->alpha);
+    child.size = cglValOrDefault(size,cgl3d.defaults:"sphereSize");
+    child
+  );
+  obj:"recompute" = recompute;
+  obj:"recompute".(obj);
+  forall(obj:"children",child,
+    child:"redraw".(child);
+  );
+  obj
+);
+// TODO? newPointOn 
 // ? how to handle free-objects
 
 // TODO? better name
@@ -1321,32 +1337,15 @@ dgs3dTracePointSet(self,pts):=(
   );
   DGS3DmOVEoK
 );
-dgs3dFinishPointSet(obj):=(
-  obj:"recompute".(obj);
-  obj:"redraw".(obj);
-  forall(obj:"children",child,
-    child:"size" = cglValOrDefault(size,cgl3d.defaults:"sphereSize");
-    child:"recompute".(child);
-    dgs3dRenderPoint(child);
-  );
-  obj
-);
 // Q1: quadric, l1: line, size:real = radius, visible: bool = should object be drawn
 dgs3dMeetQL(Q1,l1,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  regional(obj);
-  obj = dgs3dNewObject("pointSet",[Q1,l1],visible->visible,color->color,alpha->alpha);
-  obj:"children" = [
-    dgs3dNewObject("point",[obj],visible->visible,color->color,alpha->alpha),
-    dgs3dNewObject("point",[obj],visible->visible,color->color,alpha->alpha)
-  ];
-  obj:"recompute" = lambda(self,
+  dgs3dNewPointSet([Q1,l1],2,lambda(self,
     regional(Q,l,AB,oldA,oldB,d11,d12,d21,d22);
     Q = self:"parents"_1:"coords";
     l = self:"parents"_2:"coords";
     AB = dgs3dIntersectLineQuadric(dgs3dDualLine(l),Q);
     dgs3dTracePointPair(self,AB);
-  );
-  dgs3dFinishPointSet(obj);
+  ),size->size,visible->visible,color->color,alpha->alpha);
 );
 // P1: plane, P2: plane, P3: plane, size:real = radius, visible: bool = should object be drawn
 meet3d(a,b,c,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
@@ -1381,38 +1380,24 @@ dgs3dMeet3P(P1,P2,P3,size->cglNada,visible->true,color->cglNada,alpha->cglNada):
 );
 // Q1: quadric, p1: plane, p2: plane ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeetQpp(Q1,p1,p2,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  regional(obj);
-  obj = dgs3dNewObject("pointSet",[Q1,p1,p2],visible->visible,color->color,alpha->alpha);
-  obj:"children" = [
-    dgs3dNewObject("point",[obj],visible->visible,color->color,alpha->alpha),
-    dgs3dNewObject("point",[obj],visible->visible,color->color,alpha->alpha)
-  ];
-  obj:"recompute" = lambda(self,
+  dgs3dNewPointSet([Q1,p1,p2],2,lambda(self,
     regional(Q,p1,p2,AB,oldA,oldB,d11,d12,d21,d22);
     Q = self:"parents"_1:"coords";
     p1 = self:"parents"_2:"coords";
     p2 = self:"parents"_3:"coords";
     AB = dgs3dIntersectLineQuadric(dgs3dEpsilon44(p1,p2),Q);
     dgs3dTracePointPair(self,AB);
-  );
-  dgs3dFinishPointSet(obj);
+  ),size->size,visible->visible,color->color,alpha->alpha);
 );
 // C: conic, p: plane ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeetCp(C,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  regional(obj);
-  obj = dgs3dNewObject("pointSet",[C,p],visible->visible,color->color,alpha->alpha);
-  obj:"children" = [
-    dgs3dNewObject("point",[obj],visible->visible,color->color,alpha->alpha),
-    dgs3dNewObject("point",[obj],visible->visible,color->color,alpha->alpha)
-  ];
-  obj:"recompute" = lambda(self,
+  dgs3dNewPointSet([C,p],2,lambda(self,
     regional(Q,C,AB,oldA,oldB,d11,d12,d21,d22);
     C = self:"parents"_1:"coords";
     p = self:"parents"_2:"coords";
     AB = dgs3dIntersectLineQuadric(dgs3dEpsilon44(C_2,p),C_1);
     dgs3dTracePointPair(self,AB);
-  );
-  dgs3dFinishPointSet(obj);
+  ),size->size,visible->visible,color->color,alpha->alpha);
 );
 // FIXME: there seem to be special cases where this returns invalid values
 dgs3dIntersectionsQQP(Q1,Q2,p):=(
@@ -1438,79 +1423,59 @@ dgs3dIntersectionsQQP(Q1,Q2,p):=(
 );
 // Q1: quadric, Q2: quadric, p: plane ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeetQQp(Q1,Q2,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  regional(obj);
-  obj = dgs3dNewObject("pointSet",[Q1,Q2,p],visible->visible,color->color,alpha->alpha);
-  obj:"children" = apply(1..4,dgs3dNewObject("point",[obj],visible->visible,color->color,alpha->alpha));
-  obj:"recompute" = lambda(self,
+  dgs3dNewPointSet([Q1,Q2,p],4,lambda(self,
     regional(Q1,Q2,p,AB,oldA,oldB,d11,d12,d21,d22);
     Q1 = self:"parents"_1:"coords";
     Q2 = self:"parents"_2:"coords";
     p = self:"parents"_3:"coords";
     ABCD = dgs3dIntersectionsQQP(Q1,Q2,p);
     dgs3dTracePointSet(self,ABCD);
-  );
-  dgs3dFinishPointSet(obj);
+  ),size->size,visible->visible,color->color,alpha->alpha);
 );
 // Q: quadric, C: conic ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeetQuadricConic(Q,C,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  regional(obj);
-  obj = dgs3dNewObject("pointSet",[Q,C],visible->visible,color->color,alpha->alpha);
-  obj:"children" = apply(1..4,dgs3dNewObject("point",[obj],visible->visible,color->color,alpha->alpha));
-  obj:"recompute" = lambda(self,
+  dgs3dNewPointSet([Q,C],4,lambda(self,
     regional(Q,C,AB,oldA,oldB,d11,d12,d21,d22);
     Q = self:"parents"_1:"coords";
     C = self:"parents"_2:"coords";;
     ABCD = dgs3dIntersectionsQQP(Q,C_1,C_2);
     dgs3dTracePointSet(self,ABCD);
-  );
-  dgs3dFinishPointSet(obj);
+  ),size->size,visible->visible,color->color,alpha->alpha);
 );
 // Q2: bi-quadric, p: plane ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeetBiQuadricPlane(Q2,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  regional(obj);
-  obj = dgs3dNewObject("pointSet",[Q2,p],visible->visible,color->color,alpha->alpha);
-  obj:"children" = apply(1..4,dgs3dNewObject("point",[obj],visible->visible,color->color,alpha->alpha));
-  obj:"recompute" = lambda(self,
+  dgs3dNewPointSet([Q2,p],4,lambda(self,
     regional(Q2,p,ABCD);
     Q2 = self:"parents"_1:"coords";
     p = self:"parents"_2:"coords";;
     ABCD = dgs3dIntersectionsQQP(Q2_1,Q2_2,p);
     dgs3dTracePointSet(self,ABCD);
-  );
-  dgs3dFinishPointSet(obj);
+  ),size->size,visible->visible,color->color,alpha->alpha);
 );
 dgs3dIntersects3Q(Q1,Q2,Q3):=(
   dgs3de3q3(dgs3dQuadAsVec(Q1),dgs3dQuadAsVec(Q2),dgs3dQuadAsVec(Q3));
 );
 // Q2: bi.quadric, q: quadric ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeetBiQuadricQuadric(Q2,q,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  regional(obj);
-  obj = dgs3dNewObject("pointSet",[Q2,q],visible->visible,color->color,alpha->alpha);
-  obj:"children" = apply(1..8,dgs3dNewObject("point",[obj],visible->visible,color->color,alpha->alpha));
-  obj:"recompute" = lambda(self,
+  dgs3dNewPointSet([Q2,q],8,lambda(self,
     regional(Q2,q,sols);
     Q2 = self:"parents"_1:"coords";
     q = self:"parents"_2:"coords";;
     sols = dgs3dIntersects3Q(Q2_1,Q2_2,q);
     dgs3dTracePointSet(self,sols);
-  );
-  dgs3dFinishPointSet(obj);
+  ),size->size,visible->visible,color->color,alpha->alpha);
 );
 
-// Q: quadric, C: quadric-intersection ; size:real = radius, visible: bool = should object be drawn
+// Q1,Q2,Q3: quadric ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeet3Q(Q1,Q2,Q3,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  regional(obj);
-  obj = dgs3dNewObject("pointSet",[Q1,Q2,Q3],visible->visible,color->color,alpha->alpha);
-  obj:"children" = apply(1..8,dgs3dNewObject("point",[obj],visible->visible,color->color,alpha->alpha));
-  obj:"recompute" = lambda(self,
+  dgs3dNewPointSet([Q1,Q2,Q3],8,lambda(self,
     regional(Q1,Q2,Q3,sols);
     Q1 = self:"parents"_1:"coords";
     Q2 = self:"parents"_2:"coords";
     Q3 = self:"parents"_3:"coords";
     sols = dgs3dIntersects3Q(Q1,Q2,Q3);
     dgs3dTracePointSet(self,sols);
-  );
-  dgs3dFinishPointSet(obj);
+  ),size->size,visible->visible,color->color,alpha->alpha);
 );
 ///////////
 // E3Q3
@@ -1836,6 +1801,9 @@ dgs3dBiQuadricPolarLine(C,P,size->cglNada,visible->true,color->cglNada,alpha->cg
 );
 
 // pts: [point; 9] => quadric, visible: bool = should object be drawn
+quadricBy9P(pts,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dQuadric9point(pts,visible->visible,color->color,alpha->alpha);
+);
 quadricBy9Points(pts,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dQuadric9point(pts,visible->visible,color->color,alpha->alpha);
 );
@@ -2505,8 +2473,7 @@ dgs3dMobiusTransformCircle2(T,c,size->cglNada,visible->true,color->cglNada,alpha
     regional(T,Q,P,s,p,S1,S2,R,q);
     T = self:"parents"_1:"coords";
     (Q1,Q2) = self:"parents"_2:"coords";
-    // TODO? is it neccessary to ensure both arguments are spheres
-    print((Q1,Q2));
+    // TODO? are the arguments guaranteed to be spheres
     // transform plane and sphere
     S1 = dgs3dComputeMobiusTransformSphere(T,Q1);
     S2 = dgs3dComputeMobiusTransformSphere(T,Q2);
