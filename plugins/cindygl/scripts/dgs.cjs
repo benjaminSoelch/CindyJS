@@ -148,27 +148,35 @@ dgs3dPreFrame():=(
 );
 DGS3DmOVEoK = 0;
 DGS3DmOVErETRY = 1;
-// TODO? avoid duplicate work:
-//  * don't recompute children if parent fails (! ensure that only computed objects are reset)
-//  * do not redo calculations for objects where recomputing objects and all children succeeded
 dgs3dTryRecomputeChildren(obj):=(
   regional(retry);
   obj = dgs3dObjById(obj);
-  retry = obj:"recompute".(obj) != DGS3DmOVEoK;
-  // try recalculating direct children
-  forall(obj:"children",child,
-    child = dgs3dObjById(child);
-    child:"oldCoords" = child:"coords";
-    retry = retry % dgs3dTryRecomputeChildren(child);
-  );
-  retry
+  if(obj:"recompute".(obj) != DGS3DmOVEoK,
+    obj.resetChildren = false;
+    true
+  ,
+    retry = false;
+    // try recalculating direct children
+    forall(obj:"children",child,
+      child = dgs3dObjById(child);
+      child:"oldCoords" = child:"coords";
+      retry = retry % dgs3dTryRecomputeChildren(child);
+    );
+    // TODO? avoid duplicate work:
+    // * if tracing subtree was successful ignore that subtree for subsequent recalculations
+    // ?? remember coordinates at end-position when computing intermediate step(s)
+    obj.resetChildren = true;
+    retry
+  )
 );
 dgs3dResetChildren(obj):=(
   obj = dgs3dObjById(obj);
-  forall(obj:"children",child,
-    child:"coords" = child:"oldCoords";
-    dgs3dResetChildren(child);
-  );
+  if(obj.resetChildren,
+    forall(obj:"children",child,
+      child:"coords" = child:"oldCoords";
+      dgs3dResetChildren(child);
+    );
+  )
 );
 dgs3dRedrawChildren(obj):=(
   obj = dgs3dObjById(obj);
@@ -183,10 +191,10 @@ dgs3dTracePoint(p,newCoords,level):=(
   nextPos = newCoords;
   p:"oldCoords" = p:"coords";
   p:"coords" = nextPos;
-  // TODO? complex detour
   if(dgs3dTryRecomputeChildren(p),
     dgs3dResetChildren(p);
     if(level<DGS3DmAXlEVEL,
+      // TODO? complex detour
       mid = (p:"oldCoords" + newCoords)/2;
       dgs3dTracePoint(p,mid,level+1);
       // move relative to new-position
