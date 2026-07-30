@@ -124,7 +124,7 @@ dgs3dPreFrame():=(
       ,
         cglLogError("unimplemented: "+axes:"type"+" movement direction");
       ));
-      dgs3dTracePoint(target,newCoords,0);
+      dgs3dTracePoint(target,newCoords);
       dgs3dRedrawChildren(target);
     ,if(dgs3dMouseState:"rotating",
       dx = 2 * (mx - dgs3dMouseState:"sx"); dy = 2 * (my - dgs3dMouseState:"sy");
@@ -185,22 +185,45 @@ dgs3dRedrawChildren(obj):=(
     dgs3dRedrawChildren(child);
   );
 );
-DGS3DmAXlEVEL = 10;
-dgs3dTracePoint(p,newCoords,level):=(
-  regional(nextPos,mid);
+DGS3DmAXlEVEL = 16;
+dgs3dTracePoint(p,newCoords):=(
+  dgs3dTracePointRec(p,newCoords,0,(0,0,0,0))
+);
+dgs3dTracePointRec(p,newCoords,level,prevV):=(
+  regional(nextPos,mid,d,v,step,dir);
+  print(if(level>0,"  ","")+"trace: "+p:"coords"+" -> "+newCoords+" "+ sqrt(dgs3dProjDistanceSq(p:"coords",newCoords)));
   nextPos = newCoords;
   p:"oldCoords" = p:"coords";
   p:"coords" = nextPos;
   if(dgs3dTryRecomputeChildren(p),
     dgs3dResetChildren(p);
+    // TODO: find good detour path if direct movement fails
+    step = 1;
+    mid = newCoords;
+    while(
+      mid = (step*p:"oldCoords" + newCoords)/(step+1);
+      step = step+1;
+      // offset midpoint by v in CP^3 with d(v,M) < d(P_old,P_new)/2
+      d = sqrt(dgs3dProjDistanceSq(p:"oldCoords",mid));
+      v = (random()+i*random(),random()+i*random(),random()+i*random(),1);
+      dir = normalize(newCoords-step*p:"oldCoords");
+      v = v - (dir*v)*dir;
+      v = normalize(v+0.5*prevV);
+      p:"coords" = mid + random()*d*v;
+      if(step < DGS3DmAXlEVEL,
+        dgs3dTryRecomputeChildren(p)
+      ,
+        level = DGS3DmAXlEVEL;
+        false
+      )
+    ,dgs3dResetChildren(p));
+    // move relative to new-position
     if(level<DGS3DmAXlEVEL,
-      // TODO? complex detour
-      mid = (p:"oldCoords" + newCoords)/2;
-      dgs3dTracePoint(p,mid,level+1);
-      // move relative to new-position
-      dgs3dTracePoint(p,newCoords + (p:"coords"-mid),level+1);
+      dgs3dTracePointRec(p,newCoords,level+1,v);
     ,
+      // TODO: pick "best-possible" choice when tracing does not succeed
       cglLogError("tracing failed");
+      p:"coords" = p:"oldCoords";
     );
   );
 );
@@ -325,7 +348,7 @@ dgs3dDecompose2DConic(A):=(
   // 1. find anti-symmetric matrix D s.t. A+D has rank 1
   B = adjoint3(A);
   i = if(|B_1_1|>=|B_2_2| & |B_1_1|>=|B_3_3|, 1, if(|B_2_2|>=|B_1_1| & |B_2_2|>=|B_3_3|,2, 3));
-  if(B_i_i<0,
+  if(re(B_i_i)<0,
     B = -B;
   );
   beta = sqrt(B_i_i);
@@ -359,7 +382,7 @@ dgs3dIntersect2DConicLine(A,l):=(
 dgs3dIntersect2DConic(A,B):=(
   regional(lambda,C,l12,p12,p34);
   // 1. find degenerate matrix in pencil
-  lambda = select(roots((
+  lambda = sort(roots((
     det(A),
     -A_2_3*A_3_2*B_1_1+A_2_2*A_3_3*B_1_1+A_2_3*A_3_1*B_1_2-A_2_1*A_3_3*B_1_2
     -A_2_2*A_3_1*B_1_3+A_2_1*A_3_2*B_1_3+A_1_3*A_3_2*B_2_1-A_1_2*A_3_3*B_2_1
@@ -372,7 +395,7 @@ dgs3dIntersect2DConic(A,B):=(
     +A_1_3*B_2_1*B_3_2-A_1_1*B_2_3*B_3_2+A_2_2*B_1_1*B_3_3-A_2_1*B_1_2*B_3_3
     -A_1_2*B_2_1*B_3_3+A_1_1*B_2_2*B_3_3,
     det(B)
-  )),isReal(#))_1; // TODO prefer real roots with small magnitude, handle case with only complex roots
+  )),(!isReal(#),|#|))_1; // prefer real roots with small magnitude
   C = A+lambda*B;
   // 3. decompose into lines
   l12 = dgs3dDecompose2DConic(C);
@@ -1307,7 +1330,7 @@ dgs3dMeet2L(l1,l2,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
     DGS3DmOVEoK
   ),size->size,visible->visible,color->color,alpha->alpha)
 );
-dgs3dProjDistance(P1,P2):=(
+dgs3dProjDistanceSq(P1,P2):=(
   regional(d);
   d = normalize(P1)-normalize(P2);
   |d*d|
@@ -1324,10 +1347,10 @@ dgs3dTracePointPair(self,AB):=(
     // TODO better tracing
     // * better way to detect if points are too close to each other
     //  cindy-classic uses d(oldA,oldB)* s > d(oldA,newA)+d(oldB,newB)
-    d11 = dgs3dProjDistance(AB_1,oldA);
-    d12 = dgs3dProjDistance(AB_1,oldB);
-    d21 = dgs3dProjDistance(AB_2,oldA);
-    d22 = dgs3dProjDistance(AB_2,oldB);
+    d11 = dgs3dProjDistanceSq(AB_1,oldA);
+    d12 = dgs3dProjDistanceSq(AB_1,oldB);
+    d21 = dgs3dProjDistanceSq(AB_2,oldA);
+    d22 = dgs3dProjDistanceSq(AB_2,oldB);
     // * ? retry if distance between points smaller that distance to new points
     if(d11 <= d12 & d22 <= d21,
       self:"children"_1:"coords" = AB_1;
@@ -1352,10 +1375,11 @@ dgs3dTracePointSet(self,pts):=(
     );
     DGS3DmOVEoK
   ,
+    // TODO: detect case where distance between points smaller than distance to target points
     regional(iMin);
     iMin = apply(pts,p,
       min(self:"children",c,i,
-        (dgs3dProjDistance(p,c:"coords"),i)
+        (dgs3dProjDistanceSq(p,c:"coords"),i)
       )_2
     );
     if(length(set(iMin))==length(pts),
