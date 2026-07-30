@@ -40,6 +40,8 @@ dgs3dHandleZoom(zoom):=(
   forall(dgs3dQuadrics,q,q:"redraw".(q));
 );
 dgs3dUpdateCutoff();
+dgs3d = {};
+dgs3d.noTracing = false;
 
 // TODO make focus color customizable, ? set color depending on color of point
 dgs3dFocusColor = cglColor("green");
@@ -1297,23 +1299,27 @@ dgs3dMeet2L(l1,l2,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
     DGS3DmOVEoK
   ),size->size,visible->visible,color->color,alpha->alpha)
 );
+dgs3dProjDistance(P1,P2):=(
+  regional(d);
+  d = normalize(P1)-normalize(P2);
+  |d*d|
+);
 dgs3dTracePointPair(self,AB):=(
   self:"coords" = AB;
   oldA = self:"children"_1:"coords";
   oldB = self:"children"_2:"coords";
-  if(isUndefined(oldA)% isUndefined(oldB),
+  if(dgs3d.noTracing % isUndefined(oldA) % isUndefined(oldB),
       self:"children"_1:"coords" = AB_1;
       self:"children"_2:"coords" = AB_2;
       DGS3DmOVEoK
   ,
     // TODO better tracing
-    // * use "projective distance" (? normalize then distance) instead of euclidean distance
     // * better way to detect if points are too close to each other
     //  cindy-classic uses d(oldA,oldB)* s > d(oldA,newA)+d(oldB,newB)
-    d11 = |AB_1-oldA|;
-    d12 = |AB_1-oldB|;
-    d21 = |AB_2-oldA|;
-    d22 = |AB_2-oldB|;
+    d11 = dgs3dProjDistance(AB_1,oldA);
+    d12 = dgs3dProjDistance(AB_1,oldB);
+    d21 = dgs3dProjDistance(AB_2,oldA);
+    d22 = dgs3dProjDistance(AB_2,oldB);
     // * ? retry if distance between points smaller that distance to new points
     if(d11 <= d12 & d22 <= d21,
       self:"children"_1:"coords" = AB_1;
@@ -1331,11 +1337,30 @@ dgs3dTracePointPair(self,AB):=(
   )
 );
 dgs3dTracePointSet(self,pts):=(
-  // FIXME: support tracing for point-sets
-  forall(1..(length(pts)),i,
-    self:"children"_i:"coords" = pts_i;
-  );
-  DGS3DmOVEoK
+  if(dgs3d.noTracing % max(apply(self:"children",isUndefined(#:"coords"))),
+    // at least one undefined child -> direly set in given order
+    forall(1..(length(pts)),i,
+      self:"children"_i:"coords" = pts_i;
+    );
+    DGS3DmOVEoK
+  ,
+    regional(iMin);
+    iMin = apply(pts,p,
+      min(self:"children",c,i,
+        (dgs3dProjDistance(p,c:"coords"),i)
+      )_2
+    );
+    if(length(set(iMin))==length(pts),
+      // closest points are unique -> apply permutation
+      forall(1..(length(pts)),i,
+        self:"children"_(iMin_i):"coords" = pts_i;
+      );
+      DGS3DmOVEoK
+    ,
+      // duplicate entry -> retry move
+      DGS3DmOVErETRY
+    )
+  )
 );
 // Q1: quadric, l1: line, size:real = radius, visible: bool = should object be drawn
 dgs3dMeetQL(Q1,l1,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
