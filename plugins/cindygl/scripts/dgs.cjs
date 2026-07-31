@@ -41,7 +41,7 @@ dgs3dHandleZoom(zoom):=(
 );
 dgs3dUpdateCutoff();
 dgs3d = {};
-dgs3d.noTracing = false;
+dgs3d.doTracing = false;
 
 // TODO make focus color customizable, ? set color depending on color of point
 dgs3dFocusColor = cglColor("green");
@@ -191,11 +191,10 @@ dgs3dTracePoint(p,newCoords):=(
 );
 dgs3dTracePointRec(p,newCoords,level,prevV):=(
   regional(nextPos,mid,d,v,step,dir);
-  print(if(level>0,"  ","")+"trace: "+p:"coords"+" -> "+newCoords+" "+ sqrt(dgs3dProjDistanceSq(p:"coords",newCoords)));
   nextPos = newCoords;
   p:"oldCoords" = p:"coords";
   p:"coords" = nextPos;
-  if(dgs3dTryRecomputeChildren(p),
+  if(dgs3dTryRecomputeChildren(p) & dgs3d.doTracing,
     dgs3dResetChildren(p);
     // TODO: find good detour path if direct movement fails
     step = 1;
@@ -210,12 +209,8 @@ dgs3dTracePointRec(p,newCoords,level,prevV):=(
       v = v - (dir*v)*dir;
       v = normalize(v+0.5*prevV);
       p:"coords" = mid + random()*d*v;
-      if(step < DGS3DmAXlEVEL,
-        dgs3dTryRecomputeChildren(p)
-      ,
-        level = DGS3DmAXlEVEL;
-        false
-      )
+      if(step > DGS3DmAXlEVEL,level = DGS3DmAXlEVEL;);
+      dgs3dTryRecomputeChildren(p) & step < DGS3DmAXlEVEL
     ,dgs3dResetChildren(p));
     // move relative to new-position
     if(level<DGS3DmAXlEVEL,
@@ -1228,6 +1223,7 @@ dgs3dPointOnBiQuadric(q,p0,size->cglNada,visible->true,pinned->false,color->cglN
     if(if(!isReal(d),true,dsts_3 < d),P=ABCD_3;d=dsts_3);
     if(if(!isReal(d),true,dsts_4 < d),P=ABCD_4;d=dsts_4);
     self:"coords" = P;
+    // TODO detect error case where new points are closer to each other than to traced point
     if(isReal(d),
       DGS3DmOVEoK
     ,
@@ -1339,56 +1335,87 @@ dgs3dTracePointPair(self,AB):=(
   self:"coords" = AB;
   oldA = self:"children"_1:"coords";
   oldB = self:"children"_2:"coords";
-  if(dgs3d.noTracing % isUndefined(oldA) % isUndefined(oldB),
+  if(isUndefined(oldA) % isUndefined(oldB),
       self:"children"_1:"coords" = AB_1;
       self:"children"_2:"coords" = AB_2;
       DGS3DmOVEoK
   ,
-    // TODO better tracing
-    // * better way to detect if points are too close to each other
+    // TODO retry if distance between points smaller that distance to new points
+    // * find good way to detect if points are too close to each other
     //  cindy-classic uses d(oldA,oldB)* s > d(oldA,newA)+d(oldB,newB)
     d11 = dgs3dProjDistanceSq(AB_1,oldA);
     d12 = dgs3dProjDistanceSq(AB_1,oldB);
     d21 = dgs3dProjDistanceSq(AB_2,oldA);
     d22 = dgs3dProjDistanceSq(AB_2,oldB);
-    // * ? retry if distance between points smaller that distance to new points
-    if(d11 <= d12 & d22 <= d21,
+    // chose permutation that minimizes sum of squared distances
+    if(d11 + d22 <= d12 + d21,
       self:"children"_1:"coords" = AB_1;
       self:"children"_2:"coords" = AB_2;
-      DGS3DmOVEoK
-    ,if(d12 < d11 & d21 < d22,
+      if(d11 <= d12 & d22 <= d21,DGS3DmOVEoK,DGS3DmOVErETRY)
+    ,
       self:"children"_1:"coords" = AB_2;
       self:"children"_2:"coords" = AB_1;
-      DGS3DmOVEoK
-    , // both solutions closer to same vertex
-      self:"children"_1:"coords" = AB_1;
-      self:"children"_2:"coords" = AB_2;
-      DGS3DmOVErETRY
-    ));
+      if(d12 <= d11 & d21 <= d22,DGS3DmOVEoK,DGS3DmOVErETRY)
+    );
   )
 );
 dgs3dTracePointSet(self,pts):=(
-  if(dgs3d.noTracing % max(apply(self:"children",isUndefined(#:"coords"))),
+  if(max(apply(self:"children",isUndefined(#:"coords"))),
     // at least one undefined child -> direly set in given order
     forall(1..(length(pts)),i,
       self:"children"_i:"coords" = pts_i;
     );
     DGS3DmOVEoK
   ,
-    // TODO: detect case where distance between points smaller than distance to target points
-    regional(iMin);
-    iMin = apply(pts,p,
-      min(self:"children",c,i,
-        (dgs3dProjDistanceSq(p,c:"coords"),i)
-      )_2
-    );
-    if(length(set(iMin))==length(pts),
+    regional(n,iMin,jMin,dist);
+    n = length(pts);
+    dist = apply(pts,p,apply(self:"children",q,
+      dgs3dProjDistanceSq(p,q:"coords");
+    ));
+    iMin = apply(1..n,i,min(1..n,j,(dist_i_j,j))_2);// old-index closest to new-index
+    jMin = apply(1..n,j,min(1..n,i,(dist_i_j,i))_2);// new-index closest to old-index
+    if(min(apply(iMin,x,i,jMin_x==i)),// all points have a mutually closest partner
       // closest points are unique -> apply permutation
-      forall(1..(length(pts)),i,
+      forall(1..n,i,
         self:"children"_(iMin_i):"coords" = pts_i;
       );
+      // TODO: detect error case where distance between points smaller than distance to target points
       DGS3DmOVEoK
     ,
+      regional(perm,inv,y,j);
+      perm = inv = 1..n;
+      forall(iMin,x,i,
+        if(perm_i!=x,
+          // i -> y  j -> x
+          y = perm_i;
+          j = inv_x;
+          // swap if distance decreases
+          if(dist_i_x+dist_j_y<dist_i_y+dist_j_x,
+            perm_i = x;
+            perm_j = y;
+            inv_x = i;
+            inv_y = j;
+          );
+        );
+      );
+      forall(jMin,i,x,
+        if(perm_i!=x,
+          // i -> y  j -> x
+          y = perm_i;
+          j = inv_x;
+          // swap if distance decreases
+          if(dist_i_x+dist_j_y<dist_i_y+dist_j_x,
+            perm_i = x;
+            perm_j = y;
+            inv_x = i;
+            inv_y = j;
+          );
+        );
+      );
+      // TODO? how far ist this algorithm from a minimal distance sum solution?
+      forall(1..n,i,
+        self:"children"_(perm_i):"coords" = pts_i;
+      );
       // duplicate entry -> retry move
       DGS3DmOVErETRY
     )
