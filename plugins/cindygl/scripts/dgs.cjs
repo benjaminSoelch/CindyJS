@@ -2006,6 +2006,12 @@ dgs3dBiQuadric8points(pts,size->cglNada,visible->true,color->cglNada,alpha->cglN
   ),size->size,visible->visible,color->color,alpha->alpha,isCircle->false);
 );
 
+// q: quadric => point, 
+dgs3dQuadricCenter(q,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewPoint([Q],lambda(self,
+    self:"coords" = adjoint4(self:"parents"_1:"coords")_4;
+  ),size->size,visible->visible,color->color,alpha->alpha);
+);
 ////////////////
 // Euclidean Operations
 ////////////////
