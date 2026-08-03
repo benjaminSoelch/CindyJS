@@ -2047,13 +2047,15 @@ parallel3d(x,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dParallel(x,p,size->size,visible->visible,color->color,alpha->alpha);
 );
 dgs3dParallel(x,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  if(x:"type" == "line",
+  if(x:"type" == "line" & p:"type" == "point",
     dgs3dParallelLine(x,p,size->size,visible->visible,color->color,alpha->alpha);
-  ,if(x:"type" == "plane",
+  ,if(x:"type" == "plane" & p:"type" == "point",
     dgs3dParallelPlane(x,p,size->size,visible->visible,color->color,alpha->alpha);
+  ,if(x:"type" == "line" & p:"type" == "line",
+    dgs3dParallel2Line(x,p,visible->visible,color->color,alpha->alpha);
   ,
-    cglLogWarning("cannot compute parallel to "+x:"type");
-  ));
+    cglLogWarning("cannot compute parallel to "+x:"type"+" through "+p:"type");
+  )));
 );
 // l: line, p: point => line; size:real = radius, visible: bool = should object be drawn
 dgs3dParallelLine(l,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
@@ -2075,22 +2077,37 @@ dgs3dParallelPlane(P,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada
     DGS3DmOVEoK
   ),visible->visible,color->color,alpha->alpha);
 );
+// paralle to l1 through l2
+// l1,l2: line => plane; visible: bool = should object be drawn
+dgs3dParallel2Line(l1,l2,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewPlane([l,p],lambda(self,
+    regional(l1,l2,n1,n2,n,p2);
+    l1 = self:"parents"_1:"coords";
+    l2 = self:"parents"_2:"coords";
+    n1 = dgs3dLineDirection(l1);
+    n2 = dgs3dLineDirection(l2);
+    n = cross(n1,n2);
+    p2 = dgs3dEpsilon46((n2_1,n2_2,n2_3,0),l2);
+    self:"coords" = dgs3dRP3Normalize((n_1*p2_4,n_2*p2_4,n_3*p2_4,-(n*p2_(1..3))));
+    DGS3DmOVEoK
+  ),visible->visible,color->color,alpha->alpha);
+);
 // x: plane|line, p: point => line|plane|; size:real = radius, visible: bool = should object be drawn
 normal3d(x,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dNormal(x,p,size->size,visible->visible,color->color,alpha->alpha);
 );
 dgs3dNormal(x,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  if(x:"type" == "plane",
+  if(x:"type" == "plane" & p:"type" == "point",
     dgs3dOrthogonalLine(x,p,size->size,visible->visible,color->color,alpha->alpha);
-  ,if(x:"type" == "line",
-    if(p:"type" == "line",
-      dgs3dOrthogonal2L(x,p,size->size,visible->visible,color->color,alpha->alpha);
-    ,
-      dgs3dOrthogonalPlane(x,p,size->size,visible->visible,color->color,alpha->alpha);
-    )
+  ,if(x:"type" == "plane" & p:"type" == "line",
+    dgs3dOrthogonalPL(x,p,visible->visible,color->color,alpha->alpha);
+  ,if(x:"type" == "line" & p:"type" == "point",
+    dgs3dOrthogonalPlane(x,p,visible->visible,color->color,alpha->alpha);
+  ,if(x:"type" == "line" & p:"type" == "line",
+    dgs3dOrthogonal2L(x,p,size->size,visible->visible,color->color,alpha->alpha);
   ,
-    cglLogWarning("cannot compute parallel to "+x:"type");
-  ));
+    cglLogWarning("cannot compute normal to "+x:"type"+" through "+p:"type");
+  ))));
 );
 // P: plane, p: point => line; size:real = radius, visible: bool = should object be drawn
 dgs3dOrthogonalLine(P,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
@@ -2103,10 +2120,24 @@ dgs3dOrthogonalLine(P,p,size->cglNada,visible->true,color->cglNada,alpha->cglNad
     DGS3DmOVEoK
   ),size->size,visible->visible,color->color,alpha->alpha);
 );
-// l: line, p: point => line; size:real = radius, visible: bool = should object be drawn
-dgs3dOrthogonalPlane(l,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+// plane orthogonal to p through l
+// p: plane, l: line => plane; visible: bool = should object be drawn
+dgs3dOrthogonalPL(l,p,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dNewPlane([l,p],lambda(self,
-    regional(l,p,K,n);
+    regional(p,l,n1,n,p1);
+    p = self:"parents"_1:"coords";
+    l = self:"parents"_2:"coords";
+    n1 = dgs3dLineDirection(l);
+    n = cross(p_(1..3),n1);
+    p1 = dgs3dEpsilon46((n1_1,n1_2,n1_3,0),l);
+    self:"coords" = dgs3dRP3Normalize((n_1*p1_4,n_2*p1_4,n_3*p1_4,-(p1_1,p1_2,p1_3)*n));
+    DGS3DmOVEoK
+  ),visible->visible,color->color,alpha->alpha);
+);
+// l: line, p: point => line; visible: bool = should object be drawn
+dgs3dOrthogonalPlane(l,p,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewPlane([l,p],lambda(self,
+    regional(l,p,n);
     l = self:"parents"_1:"coords";
     p = self:"parents"_2:"coords";
     n = dgs3dLineDirection(l);
