@@ -46,13 +46,12 @@ dgs3d.doTracing = false;
 // TODO make focus color customizable, ? set color depending on color of point
 dgs3dFocusColor = cglColor("green");
 dgs3dMovementAxes(point):=(
-  regional(normal,l,PQ);
+  regional(normal,l);
   if(length(point:"parents")>0,
     if(length(point:"parents")==1,
       l = point:"parents"_1;
       if(l:"type" == "line",
-        PQ = transpose(kernel(dgs3dLineMatrix(l:"coords")));
-        {"type":"parallel","v":(PQ_1 * PQ_2_4 - PQ_2*PQ_1_4)_(1..3)}
+        {"type":"parallel","v":dgs3dLineDirection(l:"coords")}
       ,if(l:"type" == "plane",
         {"type":"normal","n":(l:"coords")_(1..3)}
       ,if(l:"type" == "quadric",
@@ -256,6 +255,10 @@ dgs3dLineFromMatrix(M):=(
 );
 dgs3dLineFromDualMatrix(M):=(
   (M_3_4,-M_2_4,M_2_3,M_1_4,-M_1_3,M_1_2)
+);
+// l: line => v: vec3 euclidean direction vector of line l
+dgs3dLineDirection(l):=(
+  dgs3dEpsilon46((0,0,0,1),l)_(1..3);
 );
 // a:vec4, b: vec4, c: vec4  => vec4
 dgs3dEpsilon444(a,b,c):=(
@@ -2099,8 +2102,7 @@ dgs3dOrthogonalPlane(l,p,size->cglNada,visible->true,color->cglNada,alpha->cglNa
     regional(l,p,K,n);
     l = self:"parents"_1:"coords";
     p = self:"parents"_2:"coords";
-    K = transpose(kernel(dgs3dLineMatrix(l)));
-    n = (K_1 * K_2_4 - K_2*K_1_4)_(1..3);
+    n = dgs3dLineDirection(l);
     self:"coords" = (n_1*p_4,n_2*p_4,n_3*p_4,-(p_1,p_2,p_3)*n);
     DGS3DmOVEoK
   ),visible->visible,color->color,alpha->alpha);
