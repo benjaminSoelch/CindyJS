@@ -2110,29 +2110,17 @@ dgs3dOrthogonalPlane(l,p,size->cglNada,visible->true,color->cglNada,alpha->cglNa
 // l1: line, l2: line => line; size:real = radius, visible: bool = should object be drawn
 dgs3dOrthogonal2L(l1,l2,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dNewLine([l1,l2],lambda(self,
-    regional(l1,l2,K1,K2,p1,p2,n1,n2,n,sol,p);
+    regional(l1,l2,n1,n2,p1,n3,q);
     l1 = self:"parents"_1:"coords";
     l2 = self:"parents"_2:"coords";
-    // TODO? is there a smarter algorithm for the line orthogonal to two lines
-    K1 = transpose(kernel(dgs3dLineMatrix(l1)));
-    p1 = K1_1_(1..3) / K1_1_4;
-    n1 = (K1_1 * K1_2_4 - K1_2*K1_1_4)_(1..3);
-    K2 = transpose(kernel(dgs3dLineMatrix(l2)));
-    p2 = K2_1_(1..3)/ K2_1_4;
-    n2 = (K2_1 * K2_2_4 - K2_2*K2_1_4)_(1..3);
+    n1 = dgs3dLineDirection(l1);
+    n2 = dgs3dLineDirection(l2);
     n = cross(n1,n2);
-    // p1 = p - a * n1
-    // p2 = p + b2 * n - c * n2
-    sol = linearSolve([
-      [1, 0, 0, 0, -n1_1, 0],
-      [0, 1, 0, 0, -n1_2, 0],
-      [0, 0, 1, 0, -n1_3, 0],
-      [1, 0, 0, n_1, 0, -n2_1],
-      [0, 1, 0, n_2, 0, -n2_2],
-      [0, 0, 1, n_3, 0, -n2_3]
-    ], [p1_1,p1_2,p1_3,p2_1,p2_2,p2_3]);
-    p = sol_(1..3);
-    self:"coords" = dgs3dEpsilon44((p_1,p_2,p_3,1),(p_1+n_1,p_2+n_2,p_3+n_3,1));
+    // intersect lines with planes through 0 normal to line
+    p1 = dgs3dEpsilon46((n1_1,n1_2,n1_3,0),l1);
+    n3 = cross(n1,n);
+    q = dgs3dEpsilon46((n3_1*p1_4,n3_2*p1_4,n3_3*p1_4,-(n3*p1_(1..3))),l2);
+    self:"coords" = dgs3dEpsilon44(q,q+(n_1,n_2,n_3,0));
     DGS3DmOVEoK
   ),size->size,visible->visible,color->color,alpha->alpha);
 );
