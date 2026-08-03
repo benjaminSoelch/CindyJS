@@ -2155,6 +2155,16 @@ dgs3dMidpoint(p1,p2,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=
     ),size->size,visible->visible,color->color,alpha->alpha);
   );
 );
+// mirror x at y
+mirror3d(x,y,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  if(x.type == "point" & y.type == "plane",
+    dgs3dMirrorPtPl(x,y,size,visible,color,alpha)
+  // TODO: pt at line, pt at pt, plane at plane, plane at line, plane at pt, line at ...
+  // TODO? mirror quadric, mirror at quadric
+  ,
+    cglLogError("cannot mirror "+x.type+" at "+y.type);
+  )
+);
 // p: point, P:plane => point; size:real = radius, visible: bool = should object be drawn, delta: real -> distance at which point should be draw, default is 0.5
 dgs3dMirrorPtPl(p,P,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dNewPoint([p,P],lambda(self,
