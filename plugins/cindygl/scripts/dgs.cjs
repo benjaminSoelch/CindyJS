@@ -544,6 +544,9 @@ dgs3dLoad(values):=(
 //      * dgs3dCreate(algorithm:"string",args:[obj3d])
 // + defined incidences / deduced incidences
 
+// TODO: normalize coordinates of objects to avoid divergence of values
+//   ? which norm is best for this case? (L1,L2,Linf)
+
 // type: string, parents: [obj3d] -> obj3d
 dgs3dNewObject(type,parents,visible->true,color->cglNada,alpha->cglNada):=(
   regional(obj,objId);
@@ -897,6 +900,9 @@ dgs3dFreePoint(p,
   );
   obj
 );
+randomPoint3d(size->cgl3d.defaults:"sphereSize",pinned->false,visible->true,color->cglNada,alpha->cglNada):=(
+  point3d((randomNormal(),randomNormal(),randomNormal()),size->size,pinned->pinned,visible->visible,color->color,alpha->alpha);
+);
 
 // p: vec6 = (l11,l12,l13,l14,l23,l24,l34) , visible: bool = should object be drawn
 line3d(l,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
@@ -932,6 +938,16 @@ dgs3dFreeQuadric(M,visible->true,color->cglNada,alpha->cglNada):=(
   obj:"coords" = M;
   dgs3dRenderQuadric(obj);
   obj
+);
+
+randomQuadric3d(visible->true,color->cglNada,alpha->cglNada):=(
+  quadric3d(apply(1..4,apply(1..4,randomNormal(),randomNormal(),randomNormal())),
+    visible->visible,color->color,alpha->alpha
+  );
+);
+randomQuadricBy9P(size->cglNade,visible->true,color->cglNada,alpha->cglNada):=(
+  pts = apply(1..9,randomPoint3d(size->size,visible->visible,color->color,alpha->alpha));
+  quadricBy9P(pts);
 );
 
 // p1: point, p2: point|line, size:real = radius, visible: bool = should object be drawn
