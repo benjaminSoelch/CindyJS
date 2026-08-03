@@ -1431,7 +1431,7 @@ dgs3dTracePointSet(self,pts):=(
           );
         );
       );
-      // TODO? how far ist this algorithm from a minimal distance sum solution?
+      // TODO? how far is this algorithm from a minimal distance sum solution?
       forall(1..n,i,
         self:"children"_(perm_i):"coords" = pts_i;
       );
@@ -1976,7 +1976,7 @@ dgs3dComputeConicBy5(p,A,B,C,D,E):=(
 );
 // TODO: how to handle colinear points
 dgs3dComputeCircleBy3(A,B,C):=(
-  p = dgs3dEpsilon444(A,B,C); // plane through A,B,c
+  p = dgs3dEpsilon444(A,B,C); // plane through A,B,C
   l = dgs3dEpsilon44(p,(0,0,0,1)); // line at infinity
   [I, J] = dgs3dIntersectLineQuadric(l,((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,0)));
   M = dgs3dComputeConicBy5(p,A,B,C,I,J);
