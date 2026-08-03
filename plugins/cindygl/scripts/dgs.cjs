@@ -826,7 +826,7 @@ dgs3dRenderBiQuadric(self):=(
     if(self:"drawId"==-1,
       M = self:"coords";
       // TODO? use custom cutoff-region instead of default
-      self:"drawId" = surface3d(dgs3dDistanceQuadricQuadric(Q1,Q2,(x,y,z,1))-4*(r*r),degree->8,
+      self:"drawId" = surface3d(dgs3dDistanceQuadricQuadric(Q1,Q2,(x,y,z,1))-(r*r),degree->8,
         plotModifiers->{"Q1":self:"coords"_1,"Q2":self:"coords"_2,"r":self:"size"},
         alpha->self:"alpha",color->self:"color");
     ,
@@ -2268,7 +2268,7 @@ dgs3dDistanceQuadricQuadric(Q1,Q2,coords):=(
   plane = (v_1*coords_4,v_2*coords_4,v_3*coords_4,-(v_1,v_2,v_3,0)*coords);
   P = dgs3dEpsilon46(plane,l);
   P = (P / P_4 - coords / coords_4);
-  P*P
+  0.25*(P*P)
 );
 // Q: quadric, p: plane => conic; size:real = radius, visible: bool = should object be drawn
 dgs3dMeetQP(Q,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
