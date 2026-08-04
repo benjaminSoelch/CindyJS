@@ -971,9 +971,11 @@ dgs3dJoin2(a,b,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
     dgs3dJoinPL(a,b,size->size,visible->visible,color->color,alpha->alpha);
   ,if(a:"type" == "line" & b:"type" == "point",
     dgs3dJoinPL(b,a,size->size,visible->visible,color->color,alpha->alpha);
+  ,if(a:"type" == "line" & b:"type" == "line",
+    dgs3dJoin2L(b,a,visible->visible,color->color,alpha->alpha);
   ,
     cglLogWarning("cannot join "+a:"type"+" and "+b:"type");
-  )));
+  ))));
 );
 
 // p1: point, p2: point, size:real = radius, visible: bool = should object be drawn
@@ -1341,18 +1343,26 @@ dgs3dMeetPL(P1,l1,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
     DGS3DmOVEoK
   ),size->size,visible->visible,color->color,alpha->alpha);
 );
-// l1: line, l2: line, size:real = radius, visible: bool = should object be drawn
+// TODO? restrict to co-planar lines
+// l1: line, l2: line => point, size:real = radius, visible: bool = should object be drawn
 dgs3dMeet2L(l1,l2,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dNewPoint([l1,l2],lambda(self,
-    regional(l1,l2);
+    regional(l1,l2,K);
     l1 = dgs3dLineMatrix(dgs3dDualLine((self:"parents"_1):"coords"));
     l2 = dgs3dLineMatrix((self:"parents"_2):"coords");
-    // there is no projectively invariant equation, use equation that works for (most?) finite points
-    // TODO: figure out where this equation breaks, choose good sample point
-    // breaks if:
-    //  * sample point lies on one of the lines
-    //  * 2nd line contained in plane through 1st line and sample point
-    self:"coords" = dgs3dRP3Normalize((l1*l2)*(1,pi,1,0));
+    K = l2*l1; // == -transpose(l1*l2)
+    self:"coords" = dgs3dRP3Normalize(max(K,(#*#,#))_2);
+    DGS3DmOVEoK
+  ),size->size,visible->visible,color->color,alpha->alpha)
+);
+// l1: line, l2: line => plane, visible: bool = should object be drawn
+dgs3dJoin2L(l1,l2,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewPlane([l1,l2],lambda(self,
+    regional(l1,l2,K);
+    l1 = dgs3dLineMatrix(dgs3dDualLine((self:"parents"_1):"coords"));
+    l2 = dgs3dLineMatrix((self:"parents"_2):"coords");
+    K = l1*l2;
+    self:"coords" = dgs3dRP3Normalize(max(K,(#*#,#))_2);
     DGS3DmOVEoK
   ),size->size,visible->visible,color->color,alpha->alpha)
 );
@@ -1958,7 +1968,9 @@ dgs3dQuadric9plane(planes,visible->true,color->cglNada,alpha->cglNada):=(
   ),visible->visible,color->color,alpha->alpha);
 );
 
-dgs3dComputeConicBy5(p,A,B,C,D,E):=(
+
+dgs3dComputeConicBy5(p,A,B,C,D,E,dual->false):=(
+  regional(T,a,b,c,d,e,G,H,M,v,w,r);
   // build transformation that maps (0,0,0,1) to p
   T = ((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1));
   if(|p_1|>=|p_2| & |p_1|>=|p_3|,
@@ -1968,7 +1980,7 @@ dgs3dComputeConicBy5(p,A,B,C,D,E):=(
   ,if(|p_3|>=|p_1| & |p_3|>=|p_2|,
     T_3 = T_4;
   )));
-  T_4 = (p_1,p_2,p_3,0);
+  T_4 = (p_1,p_2,p_3,p_4);
   // make transformation orthogonal
   T_4 = T_4/sqrt(T_4*T_4);
   T_1 = T_1 - (T_1*T_4)*T_4;
@@ -1990,10 +2002,22 @@ dgs3dComputeConicBy5(p,A,B,C,D,E):=(
   H = transpose([cross(d,b)])*[cross(a,e)];
   M = (c*G*c)*H-(c*H*c)*G;
   M = M + transpose(M);
+  if(dual,
+    M = adjoint3(M);
+  );
   fnz = 0;
   forall(M,forall(#,if(fnz==0,fnz=#))); // find first non-zero entry
   M = conjugate(fnz)*M; // scale by conjugate of first non-zero entry to map complex multiples of real matrices to real matrices
-  transpose(T)*((M_1_1,M_1_2,M_1_3,0),(M_2_1,M_2_2,M_2_3,0),(M_3_1,M_3_2,M_3_3,0),(0,0,0,0))*T;
+  // find v,r such that (M v;v r)*(p_1,p_2,p_3,0) = (0,0,0,0)
+  w = T*(p_1,p_2,p_3,0);
+  if(w_4 != 0,
+    v = -(M*w_(1..3))/w_4;
+    r = -(v*w_(1..3))/w_4;
+  , // TODO? when does this case occur?
+    v = (0,0,0);
+    r = 0;
+  );
+  transpose(T)*((M_1_1,M_1_2,M_1_3,v_1),(M_2_1,M_2_2,M_2_3,v_2),(M_3_1,M_3_2,M_3_3,v_3),(v_1,v_2,v_3,r))*T;
 );
 // TODO: how to handle colinear points
 dgs3dComputeCircleBy3(A,B,C):=(
@@ -2017,14 +2041,23 @@ dgs3dComputeBiQuadricBy8(pts):=(
 );
 
 conicBy5(A,B,C,D,E,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dConic5points(A,B,C,D,E,size->size,visible->visible,color->color,alpha->alpha);
+  if(A.type=="point" & B.type == "point" & C.type == "point" & D.type == "point" & E.type =="point",
+    dgs3dConic5points(A,B,C,D,E,size->size,visible->visible,color->color,alpha->alpha);
+  ,if(A.type=="line" & B.type == "line" & C.type == "line" & D.type == "line" & E.type =="line",
+    dgs3dConic5lines(A,B,C,D,E,size->size,visible->visible,color->color,alpha->alpha);
+  ,
+    cglLogError("cannot create conic from "+apply((A,B,C,D,E),#.type));
+  ));
 );
 conicBy5Points(A,B,C,D,E,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dConic5points(A,B,C,D,E,size->size,visible->visible,color->color,alpha->alpha);
 );
+conicBy5Lines(A,B,C,D,E,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dConic5lines(A,B,C,D,E,size->size,visible->visible,color->color,alpha->alpha);
+);
 dgs3dConic5points(A,B,C,D,E,size->cglNada,visible->true,xcolor->cglNada,alpha->cglNada):=(
   dgs3dNewConic([A,B,C,D,E],lambda(self,
-    regional(A,B,C,D,E,T,M,p,l,,a,b,c,d,e,G,H);
+    regional(A,B,C,D,E,M,p);
     A = self:"parents"_1:"coords";
     B = self:"parents"_2:"coords";
     C = self:"parents"_3:"coords";
@@ -2034,6 +2067,27 @@ dgs3dConic5points(A,B,C,D,E,size->cglNada,visible->true,xcolor->cglNada,alpha->c
     p = dgs3dRP3Normalize(dgs3dEpsilon444(A,B,C));
     M = dgs3dRP3Normalize(dgs3dComputeConicBy5(p,A,B,C,D,E));
     self:"coords" = [M,p];
+    DGS3DmOVEoK
+  ),size->size,visible->visible,color->color,alpha->alpha,isCircle->false);
+);
+dgs3dConic5lines(A,B,C,D,E,size->cglNada,visible->true,xcolor->cglNada,alpha->cglNada):=(
+  dgs3dNewQuadric([A,B,C,D,E],lambda(self,
+    regional(A,B,C,D,E,K,p);
+    A = self:"parents"_1:"coords";
+    B = self:"parents"_2:"coords";
+    C = self:"parents"_3:"coords";
+    D = self:"parents"_4:"coords";
+    E = self:"parents"_5:"coords";
+    // find plane through 3 points
+    K = dgs3dLineMatrix(dgs3dDualLine(A))*dgs3dLineMatrix(B);
+    p = dgs3dRP3Normalize(max(K,(#*#,#))_2); // common plane
+    a = dgs3dEpsilon46(p,dgs3dDualLine(A));
+    b = dgs3dEpsilon46(p,dgs3dDualLine(B));
+    c = dgs3dEpsilon46(p,dgs3dDualLine(C));
+    d = dgs3dEpsilon46(p,dgs3dDualLine(D));
+    e = dgs3dEpsilon46(p,dgs3dDualLine(E));
+    M = dgs3dRP3Normalize(dgs3dComputeConicBy5(p,a,b,c,d,e,dual->true));
+    self:"coords" = M;
     DGS3DmOVEoK
   ),size->size,visible->visible,color->color,alpha->alpha,isCircle->false);
 );
