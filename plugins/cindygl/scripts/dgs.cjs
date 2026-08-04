@@ -1301,6 +1301,10 @@ dgs3dMeet2(a,b,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
     dgs3dMeetCp(a,b,size->size,visible->visible,color->color,alpha->alpha);
   ,if(a:"type" == "plane" & b:"type" == "conic",
     dgs3dMeetCp(b,a,size->size,visible->visible,color->color,alpha->alpha);
+  ,if(a:"type" == "conic" & b:"type" == "line",
+    dgs3dMeetCL(a,b,size->size,visible->visible,color->color,alpha->alpha);
+  ,if(a:"type" == "line" & b:"type" == "conic",
+    dgs3dMeetCL(b,a,size->size,visible->visible,color->color,alpha->alpha);
   ,if(a:"type" == "conic" & b:"type" == "quadric",
     dgs3dMeetQuadricConic(b,a,size->size,visible->visible,color->color,alpha->alpha);
   ,if(a:"type" == "quadric" & b:"type" == "conic",
@@ -1315,7 +1319,7 @@ dgs3dMeet2(a,b,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
     dgs3dMeetBiQuadricQuadric(b,a,size->size,visible->visible,color->color,alpha->alpha);
   ,
     cglLogWarning("cannot meet "+a:"type"+" and "+b:"type");
-  )))))))))))))))));
+  )))))))))))))))))));
 );
 // P1: plane, P2: plane, size:real = radius, visible: bool = should object be drawn
 dgs3dMeet2P(P1,P2,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
@@ -1506,6 +1510,16 @@ dgs3dMeetCp(C,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
     C = self:"parents"_1:"coords";
     p = self:"parents"_2:"coords";
     AB = dgs3dIntersectLineQuadric(dgs3dEpsilon44(C_2,p),C_1);
+    dgs3dTracePointPair(self,AB);
+  ),size->size,visible->visible,color->color,alpha->alpha);
+);
+// C: conic, l: line ; size:real = radius, visible: bool = should object be drawn
+dgs3dMeetCL(C,l,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewPointSet([C,l],2,lambda(self,
+    regional(Q,C,AB,oldA,oldB,d11,d12,d21,d22);
+    C = self:"parents"_1:"coords";
+    l = self:"parents"_2:"coords";
+    AB = dgs3dIntersectLineQuadric(dgs3dDualLine(l),C_1);
     dgs3dTracePointPair(self,AB);
   ),size->size,visible->visible,color->color,alpha->alpha);
 );
@@ -2002,10 +2016,13 @@ dgs3dComputeBiQuadricBy8(pts):=(
   [dgs3dRP3Normalize(A),dgs3dRP3Normalize(B)]
 );
 
+conicBy5(A,B,C,D,E,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dConic5points(A,B,C,D,E,size->size,visible->visible,color->color,alpha->alpha);
+);
 conicBy5Points(A,B,C,D,E,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dConic5points(A,B,C,D,E,size->size,visible->visible,color->color,alpha->alpha);
 );
-dgs3dConic5points(A,B,C,D,E,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+dgs3dConic5points(A,B,C,D,E,size->cglNada,visible->true,xcolor->cglNada,alpha->cglNada):=(
   dgs3dNewConic([A,B,C,D,E],lambda(self,
     regional(A,B,C,D,E,T,M,p,l,,a,b,c,d,e,G,H);
     A = self:"parents"_1:"coords";
@@ -2204,7 +2221,7 @@ dgs3dMidpoint(p1,p2,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=
 // mirror x at y
 mirror3d(x,y,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   if(x.type == "point" & y.type == "plane",
-    dgs3dMirrorPtPl(x,y,size,visible,color,alpha)
+    dgs3dMirrorPtPl(x,y,size->size,visible->visible,color->color,alpha->alpha)
   // TODO: pt at line, pt at pt, plane at plane, plane at line, plane at pt, line at ...
   // TODO? mirror quadric, mirror at quadric
   ,
