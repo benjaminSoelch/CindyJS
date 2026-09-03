@@ -2013,7 +2013,7 @@ dgs3dComputeConicBy5(p,A,B,C,D,E,dual->false):=(
   if(w_4 != 0,
     v = -(M*w_(1..3))/w_4;
     r = -(v*w_(1..3))/w_4;
-  , // TODO? when does this case occur?
+  ,
     v = (0,0,0);
     r = 0;
   );
@@ -2071,7 +2071,7 @@ dgs3dConic5points(A,B,C,D,E,size->cglNada,visible->true,xcolor->cglNada,alpha->c
   ),size->size,visible->visible,color->color,alpha->alpha,isCircle->false);
 );
 dgs3dConic5lines(A,B,C,D,E,size->cglNada,visible->true,xcolor->cglNada,alpha->cglNada):=(
-  dgs3dNewQuadric([A,B,C,D,E],lambda(self,
+  dgs3dNewConic([A,B,C,D,E],lambda(self,
     regional(A,B,C,D,E,K,p);
     A = self:"parents"_1:"coords";
     B = self:"parents"_2:"coords";
@@ -2087,7 +2087,7 @@ dgs3dConic5lines(A,B,C,D,E,size->cglNada,visible->true,xcolor->cglNada,alpha->cg
     d = dgs3dEpsilon46(p,dgs3dDualLine(D));
     e = dgs3dEpsilon46(p,dgs3dDualLine(E));
     M = dgs3dRP3Normalize(dgs3dComputeConicBy5(p,a,b,c,d,e,dual->true));
-    self:"coords" = M;
+    self:"coords" = [M,p];
     DGS3DmOVEoK
   ),size->size,visible->visible,color->color,alpha->alpha,isCircle->false);
 );
@@ -2104,7 +2104,7 @@ dgs3dBiQuadric8points(pts,size->cglNada,visible->true,color->cglNada,alpha->cglN
 );
 
 // q: quadric => point, 
-dgs3dQuadricCenter(q,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+dgs3dQuadricCenter(Q,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dNewPoint([Q],lambda(self,
     self:"coords" = dgs3dRP3Normalize(adjoint4(self:"parents"_1:"coords")_4);
   ),size->size,visible->visible,color->color,alpha->alpha);
