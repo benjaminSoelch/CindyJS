@@ -608,7 +608,7 @@ dgs3dNewObject(type,parents,visible->true,color->cglNada,alpha->cglNada):=(
     obj:"color" = cglColor(cglValOrDefault(color,(0.25,1,0)));
     obj:"alpha" = cglValOrDefault(alpha,1);
     obj:"redraw" = lambda(self,dgs3dRenderBiQuadric(self));
-  ,if(type == "pointSet",
+  ,if(type == "set",
     // nothing to do
   ,if(type == "transform" % type == "mobiusTrafo",
     // TODO? store all-transforms in JSON
@@ -708,11 +708,27 @@ dgs3dNewSurface(parents,recompute,visible->true,color->cglNada,alpha->cglNada):=
 );
 dgs3dNewPointSet(parents,childCount,recompute,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   regional(obj);
-  obj = dgs3dNewObject("pointSet",parents,visible->visible,color->color,alpha->alpha);
+  obj = dgs3dNewObject("set",parents,visible->visible,color->color,alpha->alpha);
   obj:"children" = apply(1..childCount,
     regional(child);
     child = dgs3dNewObject("point",[obj],visible->visible,color->color,alpha->alpha);
     child.size = cglValOrDefault(size,cgl3d.defaults:"sphereSize");
+    child
+  );
+  obj:"recompute" = recompute;
+  obj:"recompute".(obj);
+  forall(obj:"children",child,
+    child:"redraw".(child);
+  );
+  obj
+);
+dgs3dNewLinePair(parents,recompute,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  regional(obj);
+  obj = dgs3dNewObject("set",parents,visible->visible,color->color,alpha->alpha);
+  obj:"children" = apply(1..2,
+    regional(child);
+    child = dgs3dNewObject("line",[obj],visible->visible,color->color,alpha->alpha);
+    child.size = cglValOrDefault(size,cgl3d.defaults:"cylinderSize");
     child
   );
   obj:"recompute" = recompute;
@@ -1535,6 +1551,7 @@ dgs3dMeetCp(C,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
 );
 // C: conic, l: line ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeetCL(C,l,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  // TODO: ensure co-planar
   dgs3dNewPointSet([C,l],2,lambda(self,
     regional(Q,C,AB,oldA,oldB,d11,d12,d21,d22);
     C = self:"parents"_1:"coords";
@@ -1543,20 +1560,11 @@ dgs3dMeetCL(C,l,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
     dgs3dTracePointPair(self,AB);
   ),size->size,visible->visible,color->color,alpha->alpha);
 );
-// FIXME: there seem to be special cases where this returns invalid values
+// TODO: check if results are correct in all cases
 dgs3dIntersectionsQQP(Q1,Q2,p):=(
   regional(T,S,A,B,pts2D);
-  // 1. build transformation that maps (0,0,0,1) to p
-  T = ((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1));
-  if(|p_1|>=|p_2| & |p_1|>=|p_3| & |p_1|>=|p_4|,
-    T_1 = T_4;
-  ,if(|p_2|>=|p_1| & |p_2|>=|p_3| & |p_2|>=|p_4|,
-    T_2 = T_4;
-  ,if(|p_3|>=|p_1| & |p_3|>=|p_2| & |p_3|>=|p_4|,
-    T_3 = T_4;
-  )));
-  T_4 = p;
-  S = adjoint4(T);
+  T = dgs3dMapPinfTo(p);
+  S = transpose(T); // invert T
   // 2. transform quadrics such that p = (0,0,0,1)
   A = transpose(S)*Q1*S;
   B = transpose(S)*Q2*S;
@@ -1945,6 +1953,37 @@ dgs3dBiQuadricPolarLine(C,P,size->cglNada,visible->true,color->cglNada,alpha->cg
   ),size->size,visible->visible,color->color,alpha->alpha);
 );
 
+// Q: mat4, P: vec4
+dgs3dComputeQuadricLines(Q,P):=(
+  regional(p,T,S,l,m);
+  p = Q*P;
+  T = dgs3dMapPinfTo(p);
+  S = T*Q*transpose(T); // transform Q (by T^-1 = T^T)
+  // decompose top-left 3x3 matrix
+  [l,m] = dgs3dDecompose2DConic(apply(S_(1..3),#_(1..3)));
+  // go from 2D to 3D lines
+  l = (0,0,l_1,0,l_2,l_3) ;//dgs3dDualLine(dgs3dEpsilon44((l_1,l_2,l_3,0),(0,0,0,1)));
+  m = (0,0,m_1,0,m_2,m_3) ;//dgs3dDualLine(dgs3dEpsilon44((m_1,m_2,m_3,0),(0,0,0,1)));
+  // map lines back to correct position
+  l = dgs3dRP3Normalize(dgs3dLineFromMatrix(transpose(T)*dgs3dLineMatrix(l)*(T)));
+  m = dgs3dRP3Normalize(dgs3dLineFromMatrix(transpose(T)*dgs3dLineMatrix(m)*(T)));
+  [l,m]
+);
+// q: quadric, P: point => 2 x line, visible: bool = should object be drawn
+dgs3dQuadricLines(q,P,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  // TODO: ensure P on q
+  dgs3dNewLinePair([q,P],lambda(self,
+    regional(q,P,l,m);
+    q = self:"parents"_1:"coords";
+    P = self:"parents"_2:"coords";
+    [l,m] = dgs3dComputeQuadricLines(q,P);
+    // TODO: tracing for line-pair
+    self:"children"_1:"coords" = l;
+    self:"children"_2:"coords" = m;
+    DGS3DmOVEoK 
+  ),size->size,visible->visible,color->color,alpha->alpha);
+);
+
 // pts: [point; 9] => quadric, visible: bool = should object be drawn
 quadricBy9P(pts,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dQuadric9point(pts,visible->visible,color->color,alpha->alpha);
@@ -1979,10 +2018,8 @@ dgs3dQuadric9plane(planes,visible->true,color->cglNada,alpha->cglNada):=(
   ),visible->visible,color->color,alpha->alpha);
 );
 
-
-dgs3dComputeConicBy5(p,A,B,C,D,E,dual->false):=(
-  regional(T,a,b,c,d,e,G,H,M,v,w,r);
-  // build transformation that maps (0,0,0,1) to p
+// build orthogonal transformation that maps (0,0,0,1) to p
+dgs3dMapPinfTo(p):=(
   T = ((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1));
   if(|p_1|>=|p_2| & |p_1|>=|p_3|,
     T_1 = T_4;
@@ -2003,6 +2040,11 @@ dgs3dComputeConicBy5(p,A,B,C,D,E,dual->false):=(
   T_2 = T_2/sqrt(T_2*T_2);
   T_1 = T_1 - (T_1*T_2)*T_2;
   T_1 = T_1/sqrt(T_1*T_1);
+  T
+);
+dgs3dComputeConicBy5(p,A,B,C,D,E,dual->false):=(
+  regional(T,a,b,c,d,e,G,H,M,v,w,r);
+  T = dgs3dMapPinfTo(p);
   // build conic through 5 transformed points
   a = (T*A)_(1..3);
   b = (T*B)_(1..3);
