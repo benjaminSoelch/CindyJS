@@ -1,6 +1,11 @@
 ////////////////
 // Controls
 ////////////////
+dgs3dModeSelect = false;
+// TODO: different modes:
+//  -> view only
+//  -> move points
+//  -> select object
 dgs3dMouseState = {};
 dgs3dPrepare():=(
     dgs3dMouseState:"sx" = mouse().x;
@@ -12,7 +17,7 @@ dgs3dPrepare():=(
 dgs3dHandleMouseDown():=(
     dgs3dMouseState:"x0" = mouse().x;
     dgs3dMouseState:"y0" = mouse().y;
-    if(isUndefined(dgs3dMouseState:"target"),
+    if(isUndefined(dgs3dMouseState:"target") % dgs3dModeSelect,
       dgs3dMouseState:"rotating" = true;
     ,
       dgs3dMouseState:"dragging" = true;
@@ -129,7 +134,12 @@ dgs3dPreFrame():=(
       dx = 2 * (mx - dgs3dMouseState:"sx"); dy = 2 * (my - dgs3dMouseState:"sy");
       rotate3d(dx,dy);
     ,
-      target = dgs3dFind(mx,my);
+      if(dgs3dModeSelect,
+        target = dgs3dFind(mx,my);
+      ,
+        target = dgs3dFindMovable(mx,my);
+        
+      );
       if(target!=oldTarget,
         if(!isUndefined(oldTarget),
           cgl3dObjectSetModifier(cgl3d.getObjects.(oldTarget:"drawId"),"cglColor",oldTarget:"color");
@@ -347,7 +357,7 @@ dgs3dSqCoords(p):=(
 // 2D Geometry
 ////////////////
 // TODO? reuse code from 2D-geometry engine
-// FIXME: there seems to be a bug in conic intersection code (? is this still true)
+// TODO: check if code works correctly
 dgs3dDecompose2DConic(A):=(
   regional(B,i,beta,P,C);
   // 1. find anti-symmetric matrix D s.t. A+D has rank 1
@@ -1049,7 +1059,7 @@ dgs3dPointOnLine(l,p0,size->cglNada,visible->true,pinned->false,color->cglNada,a
     l = dgs3dLineMatrix(self:"parents"_1:"coords");
     K = transpose(kernel(l));
     // project P into K
-    p = sum(K,v,(p*v)*v); // TODO: does kernel always return orthogonal vectors
+    p = sum(K,v,(p*v)*v); // kernel always returns orthogonal vectors
     self:"coords" = dgs3dRP3Normalize(p);
     DGS3DmOVEoK
   );
@@ -1899,6 +1909,7 @@ dgs3dPolarPoint(Q,P,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=
 );
 // C: conic, p: point => line, visible: bool = should object be drawn
 dgs3dConicPolarLine(C,P,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  // TODO: ensure co-planar
   dgs3dNewLine([C,P],lambda(self,
     regional(Q,P,p,q);
     [Q,p] = self:"parents"_1:"coords";
@@ -1908,9 +1919,9 @@ dgs3dConicPolarLine(C,P,size->cglNada,visible->true,color->cglNada,alpha->cglNad
     DGS3DmOVEoK
   ),size->size,visible->visible,color->color,alpha->alpha);
 );
-// TODO? is this invariant of the quadric Q used to represent the conic?
 // C: conic, l: line => point, visible: bool = should object be drawn
 dgs3dConicPolarPoint(C,l,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  // TODO: ensure co-planar
   dgs3dNewPoint([C,l],lambda(self,
     regional(Q,P,p,q);
     [Q,p] = self:"parents"_1:"coords";
@@ -2019,9 +2030,14 @@ dgs3dComputeConicBy5(p,A,B,C,D,E,dual->false):=(
   );
   transpose(T)*((M_1_1,M_1_2,M_1_3,v_1),(M_2_1,M_2_2,M_2_3,v_2),(M_3_1,M_3_2,M_3_3,v_3),(v_1,v_2,v_3,r))*T;
 );
-// TODO: how to handle colinear points
 dgs3dComputeCircleBy3(A,B,C):=(
   p = dgs3dEpsilon444(A,B,C); // plane through A,B,C
+  if(p*p==0, // A,B,C colinear -> pick any plane through A and B
+    regional(d,v);
+    d = B-A;
+    v = min([(1,0,0,0),(0,1,0,0),(0,0,1,0),(1,1,1,1)],(abs(#*d),#))_2;
+    p = dgs3dEpsilon444(A,B,C+v);
+  );
   l = dgs3dEpsilon44(p,(0,0,0,1)); // line at infinity
   [I, J] = dgs3dIntersectLineQuadric(l,((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,0)));
   M = dgs3dComputeConicBy5(p,A,B,C,I,J);
@@ -2868,24 +2884,67 @@ dgs3dTransformTrafo(T,S):=(
 // * load/store
 // * delete
 
-// TODO? improve find, ? add variant of find for non dgs objects
-//  1. flag if only movable objects should be findable
-//  2. support finding general objects
+// TODO? support finding different object kinds
+// ? general find (matches any object)
+// ? find restricted to certain kinds of objecst (e.g find point or line)
+dgs3dFindPointDist = (pt,root,dir) => (
+  regional(center,radius);
+  center = cgl3dObjectGet(cgl3d.getObject.(pt:"drawId"),"center");
+  radius = cgl3dObjectGet(cgl3d.getObject.(pt:"drawId"),"radius");
+  cglEvalOrDiscard(cgl3d.compute.sphereDepths.(root,dir,center,radius)_1);
+);
+dgs3dFindLineDist = (ln,root,dir) => (
+  regional(center,orientation,radius);
+  center = cgl3dObjectGet(cgl3d.getObject.(ln:"drawId"),"center");
+  orientation = cgl3dObjectGet(cgl3d.getObject.(ln:"drawId"),"orientation");
+  radius = cgl3dObjectGet(cgl3d.getObject.(ln:"drawId"),"radius");
+  cglEvalOrDiscard(cgl3d.compute.cappedCylinderDepths.(root,dir,center,orientation,radius)_1);
+);
+dgs3dFindPlaneDist = (pl,root,dir) => (
+  regional(v,n,s,l,l0,l1);
+  v = pl:"coords";
+  n = v_(1..3);
+  s = v_4;
+  // n*(r+l*d)+s = 0 ->  l = -(s+n*r)/(n*d)
+  if(n*dir == 0,cglUndefinedVal(), // avoid warning for div by 0
+    l = -(s+n*root)/(n*dir);
+    cglEvalOrDiscard(
+      [l0,l1] = cgl3d.cutoff.screenSphere.expr.(root,dir);
+      if(l<l0 % l > l1,cglUndefinedVal(),l)
+    )
+  )
+);
+dgs3dFindMovable(x,y):=(
+  dgs3dFind(x,y,[(dgs3dMovablePoints,dgs3dFindPointDist)])
+);
+dgs3dFindPoint(x,y):=(
+  dgs3dFind(x,y,[(dgs3dPoints,dgs3dFindPointDist)])
+);
 dgs3dFind(x,y):=(
+  dgs3dFind(x,y,[
+    (dgs3dPoints,dgs3dFindPointDist),
+    (dgs3dLines,dgs3dFindLineDist),
+    (dgs3dPlanes,dgs3dFindPlaneDist)
+    // TODO quadric, conic, biquadric
+  ])
+);
+dgs3dFind(x,y,searchSpace):=(
   regional(root,dir,res,dist,center,radius);
   root = cglSpacePoint(x,y);
   dir = normalize(cglDirection(x,y));
   res = cglUndefinedVal();
   dist = 1e400; // infinity
-  forall(dgs3dMovablePoints,pt,
-    center = cgl3dObjectGet(cgl3d.getObject.(pt:"drawId"),"center");
-    radius = cgl3dObjectGet(cgl3d.getObject.(pt:"drawId"),"radius");
-    d = cglEvalOrDiscard(cgl3d.compute.sphereDepths.(root,dir,center,radius)_1);
-    if(!isUndefined(d),
-      if(d < dist,
-        dist = d;
-        res = pt;
-      )
+  forall(searchSpace,
+    objects = #_1;
+    distanceEstimator = #_2;
+    forall(objects,obj,
+      d = distanceEstimator.(obj,root,dir);
+      if(!isUndefined(d),
+        if(d < dist,
+          dist = d;
+          res = obj;
+        )
+      );
     );
   );
   res
