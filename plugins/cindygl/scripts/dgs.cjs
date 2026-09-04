@@ -81,9 +81,10 @@ dgs3dMovementAxes(point):=(
     {"type":"normal","n":normal_(1..3)}
   );
 );
+DGS3DmINaNGLEmOVE = 0.99; // prevent movement if movement direction too close to view-normal
 // TODO? limit maximum movement distance (moving along nearly orthogonal plane leads to points getting lost)
 dgs3dPreFrame():=(
-    regional(mx,my,dx,dy,target,newCoords,oldTarget,axes,oldSpacePos,newSpacePos,center,movePlaneOffset,movePlaneNormal,d2,oldDirection,newDirection,oldT,newT,oldPos,newPos,truePos,oldRadius,updateQueue);
+    regional(mx,my,dx,dy,target,newCoords,oldTarget,axes,oldSpacePos,newSpacePos,center,movePlaneOffset,movePlaneNormal,d2,oldDirection,newDirection,oldT,newT,oldPos,newPos,delta,truePos,oldRadius,updateQueue);
     mx = mouse().x;
     my = mouse().y;
     oldTarget = dgs3dMouseState:"oldTarget";
@@ -104,11 +105,6 @@ dgs3dPreFrame():=(
         newT = (movePlaneOffset - movePlaneNormal * newSpacePos) / (movePlaneNormal * newDirection);
         oldPos = oldSpacePos + oldT*oldDirection;
         newPos = newSpacePos + newT*newDirection;
-        // keep movement relative to click position (instead of center)
-        truePos = center;
-        newPos = newPos+(truePos-oldPos);
-        // update position
-        newCoords = (newPos_1,newPos_2,newPos_3,1);
       ,if(axes:"type" == "parallel",
         // move point in plane spanned by axis and line normal to axis
         d2 = cross(axes:"v",(cgl3d.spaceTransform*(0,0,1,0))_(1..3));
@@ -121,14 +117,20 @@ dgs3dPreFrame():=(
         newPos = newSpacePos + newT*newDirection;
         // remove movement component orthogonal to axis
         newPos = newPos - ((newPos-oldPos)*d2)/(d2*d2) * d2;
-        // keep movement relative to click position (instead of center)
-        truePos = center;
-        newPos = newPos+(truePos-oldPos);
-        newCoords = (newPos_1,newPos_2,newPos_3,1);
       ,
         cglLogError("unimplemented: "+axes:"type"+" movement direction");
       ));
-      dgs3dTracePoint(target,newCoords);
+      // do not movePlaneNormal to close to view-plane
+      delta = normalize(newPos-oldPos);
+      // TODO? gradual scaling of movement distance instead of hard cutoff?
+      if(min(|delta*normalize(oldDirection)|,|delta*normalize(newDirection)|)<DGS3DmINaNGLEmOVE,
+        // keep movement relative to click position (instead of center)
+        truePos = center;
+        newPos = newPos+(truePos-oldPos);
+        // update position
+        newCoords = (newPos_1,newPos_2,newPos_3,1);
+        dgs3dTracePoint(target,newCoords);
+      );
       dgs3dRedrawChildren(target);
     ,if(dgs3dMouseState:"rotating",
       dx = 2 * (mx - dgs3dMouseState:"sx"); dy = 2 * (my - dgs3dMouseState:"sy");
@@ -563,9 +565,10 @@ dgs3dLoad(values):=(
 //    TODO? support running algorithm by name
 //      * dgs3dCreate(algorithm:"string",args:[obj3d])
 // + defined incidences / deduced incidences
-
-// TODO: normalize coordinates of objects to avoid divergence of values
-//   ? which norm is best for this case? (L1,L2,Linf)
+//     point: onLine, onPlane, onQuadric
+//     line: pointsOn, inPlane, inQuadric, coincident
+//     plane: pointsOn, linesIn, tangentQuadrics
+//     quadric: pointsOn, linesIn, tangentLines, tangentPlanes
 
 // type: string, parents: [obj3d] -> obj3d
 dgs3dNewObject(type,parents,visible->true,color->cglNada,alpha->cglNada):=(
@@ -925,7 +928,7 @@ dgs3dFreePoint(p,
 ):=(
   regional(obj);
   obj = dgs3dNewObject("point",[],visible->visible,color->color,alpha->alpha);
-  obj:"coords" = dgs3dPoint4(p);
+  obj:"coords" = dgs3dRP3Normalize(dgs3dPoint4(p));
   obj:"size" = cglValOrDefault(size,cgl3d.defaults:"sphereSize");
   dgs3dRenderPoint(obj);
   if(cglValOrDefault(pinned,false),
@@ -947,7 +950,7 @@ line3d(l,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
 dgs3dFreeLine(l,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   regional(obj);
   obj = dgs3dNewObject("line",[],visible->visible,color->color,alpha->alpha);
-  obj:"coords" = l;
+  obj:"coords" = dgs3dRP3Normalize(l);
   obj:"size" = cglValOrDefault(size,cgl3d.defaults:"cylinderSize");
   dgs3dRenderLine(obj);
   obj
@@ -960,7 +963,7 @@ plane3d(p,visible->true,color->cglNada,alpha->cglNada):=(
 dgs3dFreePlane(p,visible->true,color->cglNada,alpha->cglNada):=(
   regional(obj);
   obj = dgs3dNewObject("plane",[],visible->visible,color->color,alpha->alpha);
-  obj:"coords" = p;
+  obj:"coords" = dgs3dRP3Normalize(p);
   dgs3dRenderPlane(obj);
   obj
 );
@@ -971,7 +974,7 @@ quadric3d(M,visible->true,color->cglNada,alpha->cglNada):=(
 dgs3dFreeQuadric(M,visible->true,color->cglNada,alpha->cglNada):=(
   regional(obj);
   obj = dgs3dNewObject("quadric",[],visible->visible,color->color,alpha->alpha);
-  obj:"coords" = M;
+  obj:"coords" = dgs3dRP3Normalize(M);
   dgs3dRenderQuadric(obj);
   obj
 );
