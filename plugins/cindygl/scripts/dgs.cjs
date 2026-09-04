@@ -1063,6 +1063,45 @@ dgs3dJoin3L(l1,l2,l3,visible->true,color->cglNada,alpha->cglNada):=(
   ),visible->visible,color->color,alpha->alpha)
 );
 
+// helpers for initial point for pointOn... operations
+// finds point on ... priorities: finite > real > close to origin
+// TODO: find point on ... near view-ray (needed for click on object to define point)
+// TODO: find point on ... near point (ensure that first defined point actually lies on object to prevent problems with tracing initial point)
+dgs3dFindPointOnLine(l):=(
+  regional(v);
+  l = l:"coords";
+  v = dgs3dLineDirection(l);
+  if(|v|>0,
+    // intersect plane through origin orthogonal to line with line
+    dgs3dEpsilon46((v_1,v_2,v_3,0),l);
+  , // line is infinite -> choice does not matter
+    transpose(kernel(dgs3dLineMatrix(l)))_1
+  )
+);
+dgs3dFindPointOnPlane(p):=(
+  regional(n);
+  p = p:"coords";
+  n = p_(1..3);
+  if(|n*n|>0,
+    dgs3dRP3Normalize((p_4*n_1,p_4*n_2,p_4*n_3,-n*n))
+  ,
+    (1,0,0,0)
+  )
+);
+dgs3dFindPointOnQuadric(q):=(
+  (0,0,0,1)
+);
+dgs3dFindPointOnConic(c):=(
+  regional(q,p,P);
+  q = c:"parents"_1:"coords";
+  p = c:"parents"_2:"coords";
+  P = dgs3dFindPointOnPlane(p);
+  // TODO project P onto conic
+  (0,0,0,1)
+);
+dgs3dFindPointOnBiQuadric(q):=(
+  (0,0,0,1)
+);
 // p0: vec4 (x,y,z,w), l: line , size: real = radius, pinned:bool = fixed position, visible: bool = should object be drawn
 pointOnLine3d(l,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
   dgs3dPointOnLine(l,p0,size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
@@ -1094,10 +1133,10 @@ dgs3dPointOnLine(l,p0,size->cglNada,visible->true,pinned->false,color->cglNada,a
   obj
 );
 pointOnLine3d(l,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
-  dgs3dPointOnLine(l,(0,0,0,1),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
+  dgs3dPointOnLine(l,dgs3dFindPointOnLine(l),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
 );
 dgs3dPointOnLine(l,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
-  dgs3dPointOnLine(l,(0,0,0,1),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
+  dgs3dPointOnLine(l,dgs3dFindPointOnLine(l),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
 );
 // p0: vec3|vec4 = (x,y,z,w=1), s: plane , size: real = radius, pinned:bool = fixed position, visible: bool = should object be drawn
 pointOnPlane3d(s,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
@@ -1130,10 +1169,10 @@ dgs3dPointOnPlane(s,p0,size->cglNada,visible->true,pinned->false,color->cglNada,
   obj
 );
 pointOnPlane3d(s,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
-  dgs3dPointOnPlane(s,(0,0,0,1),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
+  dgs3dPointOnPlane(s,dgs3dFindPointOnPlane(s),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
 );
 dgs3dPointOnPlane(s,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
-  dgs3dPointOnPlane(s,(0,0,0,1),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
+  dgs3dPointOnPlane(s,dgs3dFindPointOnPlane(s),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
 );
 // p0: vec3|vec4 = (x,y,z,w=1), q: quadric , size: real = radius, pinned:bool = fixed position, visible: bool = should object be drawn
 pointOnQuadric3d(q,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
@@ -1166,10 +1205,10 @@ dgs3dPointOnQuadric(q,p0,size->cglNada,visible->true,pinned->false,color->cglNad
   obj
 );
 pointOnQuadric3d(q,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
-  dgs3dPointOnQuadric(q,(0,0,0,1),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
+  dgs3dPointOnQuadric(q,dgs3dFindPointOnQuadric(q),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
 );
 dgs3dPointOnQuadric(q,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
-  dgs3dPointOnQuadric(q,(0,0,0,1),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
+  dgs3dPointOnQuadric(q,dgs3dFindPointOnQuadric(q),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
 );
 // p0: vec3|vec4 = (x,y,z,w=1), q: conic , size: real = radius, pinned:bool = fixed position, visible: bool = should object be drawn
 pointOnConic3d(q,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
@@ -1210,12 +1249,11 @@ dgs3dPointOnConic(q,p0,size->cglNada,visible->true,pinned->false,color->cglNada,
   );
   obj
 );
-pointOnConic3d(q,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
-  // TODO? can this result in an infinite projected point
-  dgs3dPointOnConic(q,(0,0,0,1),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
+pointOnConic3d(c,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
+  dgs3dPointOnConic(c,dgs3dFindPointOnConic(c),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
 );
-dgs3dPointOnConic(q,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
-  dgs3dPointOnConic(q,(0,0,0,1),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
+dgs3dPointOnConic(c,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
+  dgs3dPointOnConic(c,dgs3dFindPointOnConic(c),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
 );
 // p0: vec3|vec4 = (x,y,z,w=1), q: bi-quadric-curve , size: real = radius, pinned:bool = fixed position, visible: bool = should object be drawn
 pointOnBiQuadric3d(q,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
@@ -1227,8 +1265,8 @@ dgs3dPointOnBiQuadric(q,p0,size->cglNada,visible->true,pinned->false,color->cglN
   obj:"size" = cglValOrDefault(size,cgl3d.defaults:"sphereSize");
   obj:"coords" = dgs3dPoint4(p0);
   obj:"recompute" = lambda(self,
-    regional(P,QR,Q,R,p,q,r,n,ABCD,dsts);
-    P = self:"coords";
+    regional(oldP,P,QR,Q,R,p,q,r,n,ABCD,dsts);
+    oldP = P = self:"coords";
     QR = (self:"parents"_1):"coords";
     Q = QR_1;
     R = QR_2;
@@ -1236,17 +1274,18 @@ dgs3dPointOnBiQuadric(q,p0,size->cglNada,visible->true,pinned->false,color->cglN
     r = R*P;
     n = cross(q_(1..3),r_(1..3));
     p = (n_1,n_2,n_3,(-P_(1..3)*n)/P_4);
+    // TODO: find a projection method that is less likely to result in complex points
     ABCD = apply(dgs3dIntersectionsQQP(Q,R,p),dgs3dRP3Normalize(#));
     P = dgs3dRP3Normalize(P);
     dsts = apply(ABCD,dgs3dProjDistanceSq(P,#));
     P = ABCD_1;
     d = dsts_1;
-    if(if(!isReal(d),true,dsts_2 < d),P=ABCD_2;d=dsts_2);
-    if(if(!isReal(d),true,dsts_3 < d),P=ABCD_3;d=dsts_3);
-    if(if(!isReal(d),true,dsts_4 < d),P=ABCD_4;d=dsts_4);
+    if(dsts_2 < d,P=ABCD_2;d=dsts_2);
+    if(dsts_3 < d,P=ABCD_3;d=dsts_3);
+    if(dsts_4 < d,P=ABCD_4;d=dsts_4);
     self:"coords" = P;
     // TODO detect error case where new points are closer to each other than to traced point
-    if(isReal(d),
+    if(d <= dgs3dProjDistanceSq(oldP,P),
       DGS3DmOVEoK
     ,
       DGS3DmOVErETRY
@@ -1263,11 +1302,10 @@ dgs3dPointOnBiQuadric(q,p0,size->cglNada,visible->true,pinned->false,color->cglN
   obj
 );
 pointOnBiQuadric3d(q,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
-  // TODO? can this result in an infinite projected point
-  dgs3dPointOnBiQuadric(q,(0,0,0,1),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
+  dgs3dPointOnBiQuadric(q,dgs3dFindPointOnBiQuadric(q),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
 );
 dgs3dPointOnBiQuadric(q,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
-  dgs3dPointOnBiQuadric(q,(0,0,0,1),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
+  dgs3dPointOnBiQuadric(q,dgs3dFindPointOnBiQuadric(q),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
 );
 
 // p1: plane, p2: plane|line, size:real = radius, visible: bool = should object be drawn
