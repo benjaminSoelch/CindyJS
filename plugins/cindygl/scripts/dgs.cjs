@@ -123,6 +123,7 @@ dgs3dPreFrame():=(
       // do not movePlaneNormal to close to view-plane
       delta = normalize(newPos-oldPos);
       // TODO? gradual scaling of movement distance instead of hard cutoff?
+      // TODO: do not allow move when angle passed close to 0 between old and new position
       if(min(|delta*normalize(oldDirection)|,|delta*normalize(newDirection)|)<DGS3DmINaNGLEmOVE,
         // keep movement relative to click position (instead of center)
         truePos = center;
@@ -1152,24 +1153,7 @@ dgs3dPointOnQuadric(q,p0,size->cglNada,visible->true,pinned->false,color->cglNad
     l = dgs3dEpsilon44(p,p+(n_1,n_2,n_3,0));
     // 2. intersect line with quadric
     AB = dgs3dIntersectLineQuadric(dgs3dDualLine(l),Q);
-    // TODO better tracing
-    //  point gets unstable when normal plane is close to orthogonal to view direction
-    // 3. choose intersection closer to current pos
-    a = (p-AB_1)*(p-AB_1);
-    b = (p-AB_2)*(p-AB_2);
-    ab = (AB_1-AB_2)*(AB_1-AB_2);
-    // assignment inside branches to avoid assigning value when comparison is undefined
-    if(if(a<=b,
-      self:"coords" = dgs3dRP3Normalize(AB_1);
-      ab > a
-    ,
-      self:"coords" = dgs3dRP3Normalize(AB_2);
-      ab > b
-    ),
-      DGS3DmOVEoK
-    ,
-      DGS3DmOVErETRY
-    );
+    dgs3dTracePointSelect(self,AB);
   );
   obj:"recompute".(obj);
   obj:"redraw".(obj);
@@ -1214,26 +1198,7 @@ dgs3dPointOnConic(q,p0,size->cglNada,visible->true,pinned->false,color->cglNada,
     l = dgs3dEpsilon44(P,P+(nq_1,nq_2,nq_3,0));
     // 2. intersect line with quadric
     AB = dgs3dIntersectLineQuadric(dgs3dDualLine(l),Q);
-    // TODO better tracing
-    //  point gets unstable when normal plane is close to orthogonal to view direction
-    //  point gets unstable when quadric close to orthogonal to plane
-    // 3. choose intersection closer to current pos
-    a = (P-AB_1)*(P-AB_1);
-    b = (P-AB_2)*(P-AB_2);
-    ab = (AB_1-AB_2)*(AB_1-AB_2);
-    print((P,AB));
-    // assignment inside branches to avoid assigning value when comparison is undefined
-    if(if(a<=b,
-      self:"coords" = dgs3dRP3Normalize(AB_1);
-      ab > a
-    ,
-      self:"coords" = dgs3dRP3Normalize(AB_2);
-      ab > b
-    ),
-      DGS3DmOVEoK
-    ,
-      DGS3DmOVErETRY
-    );
+    dgs3dTracePointSelect(self,AB)
   );
   obj:"recompute".(obj);
   obj:"redraw".(obj);
@@ -1273,7 +1238,7 @@ dgs3dPointOnBiQuadric(q,p0,size->cglNada,visible->true,pinned->false,color->cglN
     p = (n_1,n_2,n_3,(-P_(1..3)*n)/P_4);
     ABCD = apply(dgs3dIntersectionsQQP(Q,R,p),dgs3dRP3Normalize(#));
     P = dgs3dRP3Normalize(P);
-    dsts = apply(ABCD,#=dgs3dRP3Normalize(#);(P-#)*(P-#));
+    dsts = apply(ABCD,dgs3dProjDistanceSq(P,#));
     P = ABCD_1;
     d = dsts_1;
     if(if(!isReal(d),true,dsts_2 < d),P=ABCD_2;d=dsts_2);
@@ -1395,10 +1360,54 @@ dgs3dJoin2L(l1,l2,visible->true,color->cglNada,alpha->cglNada):=(
     DGS3DmOVEoK
   ),size->size,visible->visible,color->color,alpha->alpha)
 );
+lexCompare(a,b):=(
+  if(re(a)<re(b),
+    -1
+  ,if(re(a)>re(b),
+    1
+  ,if(im(a)<im(b),
+    -1
+  ,if(im(a)>im(b),
+    1
+  ,
+    0
+  ))))
+);
+// ensure that last non-zero component of p is positive
+dgs3dEnsurePositiveLNZ(p):=(
+  regional(c);
+  c = lexCompare(p_4,0);
+  if(c>0,p,if(c<0,-p,
+    c = lexCompare(p_3,0);
+    if(c>0,p,if(c<0,-p,
+      c = lexCompare(p_2,0);
+      if(c>0,p,if(c<0,-p,
+        if(lexCompare(p_1,0)<0,-p,p)
+  ))))));
+);
 dgs3dProjDistanceSq(P1,P2):=(
   regional(d);
-  d = normalize(P1)-normalize(P2);
+  d = normalize(dgs3dEnsurePositiveLNZ(P1))-normalize(dgs3dEnsurePositiveLNZ(P2));
   |d*d|
+);
+dgs3dTracePointSelect(self,AB):=(
+    regional(oldP);
+    oldP = self:"coords";
+    a = dgs3dProjDistanceSq(oldP,AB_1);
+    b = dgs3dProjDistanceSq(oldP,AB_2);
+    ab = dgs3dProjDistanceSq(AB_1,AB_2);
+    // assignment inside branches to avoid assigning value when comparison is undefined
+    if(if(a<=b,
+      self:"coords" = dgs3dRP3Normalize(AB_1);
+      ab > a
+    ,
+      self:"coords" = dgs3dRP3Normalize(AB_2);
+      ab > b
+    ),
+      DGS3DmOVEoK
+    ,
+      DGS3DmOVErETRY
+    );
 );
 dgs3dTracePointPair(self,AB):=(
   self:"coords" = AB;
