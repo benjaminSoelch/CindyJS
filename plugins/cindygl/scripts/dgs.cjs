@@ -742,6 +742,21 @@ dgs3dNewLinePair(parents,recompute,size->cglNada,visible->true,color->cglNada,al
   );
   obj
 );
+dgs3dNewPlaneSet(parents,childCount,recompute,visible->true,color->cglNada,alpha->cglNada):=(
+  regional(obj);
+  obj = dgs3dNewObject("set",parents,visible->visible,color->color,alpha->alpha);
+  obj:"children" = apply(1..childCount,
+    regional(child);
+    child = dgs3dNewObject("plane",[obj],visible->visible,color->color,alpha->alpha);
+    child
+  );
+  obj:"recompute" = recompute;
+  obj:"recompute".(obj);
+  forall(obj:"children",child,
+    child:"redraw".(child);
+  );
+  obj
+);
 // TODO? newPointOn 
 // ? how to handle free-objects
 
@@ -1089,6 +1104,7 @@ dgs3dFindPointOnPlane(p):=(
   )
 );
 dgs3dFindPointOnQuadric(q):=(
+  // ? check intersections with symmetry axes pick finite real point close to origin
   (0,0,0,1)
 );
 dgs3dFindPointOnConic(c):=(
@@ -2211,6 +2227,19 @@ dgs3dBiQuadric8points(pts,size->cglNada,visible->true,color->cglNada,alpha->cglN
   ),size->size,visible->visible,color->color,alpha->alpha,isCircle->false);
 );
 
+// q: quadric => symmetry planes, 
+dgs3dQuadricPlanes(Q,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewPlaneSet([Q],3,lambda(self,
+    regional(Q,B,normals,center);
+    Q = self:"parents"_1:"coords";
+    B = apply(Q_(1..3),#_(1..3));
+    normals = transpose(eigenvectors(B));
+    dgs3dTracePointSet(self,apply(normals,n,
+      (n_1,n_2,n_3,(n*Q_4_(1..3))/(n*B*n))
+    ));
+  ),size->size,visible->visible,color->color,alpha->alpha);
+);
+// TODO: dgs3dQuadricLines (symmetry axes)
 // q: quadric => point, 
 dgs3dQuadricCenter(Q,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dNewPoint([Q],lambda(self,
