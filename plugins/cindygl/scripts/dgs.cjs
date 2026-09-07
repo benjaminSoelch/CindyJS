@@ -726,10 +726,10 @@ dgs3dNewPointSet(parents,childCount,recompute,size->cglNada,visible->true,color-
   );
   obj
 );
-dgs3dNewLinePair(parents,recompute,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+dgs3dNewLineSet(parents,childCount,recompute,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   regional(obj);
   obj = dgs3dNewObject("set",parents,visible->visible,color->color,alpha->alpha);
-  obj:"children" = apply(1..2,
+  obj:"children" = apply(1..childCount,
     regional(child);
     child = dgs3dNewObject("line",[obj],visible->visible,color->color,alpha->alpha);
     child.size = cglValOrDefault(size,cgl3d.defaults:"cylinderSize");
@@ -768,13 +768,27 @@ dgs3dUpdateColor(obj,visible->cglNada,color->cglNada,alpha->cglNada):=(
   obj:"redraw".(obj);
 );
 
+isRealVec(v):=(min(v,isReal(#)));
+dgs3dIsFiniteRealPoint(p):=(
+  // all entries real + normal vector non-zero
+  isRealVec(p)&p_4!=0
+);
+dgs3dIsFiniteRealLine(l):=(
+  // all entries real + normal vector non-zero
+  // TODO: what characterizes infinite lines?
+  isRealVec(l)&max(l,#!=0)
+);
+dgs3dIsFiniteRealPlane(p):=(
+  // all entries real + normal vector non-zero
+  isRealVec(p)&max(p_(1..3),#!=0)
+);
 // TODO do not render objects with complex coordinates
 // TODO? only render points within drawing region
 // TODO: only update bounds when object changed
 dgs3dRenderPoint(self):=(
   regional(p,ptColor);
   p = self:"coords";
-  if(self:"visible" == true & min(apply(p,isReal(#))) & p_4 != 0, // treat undefined as falsy
+  if(self:"visible" == true & dgs3dIsFiniteRealPoint(p), // treat undefined as falsy
     ptColor = if(self == dgs3dMouseState:"target",dgs3dFocusColor,self:"color");
     if(self:"drawId"==-1,
       self:"drawId" = draw3d(p_(1..3)/p_4,size->self:"size",color->ptColor,alpha->self:"alpha");
@@ -789,11 +803,12 @@ dgs3dRenderPoint(self):=(
 );
 // TODO? line segments: use definition-points instead of sphere intersections if they are closer to center of clipping sphere
 dgs3dRenderLine(self):=(
-  regional(PQ,P,Q);
-  if(self:"visible" == true, // treat undefined as falsy
+  regional(l,PQ,P,Q);
+  l = self:"coords";
+  if(self:"visible" == true & dgs3dIsFiniteRealLine(l), // treat undefined as falsy
     // compute intersections of line with clipping sphere
-    PQ = dgs3dIntersectLineQuadric(dgs3dDualLine(self:"coords"),((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,-dgs3dCutoffRadius*dgs3dCutoffRadius)));
-    if(min(apply(PQ_1,isReal(#))),// real solution
+    PQ = dgs3dIntersectLineQuadric(dgs3dDualLine(l),((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,-dgs3dCutoffRadius*dgs3dCutoffRadius)));
+    if(isRealVec(PQ_1),// real solution
       if(self:"drawId"==-1,
         self:"drawId" = draw3d((PQ_1_(1..3))/PQ_1_4,(PQ_2_(1..3))/PQ_2_4,size->self:"size",color->self:"color",alpha->self:"alpha")
       ,
@@ -814,7 +829,7 @@ dgs3dRenderLine(self):=(
 // TODO? polygons: render only region bounded by set of (potentially infinite) points
 dgs3dRenderPlane(self):=(
   regional(n); // make n visible in callee scopes
-  if(self:"visible" == true, // treat undefined as falsy
+  if(self:"visible" == true & dgs3dIsFiniteRealPlane(self:"coords"), // treat undefined as falsy
     if(self:"drawId"==-1,
       n = self:"coords";
       // TODO? use custom cutoff-region instead of default
@@ -825,22 +840,6 @@ dgs3dRenderPlane(self):=(
     );
   ,if(self:"drawId"!=-1,
       cgl3d.setVisible.(self:"drawId",false);
-  ));
-);
-dgs3dRenderCircle(self):=(
-  regional(p,ptColor);
-  [c,n,r] = self:"coords";
-  if(self:"visible" == true & min(apply(c,isReal(#))), // treat undefined as falsy
-    if(self:"drawId"==-1,
-      self:"drawId" = torus3d(c,n,r,color->ptColor,alpha->self:"alpha",size->self:"size");
-    ,
-      //cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["cglColor","cglAlpha"],[ptColor,self:"alpha"]);
-      cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),"cglRadii",[r,self:"size"]);
-      cgl3dObjectSet(cgl3d.getObjects.(self:"drawId"),["center","orientation","radius"],[c,n,r+self:"size"]);
-      cgl3d.setVisible.(self:"drawId",true);
-    );
-  ,if(self:"drawId"!=-1,
-    cgl3d.setVisible.(self:"drawId",false);
   ));
 );
 dgs3dRenderQuadric(self):=(
@@ -990,7 +989,7 @@ quadric3d(M,visible->true,color->cglNada,alpha->cglNada):=(
 dgs3dFreeQuadric(M,visible->true,color->cglNada,alpha->cglNada):=(
   regional(obj);
   obj = dgs3dNewObject("quadric",[],visible->visible,color->color,alpha->alpha);
-  obj:"coords" = dgs3dRP3Normalize(M);
+  obj:"coords" = dgs3dRP3Normalize(M+transpose(M));
   dgs3dRenderQuadric(obj);
   obj
 );
@@ -2038,7 +2037,7 @@ dgs3dComputeQuadricLines(Q,P):=(
 // q: quadric, P: point => 2 x line, visible: bool = should object be drawn
 dgs3dQuadricLines(q,P,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   // TODO: ensure P on q
-  dgs3dNewLinePair([q,P],lambda(self,
+  dgs3dNewLineSet([q,P],2,lambda(self,
     regional(q,P,l,m);
     q = self:"parents"_1:"coords";
     P = self:"parents"_2:"coords";
@@ -2227,19 +2226,37 @@ dgs3dBiQuadric8points(pts,size->cglNada,visible->true,color->cglNada,alpha->cglN
   ),size->size,visible->visible,color->color,alpha->alpha,isCircle->false);
 );
 
+dgs3dComputeQuadricSymmetryPlanes(Q):=(
+  regional(B);
+  B = apply(Q_(1..3),#_(1..3));
+  apply(transpose(eigenvectors(B)),n,
+    (n_1*(n*B*n),n_2*(n*B*n),n_3*(n*B*n),n*Q_4_(1..3))
+  );
+);
+dsg3dComputeQuadricAxes(Q):=(
+  apply(pairs(dgs3dComputeQuadricSymmetryPlanes(Q)),
+    dgs3dDualLine(dgs3dEpsilon44(#_1,#_2))
+  );
+);
 // q: quadric => symmetry planes, 
 dgs3dQuadricPlanes(Q,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dNewPlaneSet([Q],3,lambda(self,
-    regional(Q,B,normals,center);
+    regional(Q);
     Q = self:"parents"_1:"coords";
-    B = apply(Q_(1..3),#_(1..3));
-    normals = transpose(eigenvectors(B));
-    dgs3dTracePointSet(self,apply(normals,n,
-      (n_1,n_2,n_3,(n*Q_4_(1..3))/(n*B*n))
-    ));
+    dgs3dTracePointSet(self,dgs3dComputeQuadricSymmetryPlanes(Q));
   ),size->size,visible->visible,color->color,alpha->alpha);
 );
-// TODO: dgs3dQuadricLines (symmetry axes)
+// q: quadric => symmetry axes, 
+dgs3dQuadricAxes(Q,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewLineSet([Q],3,lambda(self,
+    regional(Q,lines);
+    Q = self:"parents"_1:"coords";
+    lines = dsg3dComputeQuadricAxes(Q);
+    // TODO: trace lines
+    apply(1..3,self:"children"_#:"coords"=lines_#);
+    DGS3DmOVEoK
+  ),size->size,visible->visible,color->color,alpha->alpha);
+);
 // q: quadric => point, 
 dgs3dQuadricCenter(Q,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dNewPoint([Q],lambda(self,
