@@ -1103,18 +1103,25 @@ dgs3dFindPointOnPlane(p):=(
     (1,0,0,0)
   )
 );
-dgs3dTryProjectPointToQuadric(P,q):=(
+dgs3dSelectClosest(pts,P,unique->false):=(
+  regional(minDist,soln);
+  if(length(pts)>0,
+    soln = min(pts,(dgs3dProjDistanceSq(#,P),#));
+    if(if(unique,soln_1 > min(pairs(pts),dgs3dProjDistanceSq(#_1,#_2)),false),
+      cglUndefinedVal()
+    ,soln_2);
+  ,
+    cglUndefinedVal()
+  );
+);
+dgs3dTryProjectPointToQuadric(P,q,unique->false):=(
   regional(p,l,AB);
   p = q*P;
   if(dgs3dIsFiniteRealPlane(p),
     l = dgs3dEpsilon44(P,(p_1,p_2,p_3,1));
     // 2. intersect line with quadric
     AB = select(dgs3dIntersectLineQuadric(dgs3dDualLine(l),q),dgs3dIsFiniteRealPoint(#));
-    if(length(AB)>0,
-      min(AB,(dgs3dProjDistanceSq(#,P),#))_2
-    ,
-      cglUndefinedVal()
-    );
+    dgs3dSelectClosest(AB,P,unique->unique);
   ,cglUndefinedVal())
 );
 dgs3dFindPointOnQuadric(q):=(
@@ -1124,17 +1131,49 @@ dgs3dFindPointOnQuadric(q):=(
     (0,0,0,1) // TODO: use axes/planes to find real point
   )
 );
+dgs3dTryProjectPointToConic(P,Q,p,unique->false):=(
+  regional(P3,np,nq,l,AB);
+  // 1. project point into plane
+  P3 = P_(1..3)/P_4;
+  np = p_(1..3);
+  P3 = P3 - np*(p_4+P3*np)/(np*np);
+  P = (P3_1,P3_2,P3_3,1);
+  P = dgs3dRP3Normalize(P);
+  // 2. get line in plane through point normal to surface
+  nq = (Q * P)_(1..3);
+  nq = nq - ((np*nq)/(np*np)) * np; // project normal into plane
+  l = dgs3dEpsilon44(P,P+(nq_1,nq_2,nq_3,0));
+  // 2. intersect line with quadric
+  AB = select(dgs3dIntersectLineQuadric(dgs3dDualLine(l),Q),dgs3dIsFiniteRealPoint(#));
+  dgs3dSelectClosest(AB,P,unique->unique)
+);
 dgs3dFindPointOnConic(c):=(
-  regional(q,P);
+  regional(q,p,P);
   q = c:"parents"_1:"coords";
-  P = dgs3dTryProjectPointToQuadric(dgs3dFindPointOnPlane(c:"parents"_2),q);
+  p = c:"parents"_2:"coords";
+  P = dgs3dTryProjectPointToConic((0,0,0,1),q,p);
   if(!isUndefined(P),P,
-    (0,0,0,1) // TODO: use axes/planes to find real point
+    (0,0,0,1) // TODO: find point in degenerate case
   )
 );
+dgs3dTryProjectPointToBiQuadric(P,q1,q2,unique->false):=(
+  regional(p1,p2,n,p);
+  p1 = q1*P; p2 = q2*P;
+  if(dgs3dIsFiniteRealPlane(p1) & dgs3dIsFiniteRealPlane(p2),
+    n = cross(p1_(1..3),p2_(1..3));
+    p = (n_1*P_4,n_2*P_4,n_3*P_4,(-P_(1..3)*n));
+    ABCD = select(apply(dgs3dIntersectionsQQP(q1,q2,p),dgs3dRP3Normalize(#)),dgs3dIsFiniteRealPoint(#));
+    dgs3dSelectClosest(ABCD,P,unique->unique);
+  ,cglUndefinedVal())
+);
 dgs3dFindPointOnBiQuadric(q):=(
-  // TODO: find point on bi-quadric [near (0,0,0,1)]
-  (0,0,0,1)
+  regional(q1,q2,P);
+  q1 = c:"parents"_1:"coords";
+  q2 = c:"parents"_2:"coords";
+  P = dgs3dTryProjectPointToBiQuadric((0,0,0,1),q1,q2);
+  if(!isUndefined(P),P,
+    (0,0,0,1) // TODO: find point in degenerate case
+  )
 );
 // p0: vec4 (x,y,z,w), l: line , size: real = radius, pinned:bool = fixed position, visible: bool = should object be drawn
 pointOnLine3d(l,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
@@ -1212,6 +1251,12 @@ dgs3dPointOnPlane(s,size->cglNada,visible->true,pinned->false,color->cglNada,alp
 pointOnQuadric3d(q,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
   dgs3dPointOnQuadric(q,p0,size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
 );
+dgs3dSetIfDefined(self,coords):=(
+ if(isUndefined(coords),DGS3DmOVErETRY,
+    self:"coords" = coords;
+    DGS3DmOVEoK
+  )
+);
 dgs3dPointOnQuadric(q,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
   regional(obj);
   obj = dgs3dNewObject("point",[q],visible->visible,color->color,alpha->alpha);
@@ -1219,14 +1264,9 @@ dgs3dPointOnQuadric(q,p0,size->cglNada,visible->true,pinned->false,color->cglNad
   obj:"coords" = dgs3dPoint4(p0);
   obj:"recompute" = lambda(self,
     regional(p,Q,n,l,AB,a,b,ab);
-    p = self:"coords";
-    Q = (self:"parents"_1):"coords";
-    // 1. get line through point normal to surface
-    n = Q * p;
-    l = dgs3dEpsilon44(p,p+(n_1,n_2,n_3,0));
-    // 2. intersect line with quadric
-    AB = dgs3dIntersectLineQuadric(dgs3dDualLine(l),Q);
-    dgs3dTracePointSelect(self,AB);
+    P = self:"coords";
+    q = (self:"parents"_1):"coords";
+    dgs3dSetIfDefined(self,dgs3dTryProjectPointToQuadric(P,q,unique->true));
   );
   obj:"recompute".(obj);
   obj:"redraw".(obj);
@@ -1257,21 +1297,7 @@ dgs3dPointOnConic(q,p0,size->cglNada,visible->true,pinned->false,color->cglNada,
     regional(P,P3,Qp,Q,p,np,nq);
     P = self:"coords";
     Qp = (self:"parents"_1):"coords";
-    Q = Qp_1;
-    p = Qp_2;
-    // 1. project point into plane
-    P3 = P_(1..3)/P_4;
-    np = p_(1..3);
-    P3 = P3 - np*(p_4+P3*np)/(np*np);
-    P = (P3_1,P3_2,P3_3,1);
-    P = dgs3dRP3Normalize(P);
-    // 2. get line in plane through point normal to surface
-    nq = (Q * P)_(1..3);
-    nq = nq - ((np*nq)/(np*np)) * np; // project normal into plane
-    l = dgs3dEpsilon44(P,P+(nq_1,nq_2,nq_3,0));
-    // 2. intersect line with quadric
-    AB = dgs3dIntersectLineQuadric(dgs3dDualLine(l),Q);
-    dgs3dTracePointSelect(self,AB)
+    dgs3dSetIfDefined(self,dgs3dTryProjectPointToConic(P,Qp_1,Qp_2,unique->true));
   );
   obj:"recompute".(obj);
   obj:"redraw".(obj);
@@ -1302,28 +1328,7 @@ dgs3dPointOnBiQuadric(q,p0,size->cglNada,visible->true,pinned->false,color->cglN
     regional(oldP,P,QR,Q,R,p,q,r,n,ABCD,dsts);
     oldP = P = self:"coords";
     QR = (self:"parents"_1):"coords";
-    Q = QR_1;
-    R = QR_2;
-    q = Q*P;
-    r = R*P;
-    n = cross(q_(1..3),r_(1..3));
-    p = (n_1,n_2,n_3,(-P_(1..3)*n)/P_4);
-    // TODO: find a projection method that is less likely to result in complex points
-    ABCD = apply(dgs3dIntersectionsQQP(Q,R,p),dgs3dRP3Normalize(#));
-    P = dgs3dRP3Normalize(P);
-    dsts = apply(ABCD,dgs3dProjDistanceSq(P,#));
-    P = ABCD_1;
-    d = dsts_1;
-    if(dsts_2 < d,P=ABCD_2;d=dsts_2);
-    if(dsts_3 < d,P=ABCD_3;d=dsts_3);
-    if(dsts_4 < d,P=ABCD_4;d=dsts_4);
-    self:"coords" = P;
-    // TODO detect error case where new points are closer to each other than to traced point
-    if(d <= dgs3dProjDistanceSq(oldP,P),
-      DGS3DmOVEoK
-    ,
-      DGS3DmOVErETRY
-    );
+    dgs3dSetIfDefined(self,dgs3dTryProjectPointToBiQuadric(P,QR_1,QR_2,unique->true));
   );
   obj:"recompute".(obj);
   obj:"redraw".(obj);
@@ -1780,7 +1785,7 @@ dgs3ddehom4(v):=(
 );
 
 dgs3de3q3checkError(res,q1,q2,q3):=(
-  if(isundefined(res),
+  if(isUndefined(res),
     true
   ,
     max((q1,q2,q3),q,max(res,v,abs(v*dgs3dQuadAsMat(q)*v))) > 1e-7
@@ -1812,7 +1817,7 @@ dgs3de3q3(q1,q2,q3):=(
       dgs3dQuadAsVec(trafoT*dgs3dQuadAsMat(q2)*trafo),
       dgs3dQuadAsVec(trafoT*dgs3dQuadAsMat(q3)*trafo)
     );
-    if(!isundefined(res),
+    if(!isUndefined(res),
       res = apply(res,p,trafo*p);
       err = max((q1,q2,q3),q,Q = dgs3dQuadAsMat(q);max(res,v,abs(v*Q*v)));
     );
