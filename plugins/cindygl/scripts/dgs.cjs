@@ -334,7 +334,7 @@ dgs3dRP3Normalize(p):=(
       v = #;
     ))
   );
-  if(v!=0,p = p/v);
+  if(v!=0,p = p/v,p);
 );
 // adjoint of 4x4 matrix
 adjoint4(M):=( // in CindyJS there does not seem to be a adjoint built-in ...
@@ -842,6 +842,7 @@ dgs3dRenderPlane(self):=(
       cgl3d.setVisible.(self:"drawId",false);
   ));
 );
+// TODO: handle rendering of complex quadrics/conics/bi-quadrics/surfaces
 dgs3dRenderQuadric(self):=(
   regional(M); // make M visible in callee scopes
   if(self:"visible" == true, // treat undefined as falsy
@@ -1102,19 +1103,37 @@ dgs3dFindPointOnPlane(p):=(
     (1,0,0,0)
   )
 );
+dgs3dTryProjectPointToQuadric(P,q):=(
+  regional(p,l,AB);
+  p = q*P;
+  if(dgs3dIsFiniteRealPlane(p),
+    l = dgs3dEpsilon44(P,(p_1,p_2,p_3,1));
+    // 2. intersect line with quadric
+    AB = select(dgs3dIntersectLineQuadric(dgs3dDualLine(l),q),dgs3dIsFiniteRealPoint(#));
+    if(length(AB)>0,
+      min(AB,(dgs3dProjDistanceSq(#,P),#))_2
+    ,
+      cglUndefinedVal()
+    );
+  ,cglUndefinedVal())
+);
 dgs3dFindPointOnQuadric(q):=(
-  // ? check intersections with symmetry axes pick finite real point close to origin
-  (0,0,0,1)
+  regional(P);
+  P = dgs3dTryProjectPointToQuadric((0,0,0,1),q:"coords");
+  if(!isUndefined(P),P,
+    (0,0,0,1) // TODO: use axes/planes to find real point
+  )
 );
 dgs3dFindPointOnConic(c):=(
-  regional(q,p,P);
+  regional(q,P);
   q = c:"parents"_1:"coords";
-  p = c:"parents"_2:"coords";
-  P = dgs3dFindPointOnPlane(p);
-  // TODO project P onto conic
-  (0,0,0,1)
+  P = dgs3dTryProjectPointToQuadric(dgs3dFindPointOnPlane(c:"parents"_2),q);
+  if(!isUndefined(P),P,
+    (0,0,0,1) // TODO: use axes/planes to find real point
+  )
 );
 dgs3dFindPointOnBiQuadric(q):=(
+  // TODO: find point on bi-quadric [near (0,0,0,1)]
   (0,0,0,1)
 );
 // p0: vec4 (x,y,z,w), l: line , size: real = radius, pinned:bool = fixed position, visible: bool = should object be drawn
