@@ -782,6 +782,15 @@ dgs3dIsFiniteRealPlane(p):=(
   // all entries real + normal vector non-zero
   isRealVec(p)&max(p_(1..3),#!=0)
 );
+dgs3dIsRealQuadric(q):=(
+  min(q,isRealVec(#))
+);
+dgs3dIsFiniteRealConic(c):=(
+  dgs3dIsRealQuadric(c_1) & dgs3dIsFiniteRealPlane(c_2)
+);
+dgs3dIsRealBiQuadric(q):=(
+  dgs3dIsRealQuadric(q_1) & dgs3dIsRealQuadric(q_2)
+);
 // TODO do not render objects with complex coordinates
 // TODO? only render points within drawing region
 // TODO: only update bounds when object changed
@@ -842,10 +851,10 @@ dgs3dRenderPlane(self):=(
       cgl3d.setVisible.(self:"drawId",false);
   ));
 );
-// TODO: handle rendering of complex quadrics/conics/bi-quadrics/surfaces
 dgs3dRenderQuadric(self):=(
   regional(M); // make M visible in callee scopes
-  if(self:"visible" == true, // treat undefined as falsy
+  // is quadric matrix is not real (up to scalar) then the set of real points is one dimensional (TODO? render 1D set of real points)
+  if(self:"visible" == true & dgs3dIsRealQuadric(self:"coords"), // treat undefined as falsy
     if(self:"drawId"==-1,
       M = self:"coords";
       // TODO? use custom cutoff-region instead of default
@@ -860,7 +869,7 @@ dgs3dRenderQuadric(self):=(
 );
 dgs3dRenderConic(self):=(
   regional(M); // make M visible in callee scopes
-  if(self:"visible" == true, // treat undefined as falsy
+  if(self:"visible" == true & dgs3dIsFiniteRealConic(self:"coords"), // treat undefined as falsy
     if(self:"drawId"==-1,
       M = self:"coords";
       // TODO? use custom cutoff-region instead of default
@@ -877,7 +886,7 @@ dgs3dRenderConic(self):=(
 );
 dgs3dRenderBiQuadric(self):=(
   regional(M); // make M visible in callee scopes
-  if(self:"visible" == true, // treat undefined as falsy
+  if(self:"visible" == true & dgs3dIsRealBiQuadric(self:"coords"), // treat undefined as falsy
     if(self:"drawId"==-1,
       M = self:"coords";
       // TODO? use custom cutoff-region instead of default
