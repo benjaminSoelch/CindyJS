@@ -2082,6 +2082,63 @@ dgs3dQuadricLines(q,P,size->cglNada,visible->true,color->cglNada,alpha->cglNada)
     DGS3DmOVEoK 
   ),size->size,visible->visible,color->color,alpha->alpha);
 );
+// pts: [point; 7] => point
+dgs3dCompleteCayleyOctent(pts,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewPoint("completeCayleyOctent",pts,lambda(self,
+    regional(pts,T,v,S,A,B);
+    pts = apply(self:"parents",#:"coords");
+    // find transform that maps first 5 points to e_1,e_2,e_3,e_4,(1,1,1,1)
+    T = transpose(pts_(1..4));
+    v = linearSolve(T,pts_5);
+    T = apply(T,(#_1*v_1,#_2*v_2,#_3*v_3,#_4*v_4));
+    S = inverse(T);
+    A = S * pts_6;
+    B = S * pts_7;
+    // compute 8th point in transformed context then transform back
+    // use equation from: QUARTIC CURVES AND THEIR BITANGENTS (arXiv:1008.4104v2): Proposition 7.1
+    self:"coords" = dgs3dRP3Normalize(T*[(
+    A_2*B_3- A_2*B_4- A_3*B_2+ A_3*B_4+ A_4*B_2- A_4*B_3
+    )/(
+    A_2*A_3*B_2*B_4
+    - A_2*A_3*B_3*B_4
+    - A_2*A_4*B_2*B_3
+    + A_2*A_4*B_3*B_4
+    + A_3*A_4*B_2*B_3
+    - A_3*A_4*B_2*B_4
+    ),
+    (
+    A_1*B_3- A_1*B_4- A_3*B_1+ A_3*B_4+ A_4*B_1- A_4*B_3
+    )/(
+    A_1*A_3*B_1*B_4
+    - A_1*A_3*B_3*B_4
+    - A_1*A_4*B_1*B_3
+    + A_1*A_4*B_3*B_4
+    + A_3*A_4*B_1*B_3
+    - A_3*A_4*B_1*B_4
+    ),
+    (
+    A_1*B_2- A_1*B_4- A_2*B_1+ A_2*B_4+ A_4*B_1- A_4*B_2
+    )/(
+    A_1*A_2*B_1*B_4
+    - A_1*A_2*B_2*B_4
+    - A_1*A_4*B_1*B_2
+    + A_1*A_4*B_2*B_4
+    + A_2*A_4*B_1*B_2
+    - A_2*A_4*B_1*B_4
+    ),
+    (
+    A_1*B_2- A_1*B_3- A_2*B_1+ A_2*B_3+ A_3*B_1- A_3*B_2
+    )/(
+    A_1*A_2*B_1*B_3
+    - A_1*A_2*B_2*B_3
+    - A_1*A_3*B_1*B_2
+    + A_1*A_3*B_2*B_3
+    + A_2*A_3*B_1*B_2
+    - A_2*A_3*B_1*B_3
+    )]);
+    DGS3DmOVEoK
+  ),size->size,visible->visible,color->color,alpha->alpha);
+);
 
 // pts: [point; 9] => quadric, visible: bool = should object be drawn
 quadricBy9P(pts,visible->true,color->cglNada,alpha->cglNada):=(
