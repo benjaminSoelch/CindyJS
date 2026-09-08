@@ -334,7 +334,7 @@ dgs3dRP3Normalize(p):=(
       v = #;
     ))
   );
-  if(v!=0,p = p/v,p);
+  if(m>0,p = p/v,p);
 );
 // adjoint of 4x4 matrix
 adjoint4(M):=( // in CindyJS there does not seem to be a adjoint built-in ...
@@ -1464,6 +1464,7 @@ dgs3dEnsurePositiveLNZ(p):=(
 );
 dgs3dProjDistanceSq(P1,P2):=(
   regional(d);
+  // TODO: change distance to min(a in R,d(v1/|v1|,e^ia * v2/|v2|))
   d = normalize(dgs3dEnsurePositiveLNZ(P1))-normalize(dgs3dEnsurePositiveLNZ(P2));
   |d*d|
 );
