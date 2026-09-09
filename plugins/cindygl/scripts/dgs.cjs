@@ -48,7 +48,7 @@ dgs3dUpdateCutoff();
 dgs3d = {};
 dgs3d.doTracing = false;
 
-// TODO make focus color customizable, ? set color depending on color of point
+// TODO? set focus color depending on color of point
 dgs3dFocusColor = cglColor("green");
 dgs3dMovementAxes(point):=(
   regional(normal,l);
@@ -82,7 +82,6 @@ dgs3dMovementAxes(point):=(
   );
 );
 DGS3DmINaNGLEmOVE = 0.99; // prevent movement if movement direction too close to view-normal
-// TODO? limit maximum movement distance (moving along nearly orthogonal plane leads to points getting lost)
 dgs3dPreFrame():=(
     regional(mx,my,dx,dy,target,newCoords,oldTarget,axes,oldSpacePos,newSpacePos,center,movePlaneOffset,movePlaneNormal,d2,oldDirection,newDirection,oldT,newT,oldPos,newPos,delta,truePos,oldRadius,updateQueue);
     mx = mouse().x;
@@ -285,9 +284,8 @@ dgs3dEpsilon444(a,b,c):=(
 dgs3dDiv0(a,b):=(
   if(b!=0,a/b,0);
 );
-// TODO? swap quadric and line parameters
 // l: vec6 (point-like), Q: mat4 => vec4 x 2
-dgs3dIntersectLineQuadric(l,Q):=(
+dgs3dIntersectQuadricDualLine(Q,l):=(
   regional(mL,M,d12,d13,d14,d23,d24,d34,a,r,c0,c,rMax,cMax);
   mL = dgs3dLineMatrix(l);
   M = mL*Q*mL;
@@ -816,7 +814,7 @@ dgs3dRenderLine(self):=(
   l = self:"coords";
   if(self:"visible" == true & dgs3dIsFiniteRealLine(l), // treat undefined as falsy
     // compute intersections of line with clipping sphere
-    PQ = dgs3dIntersectLineQuadric(dgs3dDualLine(l),((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,-dgs3dCutoffRadius*dgs3dCutoffRadius)));
+    PQ = dgs3dIntersectQuadricDualLine(((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,-dgs3dCutoffRadius*dgs3dCutoffRadius)),dgs3dDualLine(l));
     if(isRealVec(PQ_1),// real solution
       if(self:"drawId"==-1,
         self:"drawId" = draw3d((PQ_1_(1..3))/PQ_1_4,(PQ_2_(1..3))/PQ_2_4,size->self:"size",color->self:"color",alpha->self:"alpha")
@@ -1129,7 +1127,7 @@ dgs3dTryProjectPointToQuadric(P,q,unique->false):=(
   if(dgs3dIsFiniteRealPlane(p),
     l = dgs3dEpsilon44(P,(p_1,p_2,p_3,1));
     // 2. intersect line with quadric
-    AB = select(dgs3dIntersectLineQuadric(dgs3dDualLine(l),q),dgs3dIsFiniteRealPoint(#));
+    AB = select(dgs3dIntersectQuadricDualLine(q,dgs3dDualLine(l)),dgs3dIsFiniteRealPoint(#));
     dgs3dSelectClosest(AB,P,unique->unique);
   ,cglUndefinedVal())
 );
@@ -1153,7 +1151,7 @@ dgs3dTryProjectPointToConic(P,Q,p,unique->false):=(
   nq = nq - ((np*nq)/(np*np)) * np; // project normal into plane
   l = dgs3dEpsilon44(P,P+(nq_1,nq_2,nq_3,0));
   // 2. intersect line with quadric
-  AB = select(dgs3dIntersectLineQuadric(dgs3dDualLine(l),Q),dgs3dIsFiniteRealPoint(#));
+  AB = select(dgs3dIntersectQuadricDualLine(Q,dgs3dDualLine(l)),dgs3dIsFiniteRealPoint(#));
   dgs3dSelectClosest(AB,P,unique->unique)
 );
 dgs3dFindPointOnConic(c):=(
@@ -1592,7 +1590,7 @@ dgs3dMeetQL(Q1,l1,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
     regional(Q,l,AB,oldA,oldB,d11,d12,d21,d22);
     Q = self:"parents"_1:"coords";
     l = self:"parents"_2:"coords";
-    AB = dgs3dIntersectLineQuadric(dgs3dDualLine(l),Q);
+    AB = dgs3dIntersectQuadricDualLine(Q,dgs3dDualLine(l));
     dgs3dTracePointPair(self,AB);
   ),size->size,visible->visible,color->color,alpha->alpha);
 );
@@ -1634,7 +1632,7 @@ dgs3dMeetQpp(Q1,p1,p2,size->cglNada,visible->true,color->cglNada,alpha->cglNada)
     Q = self:"parents"_1:"coords";
     p1 = self:"parents"_2:"coords";
     p2 = self:"parents"_3:"coords";
-    AB = dgs3dIntersectLineQuadric(dgs3dEpsilon44(p1,p2),Q);
+    AB = dgs3dIntersectQuadricDualLine(Q,dgs3dEpsilon44(p1,p2));
     dgs3dTracePointPair(self,AB);
   ),size->size,visible->visible,color->color,alpha->alpha);
 );
@@ -1644,7 +1642,7 @@ dgs3dMeetCp(C,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
     regional(Q,C,AB,oldA,oldB,d11,d12,d21,d22);
     C = self:"parents"_1:"coords";
     p = self:"parents"_2:"coords";
-    AB = dgs3dIntersectLineQuadric(dgs3dEpsilon44(C_2,p),C_1);
+    AB = dgs3dIntersectQuadricDualLine(C_1,dgs3dEpsilon44(C_2,p));
     dgs3dTracePointPair(self,AB);
   ),size->size,visible->visible,color->color,alpha->alpha);
 );
@@ -1655,7 +1653,7 @@ dgs3dMeetCL(C,l,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
     regional(Q,C,AB,oldA,oldB,d11,d12,d21,d22);
     C = self:"parents"_1:"coords";
     l = self:"parents"_2:"coords";
-    AB = dgs3dIntersectLineQuadric(dgs3dDualLine(l),C_1);
+    AB = dgs3dIntersectQuadricDualLine(C_1,dgs3dDualLine(l));
     dgs3dTracePointPair(self,AB);
   ),size->size,visible->visible,color->color,alpha->alpha);
 );
@@ -2237,7 +2235,7 @@ dgs3dComputeCircleBy3(A,B,C):=(
     p = dgs3dEpsilon444(A,B,C+v);
   );
   l = dgs3dEpsilon44(p,(0,0,0,1)); // line at infinity
-  [I, J] = dgs3dIntersectLineQuadric(l,((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,0)));
+  [I, J] = dgs3dIntersectQuadricDualLine(((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,0)),l);
   M = dgs3dComputeConicBy5(p,A,B,C,I,J);
   [M,p]
 );
