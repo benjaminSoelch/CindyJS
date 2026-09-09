@@ -43,6 +43,7 @@ dgs3dHandleZoom(zoom):=(
   forall(dgs3dPlanes,p,p:"redraw".(p));
   forall(dgs3dCircles,q,q:"redraw".(q));
   forall(dgs3dQuadrics,q,q:"redraw".(q));
+  forall(dgs3dCurves,q,q:"redraw".(q));
 );
 dgs3dUpdateCutoff();
 dgs3d = {};
@@ -122,8 +123,8 @@ dgs3dPreFrame():=(
       // do not movePlaneNormal to close to view-plane
       delta = normalize(newPos-oldPos);
       // TODO? gradual scaling of movement distance instead of hard cutoff?
-      // TODO: do not allow move when angle passed close to 0 between old and new position
-      if(min(|delta*normalize(oldDirection)|,|delta*normalize(newDirection)|)<DGS3DmINaNGLEmOVE,
+      if(min(|delta*normalize(oldDirection)|,|delta*normalize(newDirection)|)<DGS3DmINaNGLEmOVE %
+          (re(delta*normalize(oldDirection))<0) != (re(delta*normalize(newDirection))<0),
         // keep movement relative to click position (instead of center)
         truePos = center;
         newPos = newPos+(truePos-oldPos);
@@ -336,10 +337,27 @@ dgs3dRP3Normalize(p):=(
 );
 // adjoint of 4x4 matrix
 adjoint4(M):=( // in CindyJS there does not seem to be a adjoint built-in ...
-  // TODO? precompute equation
-  apply(1..4,i,apply(1..4,j,
-    det(apply(M_(remove(1..4,j)),#_(remove(1..4,i))))*(-1)^(i+j)
-  ));
+  [(
+    -M_2_4*M_3_3*M_4_2+M_2_3*M_3_4*M_4_2+M_2_4*M_3_2*M_4_3-M_2_2*M_3_4*M_4_3-M_2_3*M_3_2*M_4_4+M_2_2*M_3_3*M_4_4,
+      M_1_4*M_3_3*M_4_2-M_1_3*M_3_4*M_4_2-M_1_4*M_3_2*M_4_3+M_1_2*M_3_4*M_4_3+M_1_3*M_3_2*M_4_4-M_1_2*M_3_3*M_4_4,
+    -M_1_4*M_2_3*M_4_2+M_1_3*M_2_4*M_4_2+M_1_4*M_2_2*M_4_3-M_1_2*M_2_4*M_4_3-M_1_3*M_2_2*M_4_4+M_1_2*M_2_3*M_4_4,
+      M_1_4*M_2_3*M_3_2-M_1_3*M_2_4*M_3_2-M_1_4*M_2_2*M_3_3+M_1_2*M_2_4*M_3_3+M_1_3*M_2_2*M_3_4-M_1_2*M_2_3*M_3_4
+  ),(
+      M_2_4*M_3_3*M_4_1-M_2_3*M_3_4*M_4_1-M_2_4*M_3_1*M_4_3+M_2_1*M_3_4*M_4_3+M_2_3*M_3_1*M_4_4-M_2_1*M_3_3*M_4_4,
+    -M_1_4*M_3_3*M_4_1+M_1_3*M_3_4*M_4_1+M_1_4*M_3_1*M_4_3-M_1_1*M_3_4*M_4_3-M_1_3*M_3_1*M_4_4+M_1_1*M_3_3*M_4_4,
+      M_1_4*M_2_3*M_4_1-M_1_3*M_2_4*M_4_1-M_1_4*M_2_1*M_4_3+M_1_1*M_2_4*M_4_3+M_1_3*M_2_1*M_4_4-M_1_1*M_2_3*M_4_4,
+    -M_1_4*M_2_3*M_3_1+M_1_3*M_2_4*M_3_1+M_1_4*M_2_1*M_3_3-M_1_1*M_2_4*M_3_3-M_1_3*M_2_1*M_3_4+M_1_1*M_2_3*M_3_4
+  ),(
+    -M_2_4*M_3_2*M_4_1+M_2_2*M_3_4*M_4_1+M_2_4*M_3_1*M_4_2-M_2_1*M_3_4*M_4_2-M_2_2*M_3_1*M_4_4+M_2_1*M_3_2*M_4_4,
+      M_1_4*M_3_2*M_4_1-M_1_2*M_3_4*M_4_1-M_1_4*M_3_1*M_4_2+M_1_1*M_3_4*M_4_2+M_1_2*M_3_1*M_4_4-M_1_1*M_3_2*M_4_4,
+    -M_1_4*M_2_2*M_4_1+M_1_2*M_2_4*M_4_1+M_1_4*M_2_1*M_4_2-M_1_1*M_2_4*M_4_2-M_1_2*M_2_1*M_4_4+M_1_1*M_2_2*M_4_4,
+      M_1_4*M_2_2*M_3_1-M_1_2*M_2_4*M_3_1-M_1_4*M_2_1*M_3_2+M_1_1*M_2_4*M_3_2+M_1_2*M_2_1*M_3_4-M_1_1*M_2_2*M_3_4
+  ),(
+      M_2_3*M_3_2*M_4_1-M_2_2*M_3_3*M_4_1-M_2_3*M_3_1*M_4_2+M_2_1*M_3_3*M_4_2+M_2_2*M_3_1*M_4_3-M_2_1*M_3_2*M_4_3,
+    -M_1_3*M_3_2*M_4_1+M_1_2*M_3_3*M_4_1+M_1_3*M_3_1*M_4_2-M_1_1*M_3_3*M_4_2-M_1_2*M_3_1*M_4_3+M_1_1*M_3_2*M_4_3,
+      M_1_3*M_2_2*M_4_1-M_1_2*M_2_3*M_4_1-M_1_3*M_2_1*M_4_2+M_1_1*M_2_3*M_4_2+M_1_2*M_2_1*M_4_3-M_1_1*M_2_2*M_4_3,
+    -M_1_3*M_2_2*M_3_1+M_1_2*M_2_3*M_3_1+M_1_3*M_2_1*M_3_2-M_1_1*M_2_3*M_3_2-M_1_2*M_2_1*M_3_3+M_1_1*M_2_2*M_3_3
+  )]
 );
 // adjoint of 3x3 matrix
 adjoint3(M):=(
@@ -358,7 +376,7 @@ dgs3dSqCoords(p):=(
 // 2D Geometry
 ////////////////
 // TODO? reuse code from 2D-geometry engine
-// TODO: check if code works correctly
+// TODO: check if results are correct in all cases
 dgs3dDecompose2DConic(A):=(
   regional(B,i,beta,P,C);
   // 1. find anti-symmetric matrix D s.t. A+D has rank 1
@@ -441,6 +459,7 @@ dgs3dLines = {};
 dgs3dPlanes = {};
 dgs3dCircles = {};
 dgs3dQuadrics = {};
+dgs3dCurves = {};
 // special objects
 dgs3dMovablePoints = {};
 
@@ -456,7 +475,9 @@ dgs3dObjById(id) := if(isstring(id), dgs3dObjects:id, id);
 dgs3dIdForObj(obj) := if(isstring(obj), obj, obj:"id");
 
 dgs3dReset():=(
-  // TODO: reset drawn objects
+  forall(dgs3dObjects,obj,
+    if(obj:"drawId"!=-1,cgl3d.removeObject.(obj:"drawId"))
+  );
   dgs3dObjects = {};
   // objects separated by type
   dgs3dPoints = {};
@@ -464,6 +485,7 @@ dgs3dReset():=(
   dgs3dPlanes = {};
   dgs3dCircles = {};
   dgs3dQuadrics = {};
+  dgs3dCurves = {};
   // special objects
   dgs3dMovablePoints = {};
 );
@@ -484,6 +506,7 @@ dgs3dDelete(obj):=(
     jsonRemove(dgs3dLines,obj:"id");
     jsonRemove(dgs3dPlanes,obj:"id");
     jsonRemove(dgs3dQuadrics,obj:"id");
+    jsonRemove(dgs3dCurves,obj:"id");
     jsonRemove(dgs3dCircles,obj:"id");
     jsonRemove(dgs3dMovablePoints,obj:"id");
     cglDelete(obj:"drawId");
@@ -552,7 +575,9 @@ dgs3dLoad(values):=(
       dgs3dPlanes:(obj:"id") = obj;
     ,if(obj:"type" == "quadric",
       dgs3dQuadrics:(obj:"id") = obj;
-    ))));
+    ,if(obj:"type" == "conic" % obj:"type" == "biquadric",
+      dgs3dCurves:(obj:"id") = obj;
+    )))));
   );
 );
 
@@ -600,13 +625,13 @@ dgs3dNewObject(type,alg,parents,visible->true,color->cglNada,alpha->cglNada):=(
     obj:"color" = cglColor(cglValOrDefault(color,(0.5,0,1)));
     obj:"alpha" = cglValOrDefault(alpha,0.67);
     obj:"redraw" = lambda(self,dgs3dRenderQuadric(self));
-  ,if(type == "conic", // TODO? should conics and bi-quadrics be stored with quadrics?
-    dgs3dQuadrics:objId = obj;
+  ,if(type == "conic",
+    dgs3dCurves:objId = obj;
     obj:"color" = cglColor(cglValOrDefault(color,(0.25,1,0)));
     obj:"alpha" = cglValOrDefault(alpha,1);
     obj:"redraw" = lambda(self,dgs3dRenderConic(self));
   ,if(type == "biquadric",
-    dgs3dQuadrics:objId = obj;
+    dgs3dCurves:objId = obj;
     obj:"color" = cglColor(cglValOrDefault(color,(0.25,1,0)));
     obj:"alpha" = cglValOrDefault(alpha,1);
     obj:"redraw" = lambda(self,dgs3dRenderBiQuadric(self));
@@ -789,12 +814,12 @@ dgs3dIsFiniteRealConic(c):=(
 dgs3dIsRealBiQuadric(q):=(
   dgs3dIsRealQuadric(q_1) & dgs3dIsRealQuadric(q_2)
 );
-// TODO do not render objects with complex coordinates
-// TODO? only render points within drawing region
 // TODO: only update bounds when object changed
+// TODO? use custom cutoff-region instead of default
 dgs3dRenderPoint(self):=(
   regional(p,ptColor);
   p = self:"coords";
+  // TODO? only render points within drawing region
   if(self:"visible" == true & dgs3dIsFiniteRealPoint(p), // treat undefined as falsy
     ptColor = if(self == dgs3dMouseState:"target",dgs3dFocusColor,self:"color");
     if(self:"drawId"==-1,
@@ -839,7 +864,6 @@ dgs3dRenderPlane(self):=(
   if(self:"visible" == true & dgs3dIsFiniteRealPlane(self:"coords"), // treat undefined as falsy
     if(self:"drawId"==-1,
       n = self:"coords";
-      // TODO? use custom cutoff-region instead of default
       self:"drawId" = surface3d((x,y,z,1)*n,plotModifiers->{"n":self:"coords"},color->self:"color",alpha->self:"alpha");
     ,
       cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["n","cglColor","cglAlpha"],[self:"coords",self:"color",self:"alpha"]);
@@ -855,7 +879,6 @@ dgs3dRenderQuadric(self):=(
   if(self:"visible" == true & dgs3dIsRealQuadric(self:"coords"), // treat undefined as falsy
     if(self:"drawId"==-1,
       M = self:"coords";
-      // TODO? use custom cutoff-region instead of default
       self:"drawId" = surface3d((x,y,z,1)*M*(x,y,z,1),plotModifiers->{"M":self:"coords"},alpha->self:"alpha",color->self:"color");
     ,
       cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["M","cglColor","cglAlpha"],[self:"coords",self:"color",self:"alpha"]);
@@ -870,7 +893,6 @@ dgs3dRenderConic(self):=(
   if(self:"visible" == true & dgs3dIsFiniteRealConic(self:"coords"), // treat undefined as falsy
     if(self:"drawId"==-1,
       M = self:"coords";
-      // TODO? use custom cutoff-region instead of default
       self:"drawId" = surface3d(dgs3dDistanceQuadricPlane(Q,p,(x,y,z,1))-r*r,degree->8,
         plotModifiers->{"Q":self:"coords"_1,"p":self:"coords"_2,"r":self:"size"},
         alpha->self:"alpha",color->self:"color");
@@ -887,7 +909,6 @@ dgs3dRenderBiQuadric(self):=(
   if(self:"visible" == true & dgs3dIsRealBiQuadric(self:"coords"), // treat undefined as falsy
     if(self:"drawId"==-1,
       M = self:"coords";
-      // TODO? use custom cutoff-region instead of default
       self:"drawId" = surface3d(dgs3dDistanceQuadricQuadric(Q1,Q2,(x,y,z,1))-(r*r),degree->8,
         plotModifiers->{"Q1":self:"coords"_1,"Q2":self:"coords"_2,"r":self:"size"},
         alpha->self:"alpha",color->self:"color");
@@ -903,7 +924,6 @@ dgs3dRenderBiQuadric(self):=(
 dgs3dRenderSurface(self):=(
   if(self:"visible" == true, // treat undefined as falsy
     if(self:"drawId"==-1,
-      // TODO? use custom cutoff-region instead of default
       self:"drawId" = surface3d(f.((x,y,z),data),degree->8,
         plotModifiers->{"f":self:"coords"_1,"data":self:"coords"_2},
         alpha->self:"alpha",color->self:"color");
@@ -1086,29 +1106,42 @@ dgs3dJoin3L(l1,l2,l3,visible->true,color->cglNada,alpha->cglNada):=(
 );
 
 // helpers for initial point for pointOn... operations
-// finds point on ... priorities: finite > real > close to origin
+// finds point on ... priorities: finite > real > close to initial point
 // TODO: find point on ... near view-ray (needed for click on object to define point)
-// TODO: find point on ... near point (ensure that first defined point actually lies on object to prevent problems with tracing initial point)
-dgs3dFindPointOnLine(l):=(
-  regional(v);
-  l = l:"coords";
+dgs3dProjectPointToLine(P,l):=(
+  regional(v,K);
   v = dgs3dLineDirection(l);
-  if(|v|>0,
-    // intersect plane through origin orthogonal to line with line
-    dgs3dEpsilon46((v_1,v_2,v_3,0),l);
-  , // line is infinite -> choice does not matter
-    transpose(kernel(dgs3dLineMatrix(l)))_1
-  )
+  if(|v|>0 & P_4 != 0,
+    // intersect plane through P orthogonal to line with line
+    dgs3dEpsilon46((P_4*v_1,P_4*v_2,P_4*v_3,-v*P_(1..3)),l);
+  ,
+    // project P into K, `kernel(.)` always returns orthogonal vectors
+    K = transpose(kernel(dgs3dLineMatrix(l)));
+    dgs3dRP3Normalize(sum(K,v,(P*v)*v));
+  );
 );
-dgs3dFindPointOnPlane(p):=(
+dgs3dFindPointOnLine(l,P0):=(
+  dgs3dProjectPointToLine(P0,l:"coords")
+);
+dgs3dProjectPointToPlane(P,p):=(
+  regional(P3,n);
+  P3 = dgs3dDiv0(P_(1..3),P_4);
+  n = p_(1..3);
+  P3 = P3 - n*(p_4+P3*n)/(n*n);
+  dgs3dRP3Normalize((P3_1,P3_2,P3_3,1))
+);
+dgs3dFindPointOnPlane(p,P0):=(
   regional(n);
   p = p:"coords";
   n = p_(1..3);
   if(|n*n|>0,
-    dgs3dRP3Normalize((p_4*n_1,p_4*n_2,p_4*n_3,-n*n))
+    // p_1..3*P_1..3 = p_4*P_4
+    dgs3dProjectPointToPlane(P0,p)
+  ,if(|P0_(1..3)*P0_(1..3)|>0,  // plane is infinite -> pick infinite point close to P0
+    (P0_1,P0_2,P0_3,0)
   ,
     (1,0,0,0)
-  )
+  ))
 );
 dgs3dSelectClosest(pts,P,unique->false):=(
   regional(minDist,soln);
@@ -1131,11 +1164,11 @@ dgs3dTryProjectPointToQuadric(P,q,unique->false):=(
     dgs3dSelectClosest(AB,P,unique->unique);
   ,cglUndefinedVal())
 );
-dgs3dFindPointOnQuadric(q):=(
+dgs3dFindPointOnQuadric(q,P0):=(
   regional(P);
-  P = dgs3dTryProjectPointToQuadric((0,0,0,1),q:"coords");
+  P = dgs3dTryProjectPointToQuadric(P0,q:"coords");
   if(!isUndefined(P),P,
-    (0,0,0,1) // TODO: use axes/planes to find real point
+    P0 // TODO: use axes/planes to find real point
   )
 );
 dgs3dTryProjectPointToConic(P,Q,p,unique->false):=(
@@ -1154,13 +1187,13 @@ dgs3dTryProjectPointToConic(P,Q,p,unique->false):=(
   AB = select(dgs3dIntersectQuadricDualLine(Q,dgs3dDualLine(l)),dgs3dIsFiniteRealPoint(#));
   dgs3dSelectClosest(AB,P,unique->unique)
 );
-dgs3dFindPointOnConic(c):=(
+dgs3dFindPointOnConic(c,P0):=(
   regional(q,p,P);
   q = c:"parents"_1:"coords";
   p = c:"parents"_2:"coords";
-  P = dgs3dTryProjectPointToConic((0,0,0,1),q,p);
+  P = dgs3dTryProjectPointToConic(P0,q,p);
   if(!isUndefined(P),P,
-    (0,0,0,1) // TODO: find point in degenerate case
+    P0 // TODO: find point in degenerate case
   )
 );
 dgs3dTryProjectPointToBiQuadric(P,q1,q2,unique->false):=(
@@ -1173,13 +1206,13 @@ dgs3dTryProjectPointToBiQuadric(P,q1,q2,unique->false):=(
     dgs3dSelectClosest(ABCD,P,unique->unique);
   ,cglUndefinedVal())
 );
-dgs3dFindPointOnBiQuadric(q):=(
+dgs3dFindPointOnBiQuadric(q,P0):=(
   regional(q1,q2,P);
   q1 = c:"parents"_1:"coords";
   q2 = c:"parents"_2:"coords";
-  P = dgs3dTryProjectPointToBiQuadric((0,0,0,1),q1,q2);
+  P = dgs3dTryProjectPointToBiQuadric(P0,q1,q2);
   if(!isUndefined(P),P,
-    (0,0,0,1) // TODO: find point in degenerate case
+    P0 // TODO: find point in degenerate case
   )
 );
 // p0: vec4 (x,y,z,w), l: line , size: real = radius, pinned:bool = fixed position, visible: bool = should object be drawn
@@ -1190,16 +1223,9 @@ dgs3dPointOnLine(l,p0,size->cglNada,visible->true,pinned->false,color->cglNada,a
   regional(obj);
   obj = dgs3dNewObject("point","onLine",[l],visible->visible,color->color,alpha->alpha);
   obj:"size" = cglValOrDefault(size,cgl3d.defaults:"sphereSize");
-  obj:"coords" = dgs3dPoint4(p0);
+  obj:"coords" = dgs3dFindPointOnLine(l,dgs3dPoint4(p0));
   obj:"recompute" = lambda(self,
-    regional(p,l,K);
-    // project old-position onto line
-    p = self:"coords";
-    l = dgs3dLineMatrix(self:"parents"_1:"coords");
-    K = transpose(kernel(l));
-    // project P into K
-    p = sum(K,v,(p*v)*v); // kernel always returns orthogonal vectors
-    self:"coords" = dgs3dRP3Normalize(p);
+    self:"coords" = dgs3dProjectPointToLine(self:"coords",self:"parents"_1:"coords");
     DGS3DmOVEoK
   );
   obj:"recompute".(obj);
@@ -1213,10 +1239,10 @@ dgs3dPointOnLine(l,p0,size->cglNada,visible->true,pinned->false,color->cglNada,a
   obj
 );
 pointOnLine3d(l,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
-  dgs3dPointOnLine(l,dgs3dFindPointOnLine(l),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
+  dgs3dPointOnLine(l,(0,0,0,1),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
 );
 dgs3dPointOnLine(l,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
-  dgs3dPointOnLine(l,dgs3dFindPointOnLine(l),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
+  dgs3dPointOnLine(l,(0,0,0,1),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
 );
 // p0: vec3|vec4 = (x,y,z,w=1), s: plane , size: real = radius, pinned:bool = fixed position, visible: bool = should object be drawn
 pointOnPlane3d(s,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
@@ -1226,16 +1252,9 @@ dgs3dPointOnPlane(s,p0,size->cglNada,visible->true,pinned->false,color->cglNada,
   regional(obj);
   obj = dgs3dNewObject("point","onPlane",[s],visible->visible,color->color,alpha->alpha);
   obj:"size" = cglValOrDefault(size,cgl3d.defaults:"sphereSize");
-  obj:"coords" = dgs3dPoint4(p0);
+  obj:"coords" = dgs3dFindPointOnPlane(s,dgs3dPoint4(p0));
   obj:"recompute" = lambda(self,
-    regional(p4,p,s,n);
-    // project old-position onto plane
-    p4 = self:"coords";
-    p = p4_(1..3)/p4_4;
-    s = self:"parents"_1:"coords";
-    n = s_(1..3);
-    p = p - n*(s_4+p*n)/(n*n);
-    self:"coords" = (p_1,p_2,p_3,1);
+    self:"coords" = dgs3dProjectPointToPlane(self:"coords",self:"parents"_1:"coords");
     DGS3DmOVEoK
   );
   obj:"recompute".(obj);
@@ -1249,10 +1268,10 @@ dgs3dPointOnPlane(s,p0,size->cglNada,visible->true,pinned->false,color->cglNada,
   obj
 );
 pointOnPlane3d(s,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
-  dgs3dPointOnPlane(s,dgs3dFindPointOnPlane(s),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
+  dgs3dPointOnPlane(s,(0,0,0,1),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
 );
 dgs3dPointOnPlane(s,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
-  dgs3dPointOnPlane(s,dgs3dFindPointOnPlane(s),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
+  dgs3dPointOnPlane(s,(0,0,0,1),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
 );
 // p0: vec3|vec4 = (x,y,z,w=1), q: quadric , size: real = radius, pinned:bool = fixed position, visible: bool = should object be drawn
 pointOnQuadric3d(q,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
@@ -1268,7 +1287,7 @@ dgs3dPointOnQuadric(q,p0,size->cglNada,visible->true,pinned->false,color->cglNad
   regional(obj);
   obj = dgs3dNewObject("point","onQuadric",[q],visible->visible,color->color,alpha->alpha);
   obj:"size" = cglValOrDefault(size,cgl3d.defaults:"sphereSize");
-  obj:"coords" = dgs3dPoint4(p0);
+  obj:"coords" = dgs3dFindPointOnQuadric(q,dgs3dPoint4(p0));
   obj:"recompute" = lambda(self,
     regional(p,Q,n,l,AB,a,b,ab);
     P = self:"coords";
@@ -1286,10 +1305,10 @@ dgs3dPointOnQuadric(q,p0,size->cglNada,visible->true,pinned->false,color->cglNad
   obj
 );
 pointOnQuadric3d(q,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
-  dgs3dPointOnQuadric(q,dgs3dFindPointOnQuadric(q),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
+  dgs3dPointOnQuadric(q,(0,0,0,1),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
 );
 dgs3dPointOnQuadric(q,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
-  dgs3dPointOnQuadric(q,dgs3dFindPointOnQuadric(q),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
+  dgs3dPointOnQuadric(q,(0,0,0,1),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
 );
 // p0: vec3|vec4 = (x,y,z,w=1), q: conic , size: real = radius, pinned:bool = fixed position, visible: bool = should object be drawn
 pointOnConic3d(q,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
@@ -1299,7 +1318,7 @@ dgs3dPointOnConic(q,p0,size->cglNada,visible->true,pinned->false,color->cglNada,
   regional(obj);
   obj = dgs3dNewObject("point","onConic",[q],visible->visible,color->color,alpha->alpha);
   obj:"size" = cglValOrDefault(size,cgl3d.defaults:"sphereSize");
-  obj:"coords" = dgs3dPoint4(p0);
+  obj:"coords" = dgs3dFindPointOnConic(q,dgs3dPoint4(p0));
   obj:"recompute" = lambda(self,
     regional(P,P3,Qp,Q,p,np,nq);
     P = self:"coords";
@@ -1317,10 +1336,10 @@ dgs3dPointOnConic(q,p0,size->cglNada,visible->true,pinned->false,color->cglNada,
   obj
 );
 pointOnConic3d(c,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
-  dgs3dPointOnConic(c,dgs3dFindPointOnConic(c),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
+  dgs3dPointOnConic(c,(0,0,0,1),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
 );
 dgs3dPointOnConic(c,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
-  dgs3dPointOnConic(c,dgs3dFindPointOnConic(c),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
+  dgs3dPointOnConic(c,(0,0,0,1),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
 );
 // p0: vec3|vec4 = (x,y,z,w=1), q: bi-quadric-curve , size: real = radius, pinned:bool = fixed position, visible: bool = should object be drawn
 pointOnBiQuadric3d(q,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
@@ -1330,7 +1349,7 @@ dgs3dPointOnBiQuadric(q,p0,size->cglNada,visible->true,pinned->false,color->cglN
   regional(obj);
   obj = dgs3dNewObject("point","onBiQuadric",[q],visible->visible,color->color,alpha->alpha);
   obj:"size" = cglValOrDefault(size,cgl3d.defaults:"sphereSize");
-  obj:"coords" = dgs3dPoint4(p0);
+  obj:"coords" = dgs3dFindPointOnBiQuadric(q,dgs3dPoint4(p0));
   obj:"recompute" = lambda(self,
     regional(oldP,P,QR,Q,R,p,q,r,n,ABCD,dsts);
     oldP = P = self:"coords";
@@ -1348,10 +1367,10 @@ dgs3dPointOnBiQuadric(q,p0,size->cglNada,visible->true,pinned->false,color->cglN
   obj
 );
 pointOnBiQuadric3d(q,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
-  dgs3dPointOnBiQuadric(q,dgs3dFindPointOnBiQuadric(q),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
+  dgs3dPointOnBiQuadric(q,(0,0,0,1),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
 );
 dgs3dPointOnBiQuadric(q,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
-  dgs3dPointOnBiQuadric(q,dgs3dFindPointOnBiQuadric(q),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
+  dgs3dPointOnBiQuadric(q,(0,0,0,1),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
 );
 
 // p1: plane, p2: plane|line, size:real = radius, visible: bool = should object be drawn
@@ -1503,8 +1522,7 @@ dgs3dTracePointPair(self,AB):=(
       self:"children"_2:"coords" = AB_2;
       DGS3DmOVEoK
   ,
-    // TODO retry if distance between points smaller that distance to new points
-    // * find good way to detect if points are too close to each other
+    // TODO find good way to detect if points are too close to each other
     //  cindy-classic uses d(oldA,oldB)* s > d(oldA,newA)+d(oldB,newB)
     d11 = dgs3dProjDistanceSq(AB_1,oldA);
     d12 = dgs3dProjDistanceSq(AB_1,oldB);
@@ -1657,7 +1675,6 @@ dgs3dMeetCL(C,l,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
     dgs3dTracePointPair(self,AB);
   ),size->size,visible->visible,color->color,alpha->alpha);
 );
-// TODO: check if results are correct in all cases
 dgs3dIntersectionsQQP(Q1,Q2,p):=(
   regional(T,S,A,B,pts2D);
   T = dgs3dMapPinfTo(p);
@@ -2517,6 +2534,7 @@ dgs3dMidpoint(p1,p2,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=
 );
 // mirror x at y
 mirror3d(x,y,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  // ? decompose mirror: -> 1. compute trafo for operation, 2. apply trafo to object (O(n+m) cases instead O(nm))
   if(x.type == "point" & y.type == "plane",
     dgs3dMirrorPtPl(x,y,size->size,visible->visible,color->color,alpha->alpha)
   // TODO: pt at line, pt at pt, plane at plane, plane at line, plane at pt, line at ...
@@ -2735,7 +2753,7 @@ dgs3dComputeComposeMobiusInverse(M1,a1,c1,M0,a0,c0):=(
     // S*T^-1(p) = inf -> p = T(S^-1(inf)) = T(a1)
     p = M0*(a1-a0)/((a1-a0)*(a1-a0))+c0; // p = T(a1) -> S*T^-1(p) = S(a1)  = inf
     q = M1*(a0-a1)/((a0-a1)*(a0-a1))+c1; // S(a0) = S*T^-1(inf)
-    // compute (S*T^-1(e_i+p)) -q to get columns of L // TODO? is there a simpler equation
+    // compute (S*T^-1(e_i+p)) -q to get columns of L // TODO? is there a simple equation
     L = transpose(apply(((1,0,0,1),(0,1,0,1),(0,0,1,1)),x,
       regional(p1,p2);
       p1 = dgs3dComputeApplyMobiusTrafo((transpose(M0),c0,a0),x+(p_1,p_2,p_3,0));
@@ -3103,7 +3121,6 @@ dgs3dTransformTrafo(T,S):=(
 );
 
 // TODO: ? support redefining objects
-// TODO: ? should failure to trace child prevent movement of parent
 
 // TODO: test-cases for:
 // * quadric by 9 planes
@@ -3111,9 +3128,7 @@ dgs3dTransformTrafo(T,S):=(
 // * load/store
 // * delete
 
-// TODO? support finding different object kinds
-// ? general find (matches any object)
-// ? find restricted to certain kinds of objecst (e.g find point or line)
+// TODO? find restricted to certain kinds of objecst (e.g find point or line)
 dgs3dFindPointDist = (pt,root,dir) => (
   regional(center,radius);
   center = cgl3dObjectGet(cgl3d.getObject.(pt:"drawId"),"center");
