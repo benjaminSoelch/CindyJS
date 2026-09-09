@@ -27,13 +27,15 @@
             cgl3d.defaults:"sphereSize" = 0.1;
             cgl3d.defaults:"cylinderSize" = 0.05;
 
-            A = point3d((1,0,0));
-            B = point3d((0,1,0));
-            C = point3d((0,0,1));
+            A = randomPoint3d();
+            B = randomPoint3d();
+            C = randomPoint3d();
             p = join3d(A,B,C);
-            D = pointOnPlane3d(p,(1,1,1));
-            E = pointOnPlane3d(p,(-1,0,1));
-            C = conicBy5Points(A,B,C,D,E);
+            D = randomPoint3dOn(p);
+            E = randomPoint3dOn(p);
+            c = conicBy5(A,B,C,D,E);
+            X = randomPoint3d();
+            q = dgs3dConeByConicPoint(c,X);
         </script>
         <script id="csdraw" type="text/x-cindyscript">
             dgs3dPreFrame();

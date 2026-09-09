@@ -982,8 +982,26 @@ dgs3dFreePoint(p,
   );
   obj
 );
-randomPoint3d(size->cgl3d.defaults:"sphereSize",pinned->false,visible->true,color->cglNada,alpha->cglNada):=(
+randomPoint3d(size->cglNada,pinned->false,visible->true,color->cglNada,alpha->cglNada):=(
   point3d((randomNormal(),randomNormal(),randomNormal()),size->size,pinned->pinned,visible->visible,color->color,alpha->alpha);
+);
+randomPoint3dOn(obj,size->cglNada,pinned->false,visible->true,color->cglNada,alpha->cglNada):=(
+  regional(P0);
+  P0 = (randomNormal(),randomNormal(),randomNormal(),1);
+  // TODO: better way to choose random initial point on ...
+  if(obj.type == "line",
+    pointOnLine3d(obj,P0,size->size,pinned->pinned,visible->visible,color->color,alpha->alpha);
+  ,if(obj.type == "plane",
+    pointOnPlane3d(obj,P0,size->size,pinned->pinned,visible->visible,color->color,alpha->alpha);
+  ,if(obj.type == "quadric",
+    pointOnQuadric3d(obj,P0,size->size,pinned->pinned,visible->visible,color->color,alpha->alpha);
+  ,if(obj.type == "conic",
+    pointOnConic3d(obj,P0,size->size,pinned->pinned,visible->visible,color->color,alpha->alpha);
+  ,if(obj.type == "biquadric",
+    pointOnBiQuadric3d(obj,P0,size->size,pinned->pinned,visible->visible,color->color,alpha->alpha);
+  ,
+    cglLogError("random point on "+obj.type+" is not supported");
+  )))))
 );
 
 // p: vec6 = (l11,l12,l13,l14,l23,l24,l34) , visible: bool = should object be drawn
@@ -2330,6 +2348,26 @@ dgs3dBiQuadric8points(pts,size->cglNada,visible->true,color->cglNada,alpha->cglN
     self:"coords" = dgs3dComputeBiQuadricBy8(pts);
     DGS3DmOVEoK
   ),size->size,visible->visible,color->color,alpha->alpha,isCircle->false);
+);
+dgs3dConeByConicPoint(c,P,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewQuadric("coneByConicPoint",[c,P],lambda(self,
+    regional(q,p,T,A,P,v,x);
+    [q,p] = self:"parents"_1:"coords";
+    T = dgs3dMapPinfTo(p);
+    P = self:"parents"_2:"coords";
+    P = T*P;
+    P = P/P_4;
+    A = T*q*transpose(T);
+    A = apply(A_(1..3),#_(1..3));
+    x = P_(1..3);
+    v = -A * x;
+    self:"coords" = transpose(T)*(
+      (A_1_1,A_1_2,A_1_3,v_1),
+      (A_2_1,A_2_2,A_2_3,v_2),
+      (A_3_1,A_3_2,A_3_3,v_3),
+      (v_1,v_2,v_3,x*A*x))*T;
+    DGS3DmOVEoK
+  ),visible->visible,color->color,alpha->alpha,isSphere->true);
 );
 
 dgs3dComputeQuadricSymmetryPlanes(Q):=(
