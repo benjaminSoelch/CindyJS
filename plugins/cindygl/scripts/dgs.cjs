@@ -209,6 +209,8 @@ dgs3dTracePointRec(p,newCoords,level,prevV):=(
   if(dgs3dTryRecomputeChildren(p) & dgs3d.doTracing,
     dgs3dResetChildren(p);
     // TODO: find good detour path if direct movement fails
+    // ! need consistent choice to preserve theorems
+    // ! choose path that is homotopy-equivalent to straight line
     step = 1;
     mid = newCoords;
     while(
@@ -3297,7 +3299,7 @@ DGS3DaLGORITHMS = {
   "trafoBy5Pt": lambda((As,Bs),dgs3dTransformBy5P(As,Bs)),
   "affineTrafoBy4Pt": lambda((As,Bs),dgs3dAffineTransformBy4P(As,Bs)),
   "mobiusTransform": lambda((mTrafo,x),dgs3dTransform(mTrafo,x)),
-  "transform": lambda((trafo,x),dgs3dTransform(trafo,x)),
+  "transform": lambda((trafo,x),dgs3dTransform(trafo,x))
 };
 dgs3dNormalizeModifiers(obj3d):=(
   obj3d.color = cglColor(obj3d.color);
