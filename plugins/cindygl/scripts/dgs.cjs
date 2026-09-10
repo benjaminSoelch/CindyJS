@@ -583,9 +583,6 @@ dgs3dLoad(values):=(
 
 // obj3d = {type: string, algorithm: string, id: string, coords: [number], visible: bool, size: real, color: vec3, alpha: real}
 
-// TODO? support running algorithm by name
-// * dgs3dCreate(algorithm:"string",args:[obj3d])
-
 // TODO? add additional fields
 // + name: string -> unique identifier for object
 // + defined incidences / deduced incidences
@@ -970,7 +967,7 @@ dgs3dFreePoint(p,
   color->cglNada,alpha->cglNada
 ):=(
   regional(obj);
-  obj = dgs3dNewObject("point","free",[],visible->visible,color->color,alpha->alpha);
+  obj = dgs3dNewObject("point","freePoint",[],visible->visible,color->color,alpha->alpha);
   obj:"coords" = dgs3dRP3Normalize(dgs3dPoint4(p));
   obj:"size" = cglValOrDefault(size,cgl3d.defaults:"sphereSize");
   dgs3dRenderPoint(obj);
@@ -1006,11 +1003,11 @@ randomPoint3dOn(obj,size->cglNada,pinned->false,visible->true,color->cglNada,alp
 
 // p: vec6 = (l11,l12,l13,l14,l23,l24,l34) , visible: bool = should object be drawn
 line3d(l,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dFreePlane(l,size->size,visible->visible,color->color,alpha->alpha);
+  dgs3dFreeLine(l,size->size,visible->visible,color->color,alpha->alpha);
 );
 dgs3dFreeLine(l,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   regional(obj);
-  obj = dgs3dNewObject("line","free",[],visible->visible,color->color,alpha->alpha);
+  obj = dgs3dNewObject("line","freeLine",[],visible->visible,color->color,alpha->alpha);
   obj:"coords" = dgs3dRP3Normalize(l);
   obj:"size" = cglValOrDefault(size,cgl3d.defaults:"cylinderSize");
   dgs3dRenderLine(obj);
@@ -1023,7 +1020,7 @@ plane3d(p,visible->true,color->cglNada,alpha->cglNada):=(
 );
 dgs3dFreePlane(p,visible->true,color->cglNada,alpha->cglNada):=(
   regional(obj);
-  obj = dgs3dNewObject("plane","free",[],visible->visible,color->color,alpha->alpha);
+  obj = dgs3dNewObject("plane","freePlane",[],visible->visible,color->color,alpha->alpha);
   obj:"coords" = dgs3dRP3Normalize(p);
   dgs3dRenderPlane(obj);
   obj
@@ -1034,7 +1031,7 @@ quadric3d(M,visible->true,color->cglNada,alpha->cglNada):=(
 );
 dgs3dFreeQuadric(M,visible->true,color->cglNada,alpha->cglNada):=(
   regional(obj);
-  obj = dgs3dNewObject("quadric","free",[],visible->visible,color->color,alpha->alpha);
+  obj = dgs3dNewObject("quadric","freeQuadric",[],visible->visible,color->color,alpha->alpha);
   obj:"coords" = dgs3dRP3Normalize(M+transpose(M));
   dgs3dRenderQuadric(obj);
   obj
@@ -1771,7 +1768,7 @@ dgs3dPnormalize(p):=(
   p_(1..n)
 );
 dgs3dPmul(a,b):=(
-  if(islist(a) & islist(b),
+  if(isList(a) & isList(b),
     dgs3dPnormalize(
       apply(2..(length(a)+length(b)),s,sum(max(1,s-length(b))..(min(length(a),s-1)),i,a_i*b_(s-i)))
     )
@@ -2532,7 +2529,7 @@ dgs3dOrthogonal2L(l1,l2,size->cglNada,visible->true,color->cglNada,alpha->cglNad
   ),size->size,visible->visible,color->color,alpha->alpha);
 );
 // p1,p2: point => point; size:real = radius, visible: bool = should object be drawn, delta: real -> distance at which point should be draw, default is 0.5
-dgs3dMidpoint(p1,p2,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+dgs3dMidpoint(p1,p2,delta->cglNada,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   if(isUndefined(delta),
     dgs3dNewPoint("midpoint",[p1,p2],lambda(self,
       regional(p1,p2);
@@ -2726,7 +2723,7 @@ transformation3d(M):=(
 );
 dgs3dFreeTransformation(M):=(
   regional(obj);
-  obj = dgs3dNewObject("transform","free",[]);
+  obj = dgs3dNewObject("transform","freeTransform",[]);
   obj:"coords" = M;
   obj
 );
@@ -3158,13 +3155,103 @@ dgs3dTransformTrafo(T,S):=(
   ))
 );
 
-// TODO: ? support redefining objects
+////////////////
+// run by name
+////////////////
 
-// TODO: test-cases for:
-// * quadric by 9 planes
-// * transformations
-// * load/store
-// * delete
+DGS3DaLGORITHMS = {
+  // projective
+  "freePoint": lambda((coords),dgs3dFreePoint(coords)),
+  "freeLine": lambda((coords),dgs3dFreeLine(coords)),
+  "freePlane": lambda((coords),dgs3dFreePlane(coords)),
+  "freeQuadric": lambda((coords),dgs3dFreePlane(coords)),
+  "onLine": lambda((line,initPoint),dgs3dPointOnLine(line,initPoint)),
+  "onPlane": lambda((plane,initPoint),dgs3dPointOnPlane(plane,initPoint)),
+  "onQuadric": lambda((quadric,initPoint),dgs3dPointOnQuadric(quadric,initPoint)),
+  "onConic": lambda((conic,initPoint),dgs3dPointOnConic(conic,initPoint)),
+  "onBiQuadric": lambda((biQuadric,initPoint),dgs3dPointOnBiQuadric(biQuadric,initPoint)),
+  "joinPP": lambda((point1,point2),dgs3dJoin2P(point1,point2)),
+  "joinPL": lambda((point,line),dgs3dJoinPL(point,line)),
+  "join3P": lambda((point1,point2,point3),dgs3dJoin3P(point1,point2,point3)),
+  "meetPP": lambda((plane1,plane2),dgs3dMeet2P(plane1,plane2)),
+  "meetPL": lambda((plane,line),dgs3dMeetPL(plane,line)),
+  "meet3P": lambda((plane1,plane2,plane3),dgs3dMeet2P(plane1,plane2,plane3)),
+  // projective-coplanar
+  "joinLL": lambda((line1,line2),dgs3dJoin2L(line1,line2)),
+  "meetLL": lambda((line1,line2),dgs3dMeet2L(line1,line2)),
+  // quadrics
+  "join3L": lambda((line1,line2,line3),dgs3dJoin3L(line1,line2,line3)),
+  "quadricBy9Pt": lambda((points),dgs3dQuadric9point(points)),
+  "quadricBy9Pl": lambda((planes),dgs3dQuadric9plane(planes)),
+  "sphere4P": lambda((point1,point2,point3,point4),dgs3dSphere4points(point1,point2,point3,point4)),
+  "sphere2P": lambda((midPoint,radiusPoint),dgs3dSphere2P(midPoint,radiusPoint)),
+  "meetQL": lambda((quadric,line),dgs3dMeetQL(quadric,line)),
+  "meetQP": lambda((quadric,plane),dgs3dMeetQP(quadric,plane)),
+  "meetQQ": lambda((quadric1,quadric2),dgs3dMeet2Q(quadric1,quadric2)),
+  "meetQPP": lambda((quadric,plane1,plane2),dgs3dMeetQpp(quadric,plane1,plane2)),
+  "meetQQP": lambda((quadric1,quadric2,plane),dgs3dMeetQQp(quadric1,quadric2,plane)),
+  "meet3Q": lambda((quadric1,quadric2,quadric3),dgs3dMeet3Q(quadric1,quadric2,quadric3)),
+  "polarPt": lambda((quadric,plane),dgs3dPolarPoint(quadric,plane)),
+  "polarLn": lambda((quadric,line),dgs3dPolarLine(quadric,line)),
+  "polarPl": lambda((quadric,point),dgs3dPolarPlane(quadric,point)),
+  "quadricLines": lambda((quadric,point),dgs3dQuadricLines(quadric,point)),
+  "completeCayleyOctent": lambda((points),dgs3dCompleteCayleyOctent(points)),
+  // conics/biquadrics
+  "circleBy3P": lambda((point1,point2,point3),dgs3dCircle3points(point1,point2,point3)),
+  "biQuadricBy8": lambda((points),dgs3dBiQuadric8points(points)),
+  "coneByConicPoint": lambda((conic,point),dgs3dConeByConicPoint(conic,point)),
+  "meetCP": lambda((conic,plane),dgs3dMeetCP(conic,plane)),
+  "meetQC": lambda((quadric,conic),dgs3dMeetQuadricConic(quadric,conic)),
+  "meetBP": lambda((biQuadric,plane),dgs3dMeetBiQuadricPlane(biQuadric,plane)),
+  "meetBQ": lambda((biQuadric,quadric),dgs3dMeetBiQuadricQuadric(biQuadric,quadric)),
+  "biQuadricPolarLn": lambda((biQuadric,point),dgs3dBiQuadricPolarLine(biQuadric,point)),
+  // conic-coplanar
+  "conicBy5P": lambda((point1,point2,point3,point4,point5),dgs3dConic5points(point1,point2,point3,point4,point5)),
+  "conicBy5L": lambda((line2,line2,line3,line4,line5),dgs3dConic5points(line2,line2,line3,line4,line5)),
+  "meetCL": lambda((conic,line),dgs3dMeetCL(conic,line)),
+  "conicPolarPt": lambda((conic,line),dgs3dConicPolarPoint(conic,line)),
+  "conicPolarLn": lambda((conic,point),dgs3dConicPolarLine(conic,point)),
+  // euclidean
+  "midpoint": lambda((point1,point2),dgs3dMidpoint(point1,point2)),
+  "midpoint3": lambda((point1,point2,ratio),dgs3dMidpoint(point1,point2,delta->ratio)),
+  "mirrorPtPl": lambda((point,mirrorPlane),dgs3dMirrorPtPl(point,mirrorPlane)),
+  "parallelLine": lambda((line,throughPoint),dgs3dParallelLine(line,throughPoint)),
+  "parallelPlane": lambda((plane,throughPoint),dgs3dParallelPlane(plane,throughPoint)),
+  "parallel2L": lambda((line,throughLine),dgs3dParallel2L(line,throughLine)),
+  "orthogonalLine": lambda((plane,throughPoint),dgs3dOrthogonalLine(plane,throughPoint)),
+  "orthogonalPlane": lambda((line,throughPoint),dgs3dOrthogonalPlane(line,throughPoint)),
+  "orthogonalPlaneLine": lambda((plane,throughLine),dgs3dOrthogonalPL(plane,throughLine)),
+  "orthogonal2L": lambda((line1,line2),dgs3dOrthogonal2L(line1,line2)),
+  // euclidean-quadric
+  "quadricCenter": lambda((quadric),dgs3dQuadricCenter(quadric)),
+  "quadricAxes": lambda((quadric),dgs3dQuadricAxes(quadric)),
+  "quadricPlanes": lambda((quadric),dgs3dQuadricPlanes(quadric)),
+  // transformations
+  "mobiusTrafoBy4Pt": lambda((As,Bs),dgs3dMobiusTransformBy4P(As,Bs)),
+  "trafoBy5Pt": lambda((As,Bs),dgs3dTransformBy5P(As,Bs)),
+  "affineTrafoBy4Pt": lambda((As,Bs),dgs3dAffineTransformBy4P(As,Bs)),
+  "mobiusTransform": lambda((mTrafo,x),dgs3dTransform(mTrafo,x)),
+  "transform": lambda((trafo,x),dgs3dTransform(trafo,x)),
+};
+dgs3dNormalizeModifiers(obj3d):=(
+  obj3d.color = cglColor(obj3d.color);
+  obj3d.redraw.(obj3d);
+  obj3d
+);
+dsg3dSetModifiers(obj3d,modifiers):=(
+  if(!isJSON(obj3d),obj3d,
+    apply(modifiers,v,k,obj3d:k = modifiers:k);
+    dgs3dNormalizeModifiers(obj3d)
+  );
+);
+// algorithm: string, args: list, modifiers: JSON
+dgs3dCreate(algorithm,args,modifs):=(
+  dsg3dSetModifiers(eval(DGS3DaLGORITHMS:algorithm,args),modifs);
+);
+
+////////////////
+// find
+////////////////
 
 // TODO? find restricted to certain kinds of objecst (e.g find point or line)
 dgs3dFindPointDist = (pt,root,dir) => (
@@ -3229,3 +3316,11 @@ dgs3dFind(x,y,searchSpace):=(
   );
   res
 );
+
+// TODO: ? support redefining objects (? modifier on creator functions, do dependency-tree update in newObject)
+
+// TODO: test-cases for:
+// * quadric by 9 planes
+// * transformations
+// * load/store
+// * delete
