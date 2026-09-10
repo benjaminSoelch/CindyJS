@@ -238,6 +238,7 @@ dgs3dTracePointRec(p,newCoords,level,prevV):=(
 ////////////////
 // Tensor Math
 ////////////////
+idmatrix(n):=(apply(zeromatrix(n,n),#,i,#_i=1;#));
 
 // a:vec4, b: vec4  => vec6
 dgs3dEpsilon44(a,b):=(
@@ -2567,42 +2568,106 @@ dgs3dMidpoint(p1,p2,delta->cglNada,size->cglNada,visible->true,color->cglNada,al
     ),size->size,visible->visible,color->color,alpha->alpha);
   );
 );
+// trafo for mirroring at x
+// point|line|plane -> trafo, sphere -> mTrafo
+dgs3dMirrorAt(x):=(
+  if(x.type == "point",
+    dgs3dMirrorAtPoint(x);
+  ,if(x.type == "line",
+    dgs3dMirrorAtLine(x);
+  ,if(x.type == "plane",
+    dgs3dMirrorAtPlane(x);
+  ,if(x.type == "quadric" & x.isSphere == true,
+    dgs3dMirrorAtSphere(x);
+  ,
+    cglLogError("cannot mirror at "+x.type);
+  ))));
+);
+dgs3dMirrorAtPoint(P):=(
+  dgs3dNewTrafo("mirrorAtPoint",[P],lambda(self,
+    regional(P);
+    P = self:"parents"_1:"coords";
+    v = 2*P;
+    self:"coords" = dgs3dRP3Normalize(((-P_4,0,0,v_1),(0,-P_4,0,v_2),(0,0,-P_4,v_3),(0,0,0,P_4)));
+    DGS3DmOVEoK
+  ));
+);
+dgs3dMirrorAtLine(l):=(
+  dgs3dNewTrafo("mirrorAtLine",[l],lambda(self,
+    regional(l,P,d);
+    l = self:"parents"_1:"coords";
+    v = dgs3dLineDirection(l);
+    P = dgs3dEpsilon46((v_1,v_2,v_3,0),l); // project (0,0,0,1) to line
+    P = P_(1..3)/P_4;
+    N = 2*transpose([v])*[v]/(v*v)-idmatrix(3);
+    d = P - N*P;
+    self:"coords" = ((N_1_1,N_1_2,N_1_3,d_1),
+                     (N_2_1,N_2_2,N_2_3,d_2),
+                     (N_3_1,N_3_2,N_3_3,d_3),
+                     (0,0,0,1));
+    DGS3DmOVEoK
+  ));
+);
+dgs3dMirrorAtPlane(p):=(
+  dgs3dNewTrafo("mirrorAtPlane",[p],lambda(self,
+    regional(p,n,I3,N,d,v);
+    p = self:"parents"_1:"coords";
+    // x -> x - 2 (d+<x,n>/<n,n>)n
+    n = p_(1..3);
+    d = p_4;
+    N = idmatrix(3)-2*transpose([n])*[n]/(n*n);
+    v = -2*d*n/(n*n);
+    self:"coords" = ((N_1_1,N_1_2,N_1_3,v_1),
+                     (N_2_1,N_2_2,N_2_3,v_2),
+                     (N_3_1,N_3_2,N_3_3,v_3),
+                     (0,0,0,1));
+    DGS3DmOVEoK
+  ));
+);
+dgs3dMirrorAtSphere(s):=(
+  dgs3dNewMobiusTrafo("mirrorAtSphere",[s],lambda(self,
+    regional(s,M,r);
+    s = self:"parents"_1:"coords";
+    [M,rsq] = dgs3dSphereToMidpointSqRadius(s);
+    self:"coords" = [rsq*idmatrix(3),M,M];
+    DGS3DmOVEoK
+  ));
+);
 // mirror x at y
 mirror3d(x,y,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  // ? decompose mirror: -> 1. compute trafo for operation, 2. apply trafo to object (O(n+m) cases instead O(nm))
-  if(x.type == "point" & y.type == "plane",
-    dgs3dMirrorPtPl(x,y,size->size,visible->visible,color->color,alpha->alpha)
-  // TODO: pt at line, pt at pt, plane at plane, plane at line, plane at pt, line at ...
-  // TODO? mirror quadric, mirror at quadric
-  ,
-    cglLogError("cannot mirror "+x.type+" at "+y.type);
-  )
+  dgs3dMirror(x,y,size->size,visible->visible,color->color,alpha->alpha);
 );
-// p: point, P:plane => point; size:real = radius, visible: bool = should object be drawn, delta: real -> distance at which point should be draw, default is 0.5
-dgs3dMirrorPtPl(p,P,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewPoint("mirrorPtPl",[p,P],lambda(self,
-    regional(p,P,p0,n,p1);
-    p = self:"parents"_1:"coords";
-    P = self:"parents"_2:"coords";
-    p0 = p_(1..3);
-    n = P_(1..3);
-    p1 = p0 - 2*((P_4+(p0*n))/(n*n))*n;
-    self:"coords" = dgs3dRP3Normalize((p1_1,p1_2,p1_3,p_4));
-    DGS3DmOVEoK
-  ),size->size,visible->visible,color->color,alpha->alpha);
+dgs3dMirror(x,y,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dTransform(dgs3dMirrorAt(y),x,size->size,visible->visible,color->color,alpha->alpha)
 );
 
+dsg3dComputeSphereBy4Points(pts):=(
+  regional(b,v);
+  b = apply(pts,-(|#_(1..3)|^2));
+  v = linearSolve(apply(pts,#*#_4),b);
+  [[1,0,0,0.5*v_1],[0,1,0,0.5*v_2],[0,0,1,0.5*v_3],[0.5*v_1,0.5*v_2,0.5*v_3,v_4]]
+);
+dsg3dComputeSphereBy2Points(M,R):=(
+  regional(v,r);
+  v = (M_4*R_(1..3)/R_4-M_(1..3));
+  r = v*v;
+  [[M_4,0,0,-M_1],[0,M_4,0,-M_2],[0,0,M_4,-M_3],[-M_1,-M_2,-M_3,(M_1^2+M_2^2+M_3^2-r)/M_4]]
+);
+dgs3dSphereToMidpointSqRadius(S):=(
+  regional(M,r);
+  // S = a * (I, -v; -v, v*v-r^2)
+  S = S/S_1_1;
+  M = -S_4_(1..3);
+  r = M*M - S_4_4;
+  [M,r];
+);
 // A,B,C,D: point => quadric, visible: bool = should object be drawn
 sphere3d(A,B,C,D,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dSphere4points(A,B,C,D,visible->visible,color->color,alpha->alpha);
 );
 dgs3dSphere4points(A,B,C,D,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dNewQuadric("sphere4P",[A,B,C,D],lambda(self,
-    regional(pts,A,b,v,c);
-    pts = apply(self:"parents",#:"coords");
-    b = apply(pts,-(|#_(1..3)|^2));
-    v = linearSolve(apply(pts,#*#_4),b);
-    self:"coords" = [[1,0,0,0.5*v_1],[0,1,0,0.5*v_2],[0,0,1,0.5*v_3],[0.5*v_1,0.5*v_2,0.5*v_3,v_4]];
+    self:"coords" = dsg3dComputeSphereBy4Points(apply(self:"parents",#:"coords"));
     DGS3DmOVEoK
   ),visible->visible,color->color,alpha->alpha,isSphere->true);
 );
@@ -2612,11 +2677,9 @@ sphere3dMR(M,R,visible->true,color->cglNada,alpha->cglNada):=(
 );
 dgs3dSphere2P(M,R,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dNewQuadric("sphere2P",[M,R],lambda(self,
-    regional(M,R,v,r);
+    regional(M,R);
     [M,R] = apply(self:"parents",#:"coords");
-    v = (M_4*R_(1..3)/R_4-M_(1..3));
-    r = v*v;
-    self:"coords" = [[M_4,0,0,-M_1],[0,M_4,0,-M_2],[0,0,M_4,-M_3],[-M_1,-M_2,-M_3,(M_1^2+M_2^2+M_3^2-r)/M_4]];
+    self:"coords" = dsg3dComputeSphereBy2Points(M,R);
     DGS3DmOVEoK
   ),visible->visible,color->color,alpha->alpha,isSphere->true);
 );
@@ -3045,7 +3108,7 @@ dgs3dMobiusTransformQuadric(T,q,visible->true,color->cglNada,alpha->cglNada):=(
 transform3d(T,x,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dTransform(T,x,size->size,visible->visible,color->color,alpha->alpha);
 );
-dgs3dTransform(Q,x,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+dgs3dTransform(T,x,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   if(T.type == "transform",
     if(x:"type" == "point",
       dgs3dTransformPoint(T,x,size->size,visible->visible,color->color,alpha->alpha);
@@ -3214,7 +3277,10 @@ DGS3DaLGORITHMS = {
   // euclidean
   "midpoint": lambda((point1,point2),dgs3dMidpoint(point1,point2)),
   "midpoint3": lambda((point1,point2,ratio),dgs3dMidpoint(point1,point2,delta->ratio)),
-  "mirrorPtPl": lambda((point,mirrorPlane),dgs3dMirrorPtPl(point,mirrorPlane)),
+  "mirrorAtPoint": lambda((point),dgs3dMirrorAtPoint(point)),
+  "mirrorAtLine": lambda((line),dgs3dMirrorAtLine(line)),
+  "mirrorAtPlane": lambda((plane),dgs3dMirrorAtPlane(plane)),
+  "mirrorAtSphere": lambda((sphere),dgs3dMirrorAtSphere(sphere)),
   "parallelLine": lambda((line,throughPoint),dgs3dParallelLine(line,throughPoint)),
   "parallelPlane": lambda((plane,throughPoint),dgs3dParallelPlane(plane,throughPoint)),
   "parallel2L": lambda((line,throughLine),dgs3dParallel2L(line,throughLine)),
