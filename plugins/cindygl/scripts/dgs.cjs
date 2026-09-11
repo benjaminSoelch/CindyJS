@@ -175,7 +175,9 @@ dgs3dTryRecomputeChildren(obj):=(
       retry = retry % dgs3dTryRecomputeChildren(child);
     );
     // TODO? avoid duplicate work:
-    // * if tracing subtree was successful ignore that subtree for subsequent recalculations
+    // * skip determined subtrees while tracing, recompute after tracing is done
+    // ? prioritize recalculation of children that went wrong on previous attempt
+    // ? if tracing subtree was successful ignore that subtree for subsequent recalculations
     // ?? remember coordinates at end-position when computing intermediate step(s)
     obj.resetChildren = true;
     retry
@@ -501,6 +503,19 @@ jsonRemove(dir,key):=(
   )
 );
 
+dgs3dCheckChildrenDeterministic(obj):=(
+  min(obj.children,#.type != "set" % #.childrenDeterministic)
+);
+dgs3dRecomputeChildrenDeterministic(obj):=(
+  forall(obj.parents,
+    if(!#.childrenDeterministic,
+      if(dgs3dCheckChildrenDeterministic(#),
+        #.childrenDeterministic = true;
+        dgs3dRecomputeChildrenDeterministic(#);
+      );
+    );
+  );
+);
 dgs3dDelete(obj):=(
   obj = dgs3dObjById(obj);
   if(isUndefined(obj:"deleted"),
@@ -513,14 +528,20 @@ dgs3dDelete(obj):=(
     jsonRemove(dgs3dCircles,obj:"id");
     jsonRemove(dgs3dMovablePoints,obj:"id");
     cglDelete(obj:"drawId");
+    // TODO: how to handle deletion of set-elements
     forall(obj:"parents",p,
-      p:"children" = remove(apply(p:"children",child,if(child:"id"==obj:"id",-1,child)),-1);
+      if(p.type != "set", // do not remove children of set
+        p:"children" = select(p:"children",child,child:"id"!=obj:"id");
+      );
     );
     forall(obj.incidences,incidences,forall(incidences,incidence,
       jsonRemove(incidence.incidences:(obj.type),obj.id);
     ));
     forall(obj.tangencies,tangent,
       jsonRemove(tangent.tangencies,obj.id);
+    );
+    if(obj.type == "set",
+      dgs3dRecomputeChildrenDeterministic(obj);
     );
     forall(obj:"children",
       dgs3dDelete(#)
@@ -590,8 +611,19 @@ dgs3dLoad(values):=(
   );
 );
 
-// obj3d = {type: string, algorithm: string, id: string, coords: [number], visible: bool, size: real, color: vec3, alpha: real,incidences: JSON,tangencies:JSON}
-// incidences: objs containing or contained by this-obj (for line-line -> coincident)
+/* obj3d = {
+  id: string, // unique identifier
+  type: string, // type of the object
+  algorithm: string, // algorithm used to construct he object
+  coords: [number], // coordinates of the object (representation depends on type)
+  parents: [obj3d], // parent objects
+  children: [obj3d], // child objects
+  childrenDeterministic: bool, // are positions of children all deterministic
+  drawId: cglID // id(s) of drawn objects
+  visible: bool, size: real, color: vec3, alpha: real, // drawing parameters
+  incidences: JSON, // incidences of object (contained in/contains/lines-coincident)
+  tangencies:JSON, // tangencies relations of this object 
+}*/
 
 // TODO? add additional fields
 // + name: string -> unique identifier for object
@@ -618,13 +650,22 @@ dgs3dObjAddTangencies(obj,tangencies):=(
     dgs3dObjAddTangency(#,obj);
   );
 );
+dgs3dTagNonDeterministicChild(obj):=(
+  forall(obj.parents,
+    if(#.childrenDeterministic,
+      #.childrenDeterministic = false;
+      dgs3dTagNonDeterministicChild(#);
+    );
+  );
+);
 // type: string, parents: [obj3d] -> obj3d
 dgs3dNewObject(type,alg,parents,visible->true,color->cglNada,alpha->cglNada,incidences->[],tangencies->[]):=(
   regional(obj,objId);
   objId = dgs3dNewId();
   obj = {
-    "type":type, "alg": alg, "id": objId, "drawId": -1,
+    "type":type, "algorithm": alg, "id": objId, "drawId": -1,
     "parents": parents, "children": [],
+    "childrenDeterministic": (type != "set"),
     "visible": cglValOrDefault(visible,true),
     "recompute": lambda(self,DGS3DmOVEoK), "redraw": lambda(self,),
     "incidences": {},"tangencies":{}
@@ -672,6 +713,7 @@ dgs3dNewObject(type,alg,parents,visible->true,color->cglNada,alpha->cglNada,inci
     dgs3dObjAddIncidences(obj,incidences);
     dgs3dObjAddTangencies(obj,tangencies);
   ,if(type == "set",
+    dgs3dTagNonDeterministicChild(obj);
     // nothing to do
   ,if(type == "transform" % type == "mobiusTrafo",
     // TODO? store all-transforms in JSON
