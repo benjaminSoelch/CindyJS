@@ -2267,7 +2267,7 @@ dgs3dQuadric9point(pts,visible->true,color->cglNada,alpha->cglNada):=(
     pts = apply(self:"parents",#:"coords");
     self:"coords" = dgs3dRP3Normalize(dgs3dComputeQuadricBy9(pts));
     DGS3DmOVEoK
-  ),visible->visible,color->color,alpha->alpha,incidences->[pts]);
+  ),visible->visible,color->color,alpha->alpha,incidences->pts);
 );
 // pts: [plane; 9] => quadric, visible: bool = should object be drawn
 quadricBy9Planes(planes,visible->true,color->cglNada,alpha->cglNada):=(
@@ -2282,7 +2282,19 @@ dgs3dQuadric9plane(planes,visible->true,color->cglNada,alpha->cglNada):=(
     planes = apply(self:"parents",#:"coords");
     self:"coords" = dgs3dRP3Normalize(adjoint4(dgs3dComputeQuadricBy9(planes)));
     DGS3DmOVEoK
-  ),visible->visible,color->color,alpha->alpha,tangencies->[planes]);
+  ),visible->visible,color->color,alpha->alpha,tangencies->planes);
+);
+// degenerate quadric given by two planes
+// p: plane -> quadric
+dgs3dPlanesAsQuadric(p,q,visible->true,color->cglNade,alpha->cglNada):=(
+  dgs3dNewQuadric("planesAsQuadric",[p,q],lambda(self,
+    regional(p,M);
+    p = self:"parents"_1:"coords";
+    q = self:"parents"_2:"coords";
+    M = transpose([p])*[q];
+    self:"coords" = dgs3dRP3Normalize(M+transpose(M));
+    DGS3DmOVEoK
+  ),visible->visible,color->color,alpha->alpha);
 );
 
 // build orthogonal transformation that maps (0,0,0,1) to p
@@ -2427,6 +2439,7 @@ dgs3dBiQuadric8points(pts,size->cglNada,visible->true,color->cglNada,alpha->cglN
     DGS3DmOVEoK
   ),size->size,visible->visible,color->color,alpha->alpha,isCircle->false,incidences->pts);
 );
+// c: conic, P: point
 dgs3dConeByConicPoint(c,P,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dNewQuadric("coneByConicPoint",[c,P],lambda(self,
     regional(q,p,T,A,P,v,x);
@@ -2446,6 +2459,24 @@ dgs3dConeByConicPoint(c,P,visible->true,color->cglNada,alpha->cglNada):=(
       (v_1,v_2,v_3,x*A*x))*T;
     DGS3DmOVEoK
   ),visible->visible,color->color,alpha->alpha,incidences->[c,P]);
+);
+// cone of all tagent lines to q through p
+// q: quadric, P: point (macro operation)
+dgs3dTangentCone(q,P,visible->true,color->cglNada,alpha->cglNada):=(
+  regional(polar,polar2,tangencyConic);
+  polar = polar3d(q,P,visible->false);
+  polar2 = dgs3dPlanesAsQuadric(polar,polar,visible->false);
+  dgs3dQuadricInPencil(q,polar2,P,visible->visible,color->color,alpha->alpha,incidences->[P]);
+);
+// find quadric in pecil through Q1 and Q2 that does through P
+// Q1: quadric, Q2: quadric, P: point -> quadric
+dgs3dQuadricInPencil(Q1,Q2,P,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewQuadric("quadricInPencil",[Q1,Q2,P],lambda(self,
+    regional(Q1,Q2,P);
+    [Q1,Q2,P] = apply(self:"parents",#:"coords");
+    self:"coords" = dgs3dRP3Normalize((P*Q1*P)*Q2 - (P*Q2*P)*Q1);
+    DGS3DmOVEoK
+  ),visible->visible,color->color,alpha->alpha,incidences->[P]);
 );
 
 dgs3dComputeQuadricSymmetryPlanes(Q):=(
@@ -2813,31 +2844,12 @@ dgs3dDistanceQuadricQuadric(Q1,Q2,coords):=(
 // Q: quadric, p: plane => conic; size:real = radius, visible: bool = should object be drawn
 dgs3dMeetQP(Q,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dNewConic("meetQP",[Q,p],lambda(self,
-    regional(Q,p);
+    regional(Q,p,T,R,S);
     Q = self:"parents"_1:"coords";
     p = self:"parents"_2:"coords";
     // find a quadric with the same intersection that is "less similar" to p
     // build transformation that maps (0,0,0,1) to p
-    T = ((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1));
-    if(|p_1|>=|p_2| & |p_1|>=|p_3|,
-      T_1 = T_4;
-    ,if(|p_2|>=|p_1| & |p_2|>=|p_3|,
-      T_2 = T_4;
-    ,if(|p_3|>=|p_1| & |p_3|>=|p_2|,
-      T_3 = T_4;
-    )));
-    T_4 = p;
-    // make transformation orthogonal
-    T_4 = T_4/sqrt(T_4*T_4);
-    T_1 = T_1 - (T_1*T_4)*T_4;
-    T_2 = T_2 - (T_2*T_4)*T_4;
-    T_3 = T_3 - (T_3*T_4)*T_4;
-    T_3 = T_3/sqrt(T_3*T_3);
-    T_1 = T_1 - (T_1*T_3)*T_3;
-    T_2 = T_2 - (T_2*T_3)*T_3;
-    T_2 = T_2/sqrt(T_2*T_2);
-    T_1 = T_1 - (T_1*T_2)*T_2;
-    T_1 = T_1/sqrt(T_1*T_1);
+    T = dgs3dMapPinfTo(p);
     R = T*Q*transpose(T);
     R_4 = (0,0,0,0);
     R_1_4 = R_2_4 = R_3_4 = 0;
@@ -3326,6 +3338,7 @@ DGS3DaLGORITHMS = {
   "join3L": lambda((line1,line2,line3),dgs3dJoin3L(line1,line2,line3)),
   "quadricBy9Pt": lambda((points),dgs3dQuadric9point(points)),
   "quadricBy9Pl": lambda((planes),dgs3dQuadric9plane(planes)),
+  "planesAsQuadric": lambda((plane1,plane2),dgs3dPlanesAsQuadric(plane)),
   "sphere4P": lambda((point1,point2,point3,point4),dgs3dSphere4points(point1,point2,point3,point4)),
   "sphere2P": lambda((midPoint,radiusPoint),dgs3dSphere2P(midPoint,radiusPoint)),
   "meetQL": lambda((quadric,line),dgs3dMeetQL(quadric,line)),
@@ -3339,6 +3352,7 @@ DGS3DaLGORITHMS = {
   "polarPl": lambda((quadric,point),dgs3dPolarPlane(quadric,point)),
   "quadricLines": lambda((quadric,point),dgs3dQuadricLines(quadric,point)),
   "completeCayleyOctent": lambda((points),dgs3dCompleteCayleyOctent(points)),
+  "quadricInPencil": lambda((quadric1,quadric2,throughPoint),dgs3dQuadricInPencil(quadric1,quadric2,throughPoint)),
   // conics/biquadrics
   "circleBy3P": lambda((point1,point2,point3),dgs3dCircle3points(point1,point2,point3)),
   "biQuadricBy8": lambda((points),dgs3dBiQuadric8points(points)),
