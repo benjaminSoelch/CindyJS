@@ -521,7 +521,7 @@ dgs3dDelete(obj):=(
     ));
     forall(obj.tangencies,tangent,
       jsonRemove(tangent.tangencies,obj.id);
-    ));
+    );
     forall(obj:"children",
       dgs3dDelete(#)
     );
@@ -597,7 +597,7 @@ dgs3dLoad(values):=(
 // + name: string -> unique identifier for object
 // ? deduced incidences
 
-dsg3dObjAddIncidence(obj,incidence):=(
+dgs3dObjAddIncidence(obj,incidence):=(
   if(isUndefined(obj.incidences:(incidence.type)),
     obj.incidences:(incidence.type) = {};
   );
@@ -605,17 +605,17 @@ dsg3dObjAddIncidence(obj,incidence):=(
 );
 dgs3dObjAddIncidences(obj,incidences):=(
   forall(incidences,
-    dsg3dObjAddIncidence(obj,#);
+    dgs3dObjAddIncidence(obj,#);
     dgs3dObjAddIncidence(#,obj);
   );
 );
-dsg3dObjAddTangency(obj,tangent):=(
+dgs3dObjAddTangency(obj,tangent):=(
   obj.tangencies:tangent.id = tangent;
 );
-dsg3dObjAddTangencies(obj,tangencies):=(
+dgs3dObjAddTangencies(obj,tangencies):=(
   forall(tangencies,
-    dsg3dObjAddTangency(obj,#);
-    dsg3dObjAddTangency(#,obj);
+    dgs3dObjAddTangency(obj,#);
+    dgs3dObjAddTangency(#,obj);
   );
 );
 // type: string, parents: [obj3d] -> obj3d
@@ -642,35 +642,35 @@ dgs3dNewObject(type,alg,parents,visible->true,color->cglNada,alpha->cglNada,inci
     obj:"alpha" = cglValOrDefault(alpha,1);
     obj:"redraw" = lambda(self,dgs3dRenderLine(self));
     dgs3dObjAddIncidences(obj,incidences);
-    dsg3dObjAddTangencies(obj,tangencies);
+    dgs3dObjAddTangencies(obj,tangencies);
   ,if(type == "plane",
     dgs3dPlanes:objId = obj;
     obj:"color" = cglColor(cglValOrDefault(color,"cyan"));
     obj:"alpha" = cglValOrDefault(alpha,0.67);
     obj:"redraw" = lambda(self,dgs3dRenderPlane(self));
     dgs3dObjAddIncidences(obj,incidences);
-    dsg3dObjAddTangencies(obj,tangencies);
+    dgs3dObjAddTangencies(obj,tangencies);
   ,if(type == "quadric",
     dgs3dQuadrics:objId = obj;
     obj:"color" = cglColor(cglValOrDefault(color,(0.5,0,1)));
     obj:"alpha" = cglValOrDefault(alpha,0.67);
     obj:"redraw" = lambda(self,dgs3dRenderQuadric(self));
     dgs3dObjAddIncidences(obj,incidences);
-    dsg3dObjAddTangencies(obj,tangencies);
+    dgs3dObjAddTangencies(obj,tangencies);
   ,if(type == "conic",
     dgs3dCurves:objId = obj;
     obj:"color" = cglColor(cglValOrDefault(color,(0.25,1,0)));
     obj:"alpha" = cglValOrDefault(alpha,1);
     obj:"redraw" = lambda(self,dgs3dRenderConic(self));
     dgs3dObjAddIncidences(obj,incidences);
-    dsg3dObjAddTangencies(obj,tangencies);
+    dgs3dObjAddTangencies(obj,tangencies);
   ,if(type == "biquadric",
     dgs3dCurves:objId = obj;
     obj:"color" = cglColor(cglValOrDefault(color,(0.25,1,0)));
     obj:"alpha" = cglValOrDefault(alpha,1);
     obj:"redraw" = lambda(self,dgs3dRenderBiQuadric(self));
     dgs3dObjAddIncidences(obj,incidences);
-    dsg3dObjAddTangencies(obj,tangencies);
+    dgs3dObjAddTangencies(obj,tangencies);
   ,if(type == "set",
     // nothing to do
   ,if(type == "transform" % type == "mobiusTrafo",
@@ -2413,7 +2413,7 @@ dgs3dComputeQuadricSymmetryPlanes(Q):=(
     (n_1*(n*B*n),n_2*(n*B*n),n_3*(n*B*n),n*Q_4_(1..3))
   );
 );
-dsg3dComputeQuadricAxes(Q):=(
+dgs3dComputeQuadricAxes(Q):=(
   apply(pairs(dgs3dComputeQuadricSymmetryPlanes(Q)),
     dgs3dDualLine(dgs3dEpsilon44(#_1,#_2))
   );
@@ -2431,7 +2431,7 @@ dgs3dQuadricAxes(Q,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dNewLineSet("quadricAxes",[Q],3,lambda(self,
     regional(Q,lines);
     Q = self:"parents"_1:"coords";
-    lines = dsg3dComputeQuadricAxes(Q);
+    lines = dgs3dComputeQuadricAxes(Q);
     // TODO: trace lines
     apply(1..3,self:"children"_#:"coords"=lines_#);
     DGS3DmOVEoK
@@ -2679,13 +2679,13 @@ dgs3dMirror(x,y,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dTransform(dgs3dMirrorAt(y),x,size->size,visible->visible,color->color,alpha->alpha)
 );
 
-dsg3dComputeSphereBy4Points(pts):=(
+dgs3dComputeSphereBy4Points(pts):=(
   regional(b,v);
   b = apply(pts,-(|#_(1..3)|^2));
   v = linearSolve(apply(pts,#*#_4),b);
   [[1,0,0,0.5*v_1],[0,1,0,0.5*v_2],[0,0,1,0.5*v_3],[0.5*v_1,0.5*v_2,0.5*v_3,v_4]]
 );
-dsg3dComputeSphereBy2Points(M,R):=(
+dgs3dComputeSphereBy2Points(M,R):=(
   regional(v,r);
   v = (M_4*R_(1..3)/R_4-M_(1..3));
   r = v*v;
@@ -2705,7 +2705,7 @@ sphere3d(A,B,C,D,visible->true,color->cglNada,alpha->cglNada):=(
 );
 dgs3dSphere4points(A,B,C,D,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dNewQuadric("sphere4P",[A,B,C,D],lambda(self,
-    self:"coords" = dsg3dComputeSphereBy4Points(apply(self:"parents",#:"coords"));
+    self:"coords" = dgs3dComputeSphereBy4Points(apply(self:"parents",#:"coords"));
     DGS3DmOVEoK
   ),visible->visible,color->color,alpha->alpha,isSphere->true,incidences->[A,B,C,D]);
 );
@@ -2717,7 +2717,7 @@ dgs3dSphere2P(M,R,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dNewQuadric("sphere2P",[M,R],lambda(self,
     regional(M,R);
     [M,R] = apply(self:"parents",#:"coords");
-    self:"coords" = dsg3dComputeSphereBy2Points(M,R);
+    self:"coords" = dgs3dComputeSphereBy2Points(M,R);
     DGS3DmOVEoK
   ),visible->visible,color->color,alpha->alpha,isSphere->true,incidences->[R]);
 );
@@ -3342,7 +3342,7 @@ dgs3dNormalizeModifiers(obj3d):=(
   obj3d.redraw.(obj3d);
   obj3d
 );
-dsg3dSetModifiers(obj3d,modifiers):=(
+dgs3dSetModifiers(obj3d,modifiers):=(
   if(!isJSON(obj3d),obj3d,
     apply(modifiers,v,k,obj3d:k = modifiers:k);
     dgs3dNormalizeModifiers(obj3d)
@@ -3350,7 +3350,7 @@ dsg3dSetModifiers(obj3d,modifiers):=(
 );
 // algorithm: string, args: list, modifiers: JSON
 dgs3dCreate(algorithm,args,modifs):=(
-  dsg3dSetModifiers(eval(DGS3DaLGORITHMS:algorithm,args),modifs);
+  dgs3dSetModifiers(eval(DGS3DaLGORITHMS:algorithm,args),modifs);
 );
 
 ////////////////
