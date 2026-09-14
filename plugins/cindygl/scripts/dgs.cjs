@@ -1572,17 +1572,12 @@ lexCompare(a,b):=(
     0
   ))))
 );
+dgs3dFindLNZ(p):=(
+  p_(min(p,v,i,((v==0),i))_2)
+);
 // ensure that last non-zero component of p is positive
 dgs3dEnsurePositiveLNZ(p):=(
-  regional(c);
-  c = lexCompare(p_4,0);
-  if(c>0,p,if(c<0,-p,
-    c = lexCompare(p_3,0);
-    if(c>0,p,if(c<0,-p,
-      c = lexCompare(p_2,0);
-      if(c>0,p,if(c<0,-p,
-        if(lexCompare(p_1,0)<0,-p,p)
-  ))))));
+  if(lexCompare(dgs3dFindLNZ(p),0)<0,-p,p);
 );
 dgs3dProjDistanceSq(P1,P2):=(
   regional(d);
@@ -1610,6 +1605,12 @@ dgs3dTracePointSelect(self,AB):=(
     );
 );
 dgs3dTracePointPair(self,AB):=(
+  dgs3dTracePair(self,AB,(x,y)=>dgs3dProjDistanceSq(x,y));
+);
+dgs3dTraceLinePair(self,AB):=(
+  dgs3dTracePair(self,AB,(x,y)=>dgs3dProjDistanceSq(x,y));
+);
+dgs3dTracePair(self,AB,metric):=(
   self:"coords" = AB;
   oldA = self:"children"_1:"coords";
   oldB = self:"children"_2:"coords";
@@ -1620,10 +1621,10 @@ dgs3dTracePointPair(self,AB):=(
   ,
     // TODO find good way to detect if points are too close to each other
     //  cindy-classic uses d(oldA,oldB)* s > d(oldA,newA)+d(oldB,newB)
-    d11 = dgs3dProjDistanceSq(AB_1,oldA);
-    d12 = dgs3dProjDistanceSq(AB_1,oldB);
-    d21 = dgs3dProjDistanceSq(AB_2,oldA);
-    d22 = dgs3dProjDistanceSq(AB_2,oldB);
+    d11 = metric.(AB_1,oldA);
+    d12 = metric.(AB_1,oldB);
+    d21 = metric.(AB_2,oldA);
+    d22 = metric.(AB_2,oldB);
     // chose permutation that minimizes sum of squared distances
     if(d11 + d22 <= d12 + d21,
       self:"children"_1:"coords" = AB_1;
@@ -1637,6 +1638,15 @@ dgs3dTracePointPair(self,AB):=(
   )
 );
 dgs3dTracePointSet(self,pts):=(
+  dgs3dTraceSet(self,pts,(x,y)=>dgs3dProjDistanceSq(x,y));
+);
+dgs3dTraceLineSet(self,pts):=(
+  dgs3dTraceSet(self,pts,(x,y)=>dgs3dProjDistanceSq(x,y));
+);
+dgs3dTracePlaneSet(self,pts):=(
+  dgs3dTraceSet(self,pts,(x,y)=>dgs3dProjDistanceSq(x,y));
+);
+dgs3dTraceSet(self,pts,metric):=(
   if(max(apply(self:"children",isUndefined(#:"coords"))),
     // at least one undefined child -> direly set in given order
     forall(1..(length(pts)),i,
@@ -1647,7 +1657,7 @@ dgs3dTracePointSet(self,pts):=(
     regional(n,iMin,jMin,dist);
     n = length(pts);
     dist = apply(pts,p,apply(self:"children",q,
-      dgs3dProjDistanceSq(p,q:"coords");
+      metric.(p,q:"coords");
     ));
     iMin = apply(1..n,i,min(1..n,j,(dist_i_j,j))_2);// old-index closest to new-index
     jMin = apply(1..n,j,min(1..n,i,(dist_i_j,i))_2);// new-index closest to old-index
@@ -2186,11 +2196,7 @@ dgs3dQuadricLines(q,P,size->cglNada,visible->true,color->cglNada,alpha->cglNada)
     regional(q,P,l,m);
     q = self:"parents"_1:"coords";
     P = self:"parents"_2:"coords";
-    [l,m] = dgs3dComputeQuadricLines(q,P);
-    // TODO: tracing for line-pair
-    self:"children"_1:"coords" = l;
-    self:"children"_2:"coords" = m;
-    DGS3DmOVEoK 
+    dgs3dTraceLinePair(self,dgs3dComputeQuadricLines(q,P))
   ),size->size,visible->visible,color->color,alpha->alpha,incidences->[q,P]);
 );
 // pts: [point; 7] => point
@@ -2496,7 +2502,7 @@ dgs3dQuadricPlanes(Q,size->cglNada,visible->true,color->cglNada,alpha->cglNada):
   dgs3dNewPlaneSet("quadricPlanes",[Q],3,lambda(self,
     regional(Q);
     Q = self:"parents"_1:"coords";
-    dgs3dTracePointSet(self,dgs3dComputeQuadricSymmetryPlanes(Q));
+    dgs3dTracePlaneSet(self,dgs3dComputeQuadricSymmetryPlanes(Q));
   ),size->size,visible->visible,color->color,alpha->alpha);
 );
 // q: quadric => symmetry axes, 
@@ -2504,10 +2510,7 @@ dgs3dQuadricAxes(Q,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dNewLineSet("quadricAxes",[Q],3,lambda(self,
     regional(Q,lines);
     Q = self:"parents"_1:"coords";
-    lines = dgs3dComputeQuadricAxes(Q);
-    // TODO: trace lines
-    apply(1..3,self:"children"_#:"coords"=lines_#);
-    DGS3DmOVEoK
+    dgs3dTraceLineSet(self,dgs3dComputeQuadricAxes(Q));
   ),size->size,visible->visible,color->color,alpha->alpha);
 );
 // q: quadric => point, 
