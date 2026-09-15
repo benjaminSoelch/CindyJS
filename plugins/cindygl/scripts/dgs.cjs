@@ -1572,18 +1572,16 @@ lexCompare(a,b):=(
     0
   ))))
 );
-dgs3dFindLNZ(p):=(
-  p_(min(p,v,i,((v==0),i))_2)
-);
-// ensure that last non-zero component of p is positive
-dgs3dEnsurePositiveLNZ(p):=(
-  if(lexCompare(dgs3dFindLNZ(p),0)<0,-p,p);
-);
 dgs3dProjDistanceSq(P1,P2):=(
-  regional(d);
-  // TODO: change distance to min(a in R,d(v1/|v1|,e^ia * v2/|v2|))
-  d = normalize(dgs3dEnsurePositiveLNZ(P1))-normalize(dgs3dEnsurePositiveLNZ(P2));
-  |d*d|
+  regional(d1,d2);
+  // check both d(P1,P2) and d(P1,-P2)
+  // * normalization is numerically unstable if elements are close to each other / close to 0
+  // TODO: support complex points
+  // * change distance to min(a in R,d(v1/|v1|,e^ia * v2/|v2|))
+  // * use complex scalar product for squared distance
+  d1 = normalize(P1)-normalize(P2);
+  d2 = normalize(P1)+normalize(P2);
+  min(|d1*d1|,|d2*d2|)
 );
 dgs3dTracePointSelect(self,AB):=(
     regional(oldP);
