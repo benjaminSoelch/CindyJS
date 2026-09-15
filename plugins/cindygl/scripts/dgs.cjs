@@ -1250,14 +1250,26 @@ dgs3dSelectClosest(pts,P,unique->false):=(
     cglUndefinedVal()
   );
 );
-dgs3dTryProjectPointToQuadric(P,q,unique->false):=(
-  regional(p,l,AB);
+dgs3dTryProjectPointToQuadric(P,q,unique->false,retry->true):=(
+  regional(p,l,PQ,AB,Q);
   p = q*P;
   if(dgs3dIsFiniteRealPlane(p),
     l = dgs3dEpsilon44(P,(p_1,p_2,p_3,1));
     // 2. intersect line with quadric
-    AB = select(dgs3dIntersectQuadricDualLine(q,dgs3dDualLine(l)),dgs3dIsFiniteRealPoint(#));
-    dgs3dSelectClosest(AB,P,unique->unique);
+    PQ = dgs3dIntersectQuadricDualLine(q,dgs3dDualLine(l));
+    AB = select(PQ,dgs3dIsFiniteRealPoint(#));
+    if(length(AB) > 0,
+      dgs3dSelectClosest(AB,P,unique->unique);
+    ,
+      // retry with midpoint of complex conjugate solutions
+      // in some cases this still does not hit the quadric in a real point
+      Q = PQ_1+PQ_2;
+      if(retry & isRealVec(Q),
+        dgs3dTryProjectPointToQuadric(Q,q,unique->unique,retry->false)
+      ,
+        cglUndefinedVal()
+      )
+    )
   ,cglUndefinedVal())
 );
 dgs3dFindPointOnQuadric(q,P0):=(
