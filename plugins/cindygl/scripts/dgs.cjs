@@ -1511,6 +1511,8 @@ dgs3dMeet2(a,b,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
     dgs3dMeetCL(a,b,size->size,visible->visible,color->color,alpha->alpha);
   ,if(a:"type" == "line" & b:"type" == "conic",
     dgs3dMeetCL(b,a,size->size,visible->visible,color->color,alpha->alpha);
+  ,if(a:"type" == "conic" & b:"type" == "conic",
+    dgs3dMeetConicConic(b,a,size->size,visible->visible,color->color,alpha->alpha);
   ,if(a:"type" == "conic" & b:"type" == "quadric",
     dgs3dMeetQuadricConic(b,a,size->size,visible->visible,color->color,alpha->alpha);
   ,if(a:"type" == "quadric" & b:"type" == "conic",
@@ -1525,7 +1527,7 @@ dgs3dMeet2(a,b,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
     dgs3dMeetBiQuadricQuadric(b,a,size->size,visible->visible,color->color,alpha->alpha);
   ,
     cglLogWarning("cannot meet "+a:"type"+" and "+b:"type");
-  )))))))))))))))))));
+  ))))))))))))))))))));
 );
 // P1: plane, P2: plane, size:real = radius, visible: bool = should object be drawn
 dgs3dMeet2P(P1,P2,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
@@ -1791,7 +1793,18 @@ dgs3dMeetCL(C,l,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
     dgs3dTracePointPair(self,AB);
   ),size->size,visible->visible,color->color,alpha->alpha);
 );
-dgs3dIntersectionsQQP(Q1,Q2,p):=(
+// c1,c2: conic ; size:real = radius, visible: bool = should object be drawn
+dgs3dMeetConicConic(c1,c2,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  // TODO: ensure co-planar
+  dgs3dNewPointSet("meetCC",[c1,c2],4,lambda(self,
+    regional(c1,c2);
+    c1 = self:"parents"_1:"coords";
+    c2 = self:"parents"_2:"coords";
+    // TODO? handle intersections in non-coplanar case
+    dgs3dTracePointSet(self,dgs3dComputeIntersectionsQQP(c1_1,c2_1,c1_2));
+  ),size->size,visible->visible,color->color,alpha->alpha);
+);
+dgs3dComputeIntersectionsQQP(Q1,Q2,p):=(
   regional(T,S,A,B,pts2D);
   T = dgs3dMapPinfTo(p);
   S = transpose(T); // invert T
@@ -1806,32 +1819,29 @@ dgs3dIntersectionsQQP(Q1,Q2,p):=(
 // Q1: quadric, Q2: quadric, p: plane ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeetQQp(Q1,Q2,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dNewPointSet("meetQQP",[Q1,Q2,p],4,lambda(self,
-    regional(Q1,Q2,p,AB,oldA,oldB,d11,d12,d21,d22);
+    regional(Q1,Q2,p);
     Q1 = self:"parents"_1:"coords";
     Q2 = self:"parents"_2:"coords";
     p = self:"parents"_3:"coords";
-    ABCD = dgs3dIntersectionsQQP(Q1,Q2,p);
-    dgs3dTracePointSet(self,ABCD);
+    dgs3dTracePointSet(self,dgs3dComputeIntersectionsQQP(Q1,Q2,p));
   ),size->size,visible->visible,color->color,alpha->alpha,incidences->[Q1,Q2,p]);
 );
 // Q: quadric, C: conic ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeetQuadricConic(Q,C,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dNewPointSet("meetQC",[Q,C],4,lambda(self,
-    regional(Q,C,AB,oldA,oldB,d11,d12,d21,d22);
+    regional(Q,C);
     Q = self:"parents"_1:"coords";
     C = self:"parents"_2:"coords";;
-    ABCD = dgs3dIntersectionsQQP(Q,C_1,C_2);
-    dgs3dTracePointSet(self,ABCD);
+    dgs3dTracePointSet(self,dgs3dComputeIntersectionsQQP(Q,C_1,C_2));
   ),size->size,visible->visible,color->color,alpha->alpha,incidences->[Q,C]);
 );
 // Q2: bi-quadric, p: plane ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeetBiQuadricPlane(Q2,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dNewPointSet("meetBP",[Q2,p],4,lambda(self,
-    regional(Q2,p,ABCD);
+    regional(Q2,p);
     Q2 = self:"parents"_1:"coords";
     p = self:"parents"_2:"coords";;
-    ABCD = dgs3dIntersectionsQQP(Q2_1,Q2_2,p);
-    dgs3dTracePointSet(self,ABCD);
+    dgs3dTracePointSet(self,dgs3dComputeIntersectionsQQP(Q2_1,Q2_2,p));
   ),size->size,visible->visible,color->color,alpha->alpha,incidences->[Q2,p]);
 );
 dgs3dIntersects3Q(Q1,Q2,Q3):=(
@@ -3379,6 +3389,7 @@ DGS3DaLGORITHMS = {
   "conicBy5P": lambda((point1,point2,point3,point4,point5),dgs3dConic5points(point1,point2,point3,point4,point5)),
   "conicBy5L": lambda((line2,line2,line3,line4,line5),dgs3dConic5points(line2,line2,line3,line4,line5)),
   "meetCL": lambda((conic,line),dgs3dMeetCL(conic,line)),
+  "meetCC": lambda((conic1,conic2),dgs3dMeetConicConic(conic1,conic2)),
   "conicPolarPt": lambda((conic,line),dgs3dConicPolarPoint(conic,line)),
   "conicPolarLn": lambda((conic,point),dgs3dConicPolarLine(conic,point)),
   // euclidean
