@@ -1585,15 +1585,16 @@ lexCompare(a,b):=(
   ))))
 );
 dgs3dProjDistanceSq(P1,P2):=(
-  regional(d1,d2);
-  // check both d(P1,P2) and d(P1,-P2)
-  // * normalization is numerically unstable if elements are close to each other / close to 0
-  // TODO: support complex points
-  // * change distance to min(a in R,d(v1/|v1|,e^ia * v2/|v2|))
-  // * use complex scalar product for squared distance
-  d1 = normalize(P1)-normalize(P2);
-  d2 = normalize(P1)+normalize(P2);
-  min(|d1*d1|,|d2*d2|)
+  regional(v1,v2);
+  v1 = normalize(P1);
+  v2 = normalize(P2);
+  // we project both points to the unit-sphere and try to find the 
+  //   minimum distance up to scalar multiplications with a complex unit
+  // this results in minimizing the following expression for a real value a
+  // <(A-e^(ia)B),(A-e^(ia)B)> = <A,A>+<B,B> - 2Re(e^(ia)<A,B>)
+  // we have <A,A> = <B,B> = 1 and <A,B> = e^ib |<A,B>| with |<A,B>| <= 1
+  // we get the minimal value 2 - 2|<A,B>| for b= -a 
+  1-|v1*conjugate(v2)|;
 );
 dgs3dTracePointSelect(self,AB):=(
     regional(oldP);
