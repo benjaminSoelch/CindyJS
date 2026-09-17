@@ -1300,26 +1300,30 @@ dgs3dSelectClosest(pts,P,unique->false):=(
     cglUndefinedVal()
   );
 );
-dgs3dTryProjectPointToQuadric(P,q,unique->false):=(
-  regional(p,l,PQ,AB,M);
-  p = q*P;
+dgs3dSelectFiniteRealOrMidpoint(PQ,P,unique->false):=(
+  regional(AB);
+  AB = select(PQ,dgs3dIsFiniteRealPoint(#));
+  if(unique % length(AB) > 0,
+    dgs3dSelectClosest(AB,P,unique->unique)
+  ,PQ_1+PQ_2);
+);
+dsg3dQuadricProjectionStep(q,P,X,unique->false):=(
+  regional(p,l,PQ);
+  p = q*X;
   if(dgs3dIsFiniteRealPlane(p),
-    l = dgs3dEpsilon44(P,(p_1,p_2,p_3,1));
+    // orthogonal line to p through P
+    l = dgs3dComputeOrthogonalLine(p,P);
     // 2. intersect line with quadric
-    PQ = dgs3dIntersectQuadricDualLine(q,dgs3dDualLine(l));
-    AB = select(PQ,dgs3dIsFiniteRealPoint(#));
-    if(length(AB) > 0,
-      dgs3dSelectClosest(AB,P,unique->unique);
-    ,
-      // retry projection with polar-plane to midpoint
-      M = PQ_1+PQ_2;
-      p = q*M;
-      l = dgs3dEpsilon44(P,(p_1,p_2,p_3,1));
-      dgs3dSelectClosest(
-        select(dgs3dIntersectQuadricDualLine(q,dgs3dDualLine(l)),dgs3dIsFiniteRealPoint(#))
-      ,P,unique->unique);
-    )
-  ,cglUndefinedVal())
+    dgs3dSelectFiniteRealOrMidpoint(dgs3dIntersectQuadricLine(q,l),P,unique->unique);
+  ,// TODO: handle case of non-finite polar plane
+    cglUndefinedVal()
+  );
+);
+dgs3dTryProjectPointToQuadric(P,q,unique->false):=(
+  regional(X);
+  X = P;
+  forall(1..4,X = dsg3dQuadricProjectionStep(q,P,X));
+  dsg3dQuadricProjectionStep(q,P,X,unique->unique);
 );
 dgs3dFindPointOnQuadric(q,P0):=(
   regional(P);
@@ -1328,21 +1332,26 @@ dgs3dFindPointOnQuadric(q,P0):=(
     P0 // TODO: use axes/planes to find real point
   )
 );
-dgs3dTryProjectPointToConic(P,Q,p,unique->false):=(
-  regional(P3,np,nq,l,AB);
+dsg3dConicProjectionStep(q,p,P,X,unique->false):=(
+  regional(np,nq,l);
+  nq = q * X;
+  if(dgs3dIsFiniteRealPlane(nq),
+    nq = nq_(1..3);
+    np = p_(1..3);
+    // TODO: use 2D polar instead of projected 3D polar
+    nq = nq - ((np*nq)/(np*np)) * np; // project normal into plane
+    l = dgs3dComputeOrthogonalLine(nq,P);
+    dgs3dSelectFiniteRealOrMidpoint(dgs3dIntersectQuadricLine(q,l),P,unique->unique);
+  ,// TODO: handle case of non-finite polar plane
+    cglUndefinedVal()
+  );
+);
+dgs3dTryProjectPointToConic(P,q,p,unique->false):=(
+  regional(X);
   // 1. project point into plane
-  P3 = P_(1..3)/P_4;
-  np = p_(1..3);
-  P3 = P3 - np*(p_4+P3*np)/(np*np);
-  P = (P3_1,P3_2,P3_3,1);
-  P = dgs3dRP3Normalize(P);
-  // 2. get line in plane through point normal to surface
-  nq = (Q * P)_(1..3);
-  nq = nq - ((np*nq)/(np*np)) * np; // project normal into plane
-  l = dgs3dEpsilon44(P,P+(nq_1,nq_2,nq_3,0));
-  // 2. intersect line with quadric
-  AB = select(dgs3dIntersectQuadricDualLine(Q,dgs3dDualLine(l)),dgs3dIsFiniteRealPoint(#));
-  dgs3dSelectClosest(AB,P,unique->unique)
+  X = P = dgs3dProjectPointToPlane(P,p);
+  forall(1..4,print(X);X = dsg3dConicProjectionStep(q,p,P,X));
+  dsg3dConicProjectionStep(q,p,P,X,unique->unique);
 );
 dgs3dFindPointOnConic(c,P0):=(
   regional(q,p,P);
