@@ -370,6 +370,7 @@ dgs3dIntersectQuadricDualLine(Q,l):=(
   );
   (dgs3dRP3Normalize(r),dgs3dRP3Normalize(c));
 );
+dgs3dIntersectQuadricLine(Q,l):=(dgs3dIntersectQuadricDualLine(Q,dgs3dDualLine(l)));
 dgs3dRP3Normalize(p):=(
   regional(m,v);
   m = -1;
@@ -966,7 +967,7 @@ dgs3dRenderLine(self):=(
   l = self:"coords";
   if(self:"visible" == true & dgs3dIsFiniteRealLine(l), // treat undefined as falsy
     // compute intersections of line with clipping sphere
-    PQ = dgs3dIntersectQuadricDualLine(((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,-dgs3dCutoffRadius*dgs3dCutoffRadius)),dgs3dDualLine(l));
+    PQ = dgs3dIntersectQuadricLine(((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,-dgs3dCutoffRadius*dgs3dCutoffRadius)),l);
     if(isRealVec(PQ_1),// real solution
       if(self:"drawId"==-1,
         self:"drawId" = draw3d((PQ_1_(1..3))/PQ_1_4,(PQ_2_(1..3))/PQ_2_4,size->self:"size",color->self:"color",alpha->self:"alpha")
@@ -1352,12 +1353,16 @@ dgs3dFindPointOnConic(c,P0):=(
     P0 // TODO: find point in degenerate case
   )
 );
+dgs3dPlaneWithNormalThroughPoint(n,P):=(
+  (n_1*P_4,n_2*P_4,n_3*P_4,-P_(1..3)*n)
+);
+// TODO? would a iteration based approach like for quadric and conic work well for bi-quadric (in all complex case use closest real intersection of joins of root-pairs)
 dgs3dTryProjectPointToBiQuadric(P,q1,q2,unique->false):=(
   regional(p1,p2,n,p);
   p1 = q1*P; p2 = q2*P;
   if(dgs3dIsFiniteRealPlane(p1) & dgs3dIsFiniteRealPlane(p2),
     n = cross(p1_(1..3),p2_(1..3));
-    p = (n_1*P_4,n_2*P_4,n_3*P_4,(-P_(1..3)*n));
+    p = dgs3dPlaneWithNormalThroughPoint(n,P);
     ABCD = select(apply(dgs3dComputeIntersectionsQQP(q1,q2,p),dgs3dRP3Normalize(#)),dgs3dIsFiniteRealPoint(#));
     dgs3dSelectClosest(ABCD,P,unique->unique);
   ,cglUndefinedVal())
@@ -1775,7 +1780,7 @@ dgs3dMeetQL(Q1,l1,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
     regional(Q,l,AB,oldA,oldB,d11,d12,d21,d22);
     Q = self:"parents"_1:"coords";
     l = self:"parents"_2:"coords";
-    AB = dgs3dIntersectQuadricDualLine(Q,dgs3dDualLine(l));
+    AB = dgs3dIntersectQuadricLine(Q,l);
     dgs3dTracePointPair(self,AB);
   ),size->size,visible->visible,color->color,alpha->alpha,incidences->[Q1,l1]);
 );
@@ -1838,7 +1843,7 @@ dgs3dMeetCL(C,l,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
     regional(Q,C,AB,oldA,oldB,d11,d12,d21,d22);
     C = self:"parents"_1:"coords";
     l = self:"parents"_2:"coords";
-    AB = dgs3dIntersectQuadricDualLine(C_1,dgs3dDualLine(l));
+    AB = dgs3dIntersectQuadricLine(C_1,l);
     dgs3dTracePointPair(self,AB);
   ),size->size,visible->visible,color->color,alpha->alpha);
 );
@@ -2638,7 +2643,7 @@ dgs3dParallel2Line(l1,l2,visible->true,color->cglNada,alpha->cglNada):=(
     n2 = dgs3dLineDirection(l2);
     n = cross(n1,n2);
     p2 = dgs3dEpsilon46((n2_1,n2_2,n2_3,0),l2);
-    self:"coords" = dgs3dRP3Normalize((n_1*p2_4,n_2*p2_4,n_3*p2_4,-(n*p2_(1..3))));
+    self:"coords" = dgs3dRP3Normalize(dgs3dPlaneWithNormalThroughPoint(n,p2));
     DGS3DmOVEoK
   ),visible->visible,color->color,alpha->alpha,incidences->[l2]);
 );
@@ -2659,14 +2664,18 @@ dgs3dNormal(x,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
     cglLogWarning("cannot compute normal to "+x:"type"+" through "+p:"type");
   ))));
 );
-// P: plane, p: point => line; size:real = radius, visible: bool = should object be drawn
-dgs3dOrthogonalLine(P,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+// p: vec3|vec4 line/normal, P: point
+dgs3dComputeOrthogonalLine(p,P):=(
+  dgs3dRP3Normalize(dgs3dEpsilon44(P,P+(p_1,p_2,p_3,0)));
+);
+// p: plane, P: point => line; size:real = radius, visible: bool = should object be drawn
+dgs3dOrthogonalLine(p,P,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   regional(obj);
-  dgs3dNewLine("orthogonalLine",[P,p],lambda(self,
+  dgs3dNewLine("orthogonalLine",[p,P],lambda(self,
     regional(P,p);
-    P = self:"parents"_1:"coords";
-    p = self:"parents"_2:"coords";
-    self:"coords" = dgs3dRP3Normalize(dgs3dEpsilon44(p,p+(P_1,P_2,P_3,0)));
+    p = self:"parents"_1:"coords";
+    P = self:"parents"_2:"coords";
+    self:"coords" = dgs3dComputeOrthogonalLine(p,P);
     DGS3DmOVEoK
   ),size->size,visible->visible,color->color,alpha->alpha,incidences->[p]);
 );
@@ -2680,18 +2689,17 @@ dgs3dOrthogonalPL(l,p,visible->true,color->cglNada,alpha->cglNada):=(
     n1 = dgs3dLineDirection(l);
     n = cross(p_(1..3),n1);
     p1 = dgs3dEpsilon46((n1_1,n1_2,n1_3,0),l);
-    self:"coords" = dgs3dRP3Normalize((n_1*p1_4,n_2*p1_4,n_3*p1_4,-(p1_1,p1_2,p1_3)*n));
+    self:"coords" = dgs3dRP3Normalize(dgs3dPlaneWithNormalThroughPoint(n,p1));
     DGS3DmOVEoK
   ),visible->visible,color->color,alpha->alpha,incidences->[l]);
 );
 // l: line, p: point => line; visible: bool = should object be drawn
-dgs3dOrthogonalPlane(l,p,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewPlane("orthogonalPlane",[l,p],lambda(self,
-    regional(l,p,n);
+dgs3dOrthogonalPlane(l,P,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewPlane("orthogonalPlane",[l,P],lambda(self,
+    regional(l,P);
     l = self:"parents"_1:"coords";
-    p = self:"parents"_2:"coords";
-    n = dgs3dLineDirection(l);
-    self:"coords" = dgs3dRP3Normalize((n_1*p_4,n_2*p_4,n_3*p_4,-(p_1,p_2,p_3)*n));
+    P = self:"parents"_2:"coords";
+    self:"coords" = dgs3dRP3Normalize(dgs3dPlaneWithNormalThroughPoint(dgs3dLineDirection(l),P));
     DGS3DmOVEoK
   ),visible->visible,color->color,alpha->alpha,incidences->[p]);
 );
@@ -2707,7 +2715,7 @@ dgs3dOrthogonal2L(l1,l2,size->cglNada,visible->true,color->cglNada,alpha->cglNad
     // intersect lines with planes through 0 normal to line
     p1 = dgs3dEpsilon46((n1_1,n1_2,n1_3,0),l1);
     n3 = cross(n1,n);
-    q = dgs3dEpsilon46((n3_1*p1_4,n3_2*p1_4,n3_3*p1_4,-(n3*p1_(1..3))),l2);
+    q = dgs3dEpsilon46(dgs3dPlaneWithNormalThroughPoint(n3,p1),l2);
     self:"coords" = dgs3dRP3Normalize(dgs3dEpsilon44(q,q+(n_1,n_2,n_3,0)));
     DGS3DmOVEoK
   ),size->size,visible->visible,color->color,alpha->alpha,incidences->[l1,l2]);
@@ -2894,6 +2902,7 @@ dgs3dDistanceQuadricPlane(Quadric,Plane,coords):=(
   // 2. compute distance to intersection line
   l = dgs3dDualLine(dgs3dEpsilon44(pol,Plane));
   v = dgs3dEpsilon46((0,0,0,1),l);
+  // TODO: dgs3dPlaneWithNormalThroughPoint cannot run in shader (index with range not supported)
   plane = (v_1*coords_4,v_2*coords_4,v_3*coords_4,-(v_1,v_2,v_3,0)*coords);
   P = dgs3dEpsilon46(plane,l);
   P = (P / P_4 - coords / coords_4);
