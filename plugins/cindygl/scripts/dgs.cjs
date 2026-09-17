@@ -160,7 +160,29 @@ dgs3dPreFrame():=(
 );
 DGS3DmOVEoK = 0;
 DGS3DmOVErETRY = 1;
-dgs3dTryRecomputeChildren(obj):=(
+dgs3dPrepareRecompute(obj):=(
+  // TODO? sub-object for tracing-data to avoid polluting obj-data
+  obj.needsRecompute = true;
+  obj.resetChildren = false;
+  forall(obj.children,child,
+    if(!child.needsRecompute,
+      dgs3dPrepareRecompute(child)
+    )
+  );
+);
+dgs3dShouldRecompute(obj):=(
+  if(obj.needsRecompute,!max(obj.parents,#.needsRecompute),false);
+);
+dgs3dRecomputeNonDetChild(obj,child):=(
+  // for "set" `childrenDeterministic` is false, otherwise parent is deterministic if all childs is deterministic
+  if(child.childrenDeterministic,false,
+    if(!dgs3dShouldRecompute(child),false,
+        child:"oldCoords" = child:"coords";
+        dgs3dTryRecomputeNonDetChildren(child)
+    );
+  )
+);
+dgs3dTryRecomputeNonDetChildren(obj):=(
   regional(retry);
   obj = dgs3dObjById(obj);
   if(obj:"recompute".(obj) != DGS3DmOVEoK,
@@ -168,27 +190,49 @@ dgs3dTryRecomputeChildren(obj):=(
     true
   ,
     retry = false;
-    // try recalculating direct children
-    forall(obj:"children",child,
-      child = dgs3dObjById(child);
-      child:"oldCoords" = child:"coords";
-      retry = retry % dgs3dTryRecomputeChildren(child);
+    obj.needsRecompute = false;
+    if(!obj.childrenDeterministic,
+      // retry child that failed in previous attempt first
+      if(!isUndefined(obj.badChild),
+        retry = retry % dgs3dRecomputeNonDetChild(dgs3dObjById(obj.badChild));
+      );
+      // try recalculating direct children
+      forall(obj:"children",child,
+        retry = retry % dgs3dRecomputeNonDetChild(obj,dgs3dObjById(child))
+      );
+      // TODO? avoid duplicate work:
+      // ? prioritize recalculation of children that went wrong on previous attempt
+      // ! cannot eliminate non-deterministic subtree as same tracing path has to be used for all objects
+      obj.resetChildren = true;
     );
-    // TODO? avoid duplicate work:
-    // * skip determined subtrees while tracing, recompute after tracing is done
-    // ? prioritize recalculation of children that went wrong on previous attempt
-    // ? if tracing subtree was successful ignore that subtree for subsequent recalculations
-    // ?? remember coordinates at end-position when computing intermediate step(s)
-    obj.resetChildren = true;
     retry
   )
+);
+dgs3dRecomputeDetChildren(obj):=(
+  forall(obj:"children",child,
+    child = dgs3dObjById(child);
+    if(dgs3dShouldRecompute(child),
+      child.needsRecompute = false;
+      if(child.childrenDeterministic,
+        child:"recompute".(child);
+      );
+      // TODO: avoid duplicate work
+      // TODO: ensure correct recompute order
+      dgs3dRecomputeDetChildren(child);
+    );
+  );
 );
 dgs3dResetChildren(obj):=(
   obj = dgs3dObjById(obj);
   if(obj.resetChildren,
     forall(obj:"children",child,
-      child:"coords" = child:"oldCoords";
-      dgs3dResetChildren(child);
+      if(!child.needsRecompute,
+        child:"coords" = child:"oldCoords";
+        child.needsRecompute = true;
+        if(!child.childrenDeterministic,
+          dgs3dResetChildren(child);
+        );
+      );
     );
   )
 );
@@ -201,21 +245,25 @@ dgs3dRedrawChildren(obj):=(
 );
 DGS3DmAXlEVEL = 16;
 dgs3dTracePoint(p,newCoords):=(
-  dgs3dTracePointRec(p,newCoords,0,(0,0,0,0))
+  dgs3dPrepareRecompute(p);
+  dgs3dTracePointRec(p,newCoords,0,(0,0,0,0));
+  p.needsRecompute = false;
+  dgs3dRecomputeDetChildren(p);
 );
 dgs3dTracePointRec(p,newCoords,level,prevV):=(
   regional(nextPos,mid,d,v,step,dir);
   nextPos = newCoords;
   p:"oldCoords" = p:"coords";
   p:"coords" = nextPos;
-  if(dgs3dTryRecomputeChildren(p) & dgs3d.doTracing,
-    dgs3dResetChildren(p);
+  if(dgs3dTryRecomputeNonDetChildren(p) & dgs3d.doTracing,
     // TODO: find good detour path if direct movement fails
     // ! need consistent choice to preserve theorems
     // ! choose path that is homotopy-equivalent to straight line
     step = 1;
     mid = newCoords;
     while(
+      p.needsRecompute = true;
+      dgs3dResetChildren(p);
       mid = (step*p:"oldCoords" + newCoords)/(step+1);
       step = step+1;
       // offset midpoint by v in CP^3 with d(v,M) < d(P_old,P_new)/2
@@ -226,8 +274,8 @@ dgs3dTracePointRec(p,newCoords,level,prevV):=(
       v = normalize(v+0.5*prevV);
       p:"coords" = mid + random()*d*v;
       if(step > DGS3DmAXlEVEL,level = DGS3DmAXlEVEL;);
-      dgs3dTryRecomputeChildren(p) & step < DGS3DmAXlEVEL
-    ,dgs3dResetChildren(p));
+      dgs3dTryRecomputeNonDetChildren(p) & step < DGS3DmAXlEVEL
+    ,);
     // move relative to new-position
     if(level<DGS3DmAXlEVEL,
       dgs3dTracePointRec(p,newCoords,level+1,v);
@@ -504,7 +552,7 @@ jsonRemove(dir,key):=(
 );
 
 dgs3dCheckChildrenDeterministic(obj):=(
-  min(obj.children,#.type != "set" % #.childrenDeterministic)
+  if(obj.type == "set",false,min(obj.children,#.childrenDeterministic))
 );
 dgs3dRecomputeChildrenDeterministic(obj):=(
   forall(obj.parents,
@@ -668,6 +716,7 @@ dgs3dNewObject(type,alg,parents,visible->true,color->cglNada,alpha->cglNada,inci
     "childrenDeterministic": (type != "set"),
     "visible": cglValOrDefault(visible,true),
     "recompute": lambda(self,DGS3DmOVEoK), "redraw": lambda(self,),
+    "needsRecompute": false,
     "incidences": {},"tangencies":{}
   };
   dgs3dObjects:objId = obj;
