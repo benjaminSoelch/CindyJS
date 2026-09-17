@@ -1358,7 +1358,7 @@ dgs3dTryProjectPointToBiQuadric(P,q1,q2,unique->false):=(
   if(dgs3dIsFiniteRealPlane(p1) & dgs3dIsFiniteRealPlane(p2),
     n = cross(p1_(1..3),p2_(1..3));
     p = (n_1*P_4,n_2*P_4,n_3*P_4,(-P_(1..3)*n));
-    ABCD = select(apply(dgs3dIntersectionsQQP(q1,q2,p),dgs3dRP3Normalize(#)),dgs3dIsFiniteRealPoint(#));
+    ABCD = select(apply(dgs3dComputeIntersectionsQQP(q1,q2,p),dgs3dRP3Normalize(#)),dgs3dIsFiniteRealPoint(#));
     dgs3dSelectClosest(ABCD,P,unique->unique);
   ,cglUndefinedVal())
 );
