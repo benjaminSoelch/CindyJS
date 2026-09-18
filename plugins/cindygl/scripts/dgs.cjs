@@ -1269,12 +1269,15 @@ dgs3dProjectPointToLine(P,l):=(
 dgs3dFindPointOnLine(l,P0):=(
   dgs3dProjectPointToLine(P0,l:"coords")
 );
-dgs3dProjectPointToPlane(P,p):=(
+dgs3dProjectPointToPlane0(P,p):=(
   regional(P3,n);
-  P3 = dgs3dDiv0(P_(1..3),P_4);
+  P3 = P_(1..3)/P_4; // TODO? div0 for vector/scalar division
   n = p_(1..3);
   P3 = P3 - n*(p_4+P3*n)/(n*n);
-  dgs3dRP3Normalize((P3_1,P3_2,P3_3,1))
+  (P3_1,P3_2,P3_3,1)
+);
+dgs3dProjectPointToPlane(P,p):=(
+  dgs3dRP3Normalize(dgs3dProjectPointToPlane0(P,p))
 );
 dgs3dFindPointOnPlane(p,P0):=(
   regional(n);
@@ -1659,6 +1662,13 @@ dgs3dProjDistanceSq(P1,P2):=(
   // we have <A,A> = <B,B> = 1 and <A,B> = e^ib |<A,B>| with |<A,B>| <= 1
   // we get the minimal value 2 - 2|<A,B>| for b= -a 
   1-|v1*conjugate(v2)|;
+);
+// shader friendly version of dgs3dProjDistanceSq
+dgs3dSimpleProjDistanceSq(P1,P2):=(
+  regional(v1,v2);
+  v1 = 1/re(sqrt(sum(apply(P1,|#|)))) * P1; // normalize(vec4) does not work in shader (function can only be used with one argument type)
+  v2 = 1/re(sqrt(sum(apply(P2,|#|)))) * P2;
+  1-|v1*v2|; // conjugate not supported by CindyGL (but input should be real)
 );
 dgs3dTracePointSelect(self,AB):=(
     regional(oldP);
@@ -2901,8 +2911,44 @@ dgs3dCircle3points(A,B,C,size->cglNada,visible->true,color->cglNada,alpha->cglNa
 ////////////////
 // Distance Estimators
 ////////////////
+// shader friendly version of quadric line intersection with line throuh P and Q close to P
+// TODO: check if interpolation based algorithm can also be used in normal case
+dgs3dSimpleIntersectQuadricLine(q,P,Q):=(
+  regional(a,b,c,d,X1,X2);
+  // (lP+Q)^T q (lP+Q) = l^2 PqP + 2l PqQ + QqQ
+  a = P*q*P;
+  b = P*q*Q;
+  c = Q*q*Q;
+  d = b*b-a*c;
+  if(d<0,
+    Q-(b/a)*P
+  ,
+    X1 = ((-b + re(sqrt(d)))/a)*P+Q;
+    X2 = ((-b - re(sqrt(d)))/a)*P+Q;
+    if(dgs3dSimpleProjDistanceSq(X1,P)<dgs3dSimpleProjDistanceSq(X2,P),X1,X2);
+  )
+);
+dgs3dSimpleConicProjectionStep(conicQuadric,conicPlane,planePoint,iterPoint):=(
+  regional(polarPlane,polarLine,normalPlane,Q);
+  polarPlane = conicQuadric*iterPoint;
+  polarLine = dgs3dDualLine(dgs3dEpsilon44(polarPlane,conicPlane));
+  normalPlane = dgs3dPlaneWithNormalThroughPoint(dgs3dLineDirection(polarLine),planePoint);
+  Q = dgs3dEpsilon46(normalPlane,polarLine);
+  dgs3dSimpleIntersectQuadricLine(conicQuadric,planePoint,Q);
+);
 // estimate squared-distance to intersection curve of quadric and plane
-dgs3dDistanceQuadricPlane(Quadric,Plane,coords):=(
+dgs3dDistanceQuadricPlane(conicQuadric,conicPlane,samplePoint):=(
+  regional(planePoint,P,v);
+  planePoint = dgs3dProjectPointToPlane0(samplePoint,conicPlane);
+  P = dgs3dSimpleConicProjectionStep(conicQuadric,conicPlane,planePoint,planePoint);
+  // TODO: two steps gives more accurate curve, but leads to nummerical problems
+  //P = dgs3dSimpleConicProjectionStep(conicQuadric,conicPlane,planePoint,P);
+  v = (P / P_4 - samplePoint / samplePoint_4);
+  v*v
+);
+// TODO: the new algorithm is more acurate but less numerically stable
+//  test if renderer can be improved otherwise maybe switch back algorithm
+dgs3dDistanceQuadricPlaneOld(Quadric,Plane,coords):=(
   regional(pol,v,plane,P);
   // 1. get polar planes
   pol = Quadric*coords;
