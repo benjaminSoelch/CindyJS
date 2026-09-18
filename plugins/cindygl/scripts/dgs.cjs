@@ -2911,8 +2911,7 @@ dgs3dDistanceQuadricPlane(Quadric,Plane,coords):=(
   // 2. compute distance to intersection line
   l = dgs3dDualLine(dgs3dEpsilon44(pol,Plane));
   v = dgs3dEpsilon46((0,0,0,1),l);
-  // TODO: dgs3dPlaneWithNormalThroughPoint cannot run in shader (index with range not supported)
-  plane = (v_1*coords_4,v_2*coords_4,v_3*coords_4,-(v_1,v_2,v_3,0)*coords);
+  plane = dgs3dPlaneWithNormalThroughPoint(v_(1..3),coords);
   P = dgs3dEpsilon46(plane,l);
   P = (P / P_4 - coords / coords_4);
   P*P
@@ -2926,7 +2925,7 @@ dgs3dDistanceQuadricQuadric(Q1,Q2,coords):=(
   // 2. compute distance to intersection line
   l = dgs3dDualLine(dgs3dEpsilon44(pol1,pol2));
   v = dgs3dEpsilon46((0,0,0,1),l);
-  plane = (v_1*coords_4,v_2*coords_4,v_3*coords_4,-(v_1,v_2,v_3,0)*coords);
+  plane = dgs3dPlaneWithNormalThroughPoint(v_(1..3),coords);
   P = dgs3dEpsilon46(plane,l);
   P = (P / P_4 - coords / coords_4);
   0.25*(P*P)
