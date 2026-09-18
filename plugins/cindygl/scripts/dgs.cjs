@@ -1298,7 +1298,7 @@ dgs3dSelectClosest(pts,P,unique->false):=(
   regional(minDist,soln);
   if(length(pts)>0,
     soln = min(pts,(dgs3dProjDistanceSq(#,P),#));
-    if(if(unique,soln_1 > min(pairs(pts),dgs3dProjDistanceSq(#_1,#_2)),false),
+    if(if(unique & length(pts)>1,soln_1 > min(pairs(pts),dgs3dProjDistanceSq(#_1,#_2)),false),
       cglUndefinedVal()
     ,soln_2);
   ,
@@ -1355,7 +1355,7 @@ dgs3dTryProjectPointToConic(P,q,p,unique->false):=(
   regional(X);
   // 1. project point into plane
   X = P = dgs3dProjectPointToPlane(P,p);
-  forall(1..4,print(X);X = dsg3dConicProjectionStep(q,p,P,X));
+  forall(1..4,X = dsg3dConicProjectionStep(q,p,P,X));
   dsg3dConicProjectionStep(q,p,P,X,unique->unique);
 );
 dgs3dFindPointOnConic(c,P0):=(
@@ -1370,21 +1370,32 @@ dgs3dFindPointOnConic(c,P0):=(
 dgs3dPlaneWithNormalThroughPoint(n,P):=(
   (n_1*P_4,n_2*P_4,n_3*P_4,-P_(1..3)*n)
 );
-// TODO? would a iteration based approach like for quadric and conic work well for bi-quadric (in all complex case use closest real intersection of joins of root-pairs)
-dgs3dTryProjectPointToBiQuadric(P,q1,q2,unique->false):=(
-  regional(p1,p2,n,p);
-  p1 = q1*P; p2 = q2*P;
-  if(dgs3dIsFiniteRealPlane(p1) & dgs3dIsFiniteRealPlane(p2),
-    n = cross(p1_(1..3),p2_(1..3));
-    p = dgs3dPlaneWithNormalThroughPoint(n,P);
-    ABCD = select(apply(dgs3dComputeIntersectionsQQP(q1,q2,p),dgs3dRP3Normalize(#)),dgs3dIsFiniteRealPoint(#));
-    dgs3dSelectClosest(ABCD,P,unique->unique);
-  ,cglUndefinedVal())
+dgs3dBiQuadricProjectionStep(q1,q2,P,X,unique->false):=(
+  regional(p1,p2,n,p,PQRS);
+  p1 = q1*P; p2 = q2*P; // TODO: handle infinite planes
+  p = dgs3dPlaneWithNormalThroughPoint(cross(p1_(1..3),p2_(1..3)),P);
+  PQRS = apply(dgs3dComputeIntersectionsQQP(q1,q2,p),dgs3dRP3Normalize(#));
+  ABCD = select(PQRS,dgs3dIsFiniteRealPoint(#));
+  if(unique % length(ABCD)>0,
+    dgs3dSelectClosest(ABCD,P,unique->unique)
+  , // no real intersection -> pick closest real intersection of line-pairs through intersections
+    dgs3dSelectClosest(select(
+      [dgs3dComputeIntersectionLL(dgs3dEpsilon44(PQRS_1,PQRS_2),dgs3dEpsilon44(PQRS_3,PQRS_4)),
+      dgs3dComputeIntersectionLL(dgs3dEpsilon44(PQRS_1,PQRS_3),dgs3dEpsilon44(PQRS_2,PQRS_4)),
+      dgs3dComputeIntersectionLL(dgs3dEpsilon44(PQRS_1,PQRS_4),dgs3dEpsilon44(PQRS_2,PQRS_3))]
+    ,dgs3dIsFiniteRealPoint(#)),P,unique->unique);
+  )
 );
-dgs3dFindPointOnBiQuadric(q,P0):=(
+dgs3dTryProjectPointToBiQuadric(P,q1,q2,unique->false):=(
+  regional(X);
+  X = P;
+  forall(1..4,X = dgs3dBiQuadricProjectionStep(q1,q2,P,X));
+  dgs3dBiQuadricProjectionStep(q1,q2,P,X,unique->unique);
+);
+dgs3dFindPointOnBiQuadric(b,P0):=(
   regional(q1,q2,P);
-  q1 = c:"parents"_1:"coords";
-  q2 = c:"parents"_2:"coords";
+  q1 = b:"parents"_1:"coords";
+  q2 = b:"parents"_2:"coords";
   P = dgs3dTryProjectPointToBiQuadric(P0,q1,q2);
   if(!isUndefined(P),P,
     P0 // TODO: find point in degenerate case
@@ -1618,14 +1629,16 @@ dgs3dMeetPL(P1,l1,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   ),size->size,visible->visible,color->color,alpha->alpha,incidences->[P1,l1]);
 );
 // TODO? restrict to co-planar lines
+dgs3dComputeIntersectionLL(l1,l2):=(
+  l1 = dgs3dLineMatrix(dgs3dDualLine(l1));
+  l2 = dgs3dLineMatrix(l2);
+  K = l2*l1; // == -transpose(l1*l2)
+  dgs3dRP3Normalize(max(K,(#*#,#))_2);
+);
 // l1: line, l2: line => point, size:real = radius, visible: bool = should object be drawn
 dgs3dMeet2L(l1,l2,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dNewPoint("meetLL",[l1,l2],lambda(self,
-    regional(l1,l2,K);
-    l1 = dgs3dLineMatrix(dgs3dDualLine((self:"parents"_1):"coords"));
-    l2 = dgs3dLineMatrix((self:"parents"_2):"coords");
-    K = l2*l1; // == -transpose(l1*l2)
-    self:"coords" = dgs3dRP3Normalize(max(K,(#*#,#))_2);
+    self:"coords" = dgs3dComputeIntersectionLL((self:"parents"_1):"coords",(self:"parents"_2):"coords");
     DGS3DmOVEoK
   ),size->size,visible->visible,color->color,alpha->alpha,incidences->[l1,l2])
 );
@@ -2964,6 +2977,7 @@ dgs3dDistanceQuadricPlaneOld(Quadric,Plane,coords):=(
   P = (P / P_4 - coords / coords_4);
   P*P
 );
+// TODO? try porting iterative projection approach from dgs3dTryProjectPointToBiQuadric to shader
 // estimate squared-distance to intersection curve of quadric and quadric
 dgs3dDistanceQuadricQuadric(Q1,Q2,coords):=(
   regional(pol1,pol2,l,v,plane,P);
