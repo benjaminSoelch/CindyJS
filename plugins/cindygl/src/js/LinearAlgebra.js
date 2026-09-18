@@ -240,6 +240,14 @@ function accesslist(t, k) {
 function accesstuple(t, k) {
     return (args, modifs, codebuilder) => `(${args[0]}).a${k}`;
 }
+function accesslistslice(listType,indices) {
+    const sliceType = list(indices.length,listType.parameters);
+    return (args, modifs, codebuilder) => (
+        uselist(sliceType)(indices.map(index => 
+            accesslist(listType,index)(args,modifs,codebuilder)
+        ),modifs,codebuilder)
+    );
+}
 
 /** creates a reallist of type t that has everywhere value val */
 function constantreallist(t, val) {

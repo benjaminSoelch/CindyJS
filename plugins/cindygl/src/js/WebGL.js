@@ -388,6 +388,24 @@ webgl["_"] = args => {
                 generator: x => cglLogError(`try to access ${k}-th Element of ${t.elements.length}-tuple ${JSON.stringify(args[0])}`)
             };
         }
+    } else if (t.type === 'list' && isconstantintlist(args[1])) {
+        let indices = args[1].value["value"].map(v=>Number(v["value"]["real"]));
+        for (const k of indices) {
+            if (Math.abs(k) < 1 || Math.abs(k) > t.length) {
+                return {
+                    args: args,
+                    res: t.parameters,
+                    generator: x => cglLogError(`try to access ${k}-th Element of ${t.length}-list ${JSON.stringify(args[0])}`)
+                };
+            }
+        }
+        // map indices to range 0..(len-1)
+        indices = indices.map(i => (i > 0? i-1: t.length+i));
+        return {
+            args: args,
+            res: list(indices.length,t.parameters),
+            generator: accesslistslice(t, indices),
+        };
     }
     return false;
 };

@@ -92,6 +92,9 @@ let iscvectorspace = t => (t.type === 'list' && iscvectorspace(t.parameters)) ||
 
 /* checks whether t is a constant integer */
 let isconstantint = t => (t.type === 'constant' && issubtypeof(t, type.int));
+let isconstantintlist = t => (t.type === 'constant' && t.value.ctype == "list" &&
+    t.value.value.every(v=>issubtypeof(constant(v), type.int))
+);
 
 /*generalizes constants to non-constant types and leaves other types unaffected */
 let generalize = t => t.type === 'constant' ? guessTypeOfValue(t.value) : t;
