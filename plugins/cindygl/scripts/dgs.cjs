@@ -175,7 +175,7 @@ dgs3dShouldRecompute(obj):=(
   if(obj.needsRecompute,!max(obj.parents,#.needsRecompute),false);
 );
 dgs3dRecomputeNonDetChild(obj,child):=(
-  // for "set" `childrenDeterministic` is false, otherwise parent is deterministic if all childs is deterministic
+  // for set `childrenDeterministic` is false, otherwise parent is deterministic if all children are deterministic
   if(child.childrenDeterministic,false,
     if(!dgs3dShouldRecompute(child),false,
       child:"oldCoords" = child:"coords";
@@ -554,8 +554,14 @@ jsonRemove(dir,key):=(
   )
 );
 
+dgs3dIsSetType(name):=(
+  name_1 == "{";
+);
+dgs3dIsSet(obj):=(
+  dgs3dIsSetType(obj.type);
+);
 dgs3dCheckChildrenDeterministic(obj):=(
-  if(obj.type == "set",false,min(obj.children,#.childrenDeterministic))
+  if(dgs3dIsSet(obj),false,min(obj.children,#.childrenDeterministic))
 );
 dgs3dRecomputeChildrenDeterministic(obj):=(
   forall(obj.parents,
@@ -581,7 +587,7 @@ dgs3dDelete(obj):=(
     cglDelete(obj:"drawId");
     // TODO: how to handle deletion of set-elements
     forall(obj:"parents",p,
-      if(p.type != "set", // do not remove children of set
+      if(!dgs3dIsSet(p), // do not remove children of set
         p:"children" = select(p:"children",child,child:"id"!=obj:"id");
       );
     );
@@ -591,7 +597,7 @@ dgs3dDelete(obj):=(
     forall(obj.tangencies,tangent,
       jsonRemove(tangent.tangencies,obj.id);
     );
-    if(obj.type == "set",
+    if(dgs3dIsSet(obj),
       dgs3dRecomputeChildrenDeterministic(obj);
     );
     forall(obj:"children",
@@ -716,7 +722,7 @@ dgs3dNewObject(type,alg,parents,visible->true,color->cglNada,alpha->cglNada,inci
   obj = {
     "type":type, "algorithm": alg, "id": objId, "drawId": -1,
     "parents": parents, "children": [],
-    "childrenDeterministic": (type != "set"),
+    "childrenDeterministic": !dgs3dIsSetType(type),
     "visible": cglValOrDefault(visible,true),
     "recompute": lambda(self,DGS3DmOVEoK), "redraw": lambda(self,),
     "needsRecompute": false,
@@ -764,7 +770,7 @@ dgs3dNewObject(type,alg,parents,visible->true,color->cglNada,alpha->cglNada,inci
     obj:"redraw" = lambda(self,dgs3dRenderBiQuadric(self));
     dgs3dObjAddIncidences(obj,incidences);
     dgs3dObjAddTangencies(obj,tangencies);
-  ,if(type == "set",
+  ,if(dgs3dIsSetType(type),
     dgs3dTagNonDeterministicChild(obj);
     // nothing to do
   ,if(type == "transform" % type == "mobiusTrafo",
@@ -865,7 +871,7 @@ dgs3dNewSurface(alg,parents,recompute,visible->true,color->cglNada,alpha->cglNad
 );
 dgs3dNewPointSet(alg,parents,childCount,recompute,size->cglNada,visible->true,color->cglNada,alpha->cglNada,incidences->[]):=(
   regional(obj);
-  obj = dgs3dNewObject("set",alg,parents,visible->visible,color->color,alpha->alpha);
+  obj = dgs3dNewObject("{point}",alg,parents,visible->visible,color->color,alpha->alpha);
   obj:"children" = apply(1..childCount,
     regional(child);
     child = dgs3dNewObject("point","setElt",[obj],visible->visible,color->color,alpha->alpha,incidences->incidences);
@@ -881,7 +887,7 @@ dgs3dNewPointSet(alg,parents,childCount,recompute,size->cglNada,visible->true,co
 );
 dgs3dNewLineSet(alg,parents,childCount,recompute,size->cglNada,visible->true,color->cglNada,alpha->cglNada,incidences->[],tangencies->[]):=(
   regional(obj);
-  obj = dgs3dNewObject("set",alg,parents,visible->visible,color->color,alpha->alpha);
+  obj = dgs3dNewObject("{line}",alg,parents,visible->visible,color->color,alpha->alpha);
   obj:"children" = apply(1..childCount,
     regional(child);
     child = dgs3dNewObject("line","setElt",[obj],visible->visible,color->color,alpha->alpha,incidences->incidences,tangencies->tangencies);
@@ -897,7 +903,7 @@ dgs3dNewLineSet(alg,parents,childCount,recompute,size->cglNada,visible->true,col
 );
 dgs3dNewPlaneSet(alg,parents,childCount,recompute,visible->true,color->cglNada,alpha->cglNada,incidences->[],tangencies->[]):=(
   regional(obj);
-  obj = dgs3dNewObject("set",alg,parents,visible->visible,color->color,alpha->alpha);
+  obj = dgs3dNewObject("{plane}",alg,parents,visible->visible,color->color,alpha->alpha);
   obj:"children" = apply(1..childCount,
     regional(child);
     child = dgs3dNewObject("plane","setElt",[obj],visible->visible,color->color,alpha->alpha,incidences->incidences,tangencies->tangencies);
