@@ -164,6 +164,7 @@ dgs3dPrepareRecompute(obj):=(
   // TODO? sub-object for tracing-data to avoid polluting obj-data
   obj.needsRecompute = true;
   obj.resetChildren = false;
+  obj.checkDetChildren = true;
   forall(obj.children,child,
     if(!child.needsRecompute,
       dgs3dPrepareRecompute(child)
@@ -177,8 +178,8 @@ dgs3dRecomputeNonDetChild(obj,child):=(
   // for "set" `childrenDeterministic` is false, otherwise parent is deterministic if all childs is deterministic
   if(child.childrenDeterministic,false,
     if(!dgs3dShouldRecompute(child),false,
-        child:"oldCoords" = child:"coords";
-        dgs3dTryRecomputeNonDetChildren(child)
+      child:"oldCoords" = child:"coords";
+      dgs3dTryRecomputeNonDetChildren(child)
     );
   )
 );
@@ -216,8 +217,9 @@ dgs3dRecomputeDetChildren(obj):=(
       if(child.childrenDeterministic,
         child:"recompute".(child);
       );
-      // TODO: avoid duplicate work
-      // TODO: ensure correct recompute order
+    );
+    if(child.checkDetChildren,
+      child.checkDetChildren = false;
       dgs3dRecomputeDetChildren(child);
     );
   );
