@@ -1,7 +1,10 @@
 ////////////////
 // Controls
 ////////////////
+dgs3d = {};
 dgs3dModeSelect = false;
+dgs3d.doTracing = false;
+dgs3d.alg = {};
 // TODO: different modes:
 //  -> view only
 //  -> move points
@@ -46,8 +49,6 @@ dgs3dHandleZoom(zoom):=(
   forall(dgs3dCurves,q,q:"redraw".(q));
 );
 dgs3dUpdateCutoff();
-dgs3d = {};
-dgs3d.doTracing = false;
 
 // TODO? set focus color depending on color of point
 dgs3dFocusColor = cglColor("green");
@@ -186,7 +187,7 @@ dgs3dRecomputeNonDetChild(obj,child):=(
 dgs3dTryRecomputeNonDetChildren(obj):=(
   regional(retry);
   obj = dgs3dObjById(obj);
-  if(obj:"recompute".(obj) != DGS3DmOVEoK,
+  if(obj.move.(obj) != DGS3DmOVEoK,
     obj.resetChildren = false;
     true
   ,
@@ -215,7 +216,7 @@ dgs3dRecomputeDetChildren(obj):=(
     if(dgs3dShouldRecompute(child),
       child.needsRecompute = false;
       if(child.childrenDeterministic,
-        child:"recompute".(child);
+        child.move.(child);
       );
     );
     if(child.checkDetChildren,
@@ -289,6 +290,146 @@ dgs3dTracePointRec(p,newCoords,level,prevV):=(
   );
 );
 
+lexCompare(a,b):=(
+  if(re(a)<re(b),
+    -1
+  ,if(re(a)>re(b),
+    1
+  ,if(im(a)<im(b),
+    -1
+  ,if(im(a)>im(b),
+    1
+  ,
+    0
+  ))))
+);
+dgs3dProjDistanceSq(P1,P2):=(
+  regional(v1,v2);
+  v1 = normalize(P1);
+  v2 = normalize(P2);
+  // we project both points to the unit-sphere and try to find the 
+  //   minimum distance up to scalar multiplications with a complex unit
+  // this results in minimizing the following expression for a real value a
+  // <(A-e^(ia)B),(A-e^(ia)B)> = <A,A>+<B,B> - 2Re(e^(ia)<A,B>)
+  // we have <A,A> = <B,B> = 1 and <A,B> = e^ib |<A,B>| with |<A,B>| <= 1
+  // we get the minimal value 2 - 2|<A,B>| for b= -a 
+  1-|v1*conjugate(v2)|;
+);
+// shader friendly version of dgs3dProjDistanceSq
+dgs3dSimpleProjDistanceSq(P1,P2):=(
+  regional(v1,v2);
+  v1 = 1/re(sqrt(sum(apply(P1,|#|)))) * P1; // normalize(vec4) does not work in shader (function can only be used with one argument type)
+  v2 = 1/re(sqrt(sum(apply(P2,|#|)))) * P2;
+  1-|v1*v2|; // conjugate not supported by CindyGL (but input should be real)
+);
+dgs3dTracePointSelect(self,AB):=(
+    regional(oldP);
+    oldP = self:"coords";
+    a = dgs3dProjDistanceSq(oldP,AB_1);
+    b = dgs3dProjDistanceSq(oldP,AB_2);
+    ab = dgs3dProjDistanceSq(AB_1,AB_2);
+    // assignment inside branches to avoid assigning value when comparison is undefined
+    if(if(a<=b,
+      self:"coords" = dgs3dRP3Normalize(AB_1);
+      ab > a
+    ,
+      self:"coords" = dgs3dRP3Normalize(AB_2);
+      ab > b
+    ),
+      DGS3DmOVEoK
+    ,
+      DGS3DmOVErETRY
+    );
+);
+dgs3dTracePair(self,AB,metric):=(
+  self:"coords" = AB;
+  oldA = self:"children"_1:"coords";
+  oldB = self:"children"_2:"coords";
+  if(isUndefined(oldA) % isUndefined(oldB),
+      self:"children"_1:"coords" = AB_1;
+      self:"children"_2:"coords" = AB_2;
+      DGS3DmOVEoK
+  ,
+    // TODO find good way to detect if points are too close to each other
+    //  cindy-classic uses d(oldA,oldB)* s > d(oldA,newA)+d(oldB,newB)
+    d11 = metric.(AB_1,oldA);
+    d12 = metric.(AB_1,oldB);
+    d21 = metric.(AB_2,oldA);
+    d22 = metric.(AB_2,oldB);
+    // chose permutation that minimizes sum of squared distances
+    if(d11 + d22 <= d12 + d21,
+      self:"children"_1:"coords" = AB_1;
+      self:"children"_2:"coords" = AB_2;
+      if(d11 <= d12 & d22 <= d21,DGS3DmOVEoK,DGS3DmOVErETRY)
+    ,
+      self:"children"_1:"coords" = AB_2;
+      self:"children"_2:"coords" = AB_1;
+      if(d12 <= d11 & d21 <= d22,DGS3DmOVEoK,DGS3DmOVErETRY)
+    );
+  )
+);
+dgs3dTraceSet(self,pts,metric):=(
+  if(max(apply(self:"children",isUndefined(#:"coords"))),
+    // at least one undefined child -> direly set in given order
+    forall(1..(length(pts)),i,
+      self:"children"_i:"coords" = pts_i;
+    );
+    DGS3DmOVEoK
+  ,
+    regional(n,iMin,jMin,dist);
+    n = length(pts);
+    dist = apply(pts,p,apply(self:"children",q,
+      metric.(p,q:"coords");
+    ));
+    iMin = apply(1..n,i,min(1..n,j,(dist_i_j,j))_2);// old-index closest to new-index
+    jMin = apply(1..n,j,min(1..n,i,(dist_i_j,i))_2);// new-index closest to old-index
+    if(min(apply(iMin,x,i,jMin_x==i)),// all points have a mutually closest partner
+      // closest points are unique -> apply permutation
+      forall(1..n,i,
+        self:"children"_(iMin_i):"coords" = pts_i;
+      );
+      // TODO: detect error case where distance between points smaller than distance to target points
+      DGS3DmOVEoK
+    ,
+      regional(perm,inv,y,j);
+      perm = inv = 1..n;
+      forall(iMin,x,i,
+        if(perm_i!=x,
+          // i -> y  j -> x
+          y = perm_i;
+          j = inv_x;
+          // swap if distance decreases
+          if(dist_i_x+dist_j_y<dist_i_y+dist_j_x,
+            perm_i = x;
+            perm_j = y;
+            inv_x = i;
+            inv_y = j;
+          );
+        );
+      );
+      forall(jMin,i,x,
+        if(perm_i!=x,
+          // i -> y  j -> x
+          y = perm_i;
+          j = inv_x;
+          // swap if distance decreases
+          if(dist_i_x+dist_j_y<dist_i_y+dist_j_x,
+            perm_i = x;
+            perm_j = y;
+            inv_x = i;
+            inv_y = j;
+          );
+        );
+      );
+      // TODO? how far is this algorithm from a minimal distance sum solution?
+      forall(1..n,i,
+        self:"children"_(perm_i):"coords" = pts_i;
+      );
+      // duplicate entry -> retry move
+      DGS3DmOVErETRY
+    )
+  )
+);
 ////////////////
 // Tensor Math
 ////////////////
@@ -527,8 +668,8 @@ dgs3dNewId() := (
   dgs3dUID = dgs3dUID + 1;
   res;
 );
-dgs3dObjById(id) := if(isstring(id), dgs3dObjects:id, id);
-dgs3dIdForObj(obj) := if(isstring(obj), obj, obj:"id");
+dgs3dObjById(id) := if(isString(id), dgs3dObjects:id, id);
+dgs3dIdForObj(obj) := if(isString(obj), obj, obj:"id");
 
 dgs3dReset():=(
   forall(dgs3dObjects,obj,
@@ -716,7 +857,7 @@ dgs3dTagNonDeterministicChild(obj):=(
   );
 );
 // type: string, parents: [obj3d] -> obj3d
-dgs3dNewObject(type,alg,parents,visible->true,color->cglNada,alpha->cglNada,incidences->[],tangencies->[]):=(
+dgs3dNewObject(type,alg,recompute,parents,visible->true,color->cglNada,alpha->cglNada,incidences->[],tangencies->[]):=(
   regional(obj,objId);
   objId = dgs3dNewId();
   obj = {
@@ -724,7 +865,10 @@ dgs3dNewObject(type,alg,parents,visible->true,color->cglNada,alpha->cglNada,inci
     "parents": parents, "children": [],
     "childrenDeterministic": !dgs3dIsSetType(type),
     "visible": cglValOrDefault(visible,true),
-    "recompute": lambda(self,DGS3DmOVEoK), "redraw": lambda(self,),
+    "recompute": recompute, "redraw": lambda(self,),
+    "move": if(isUndefined(recompute),lambda(self,DGS3DmOVEoK),
+      lambda(self,self.coords=eval(self.recompute,apply(self.parents,#.coords));DGS3DmOVEoK)
+    ),
     "needsRecompute": false,
     "incidences": {},"tangencies":{}
   };
@@ -780,9 +924,11 @@ dgs3dNewObject(type,alg,parents,visible->true,color->cglNada,alpha->cglNada,inci
     obj:"color" = cglColor(cglValOrDefault(color,(1,0.25,0)));
     obj:"alpha" = cglValOrDefault(alpha,0.5);
     obj:"redraw" = lambda(self,dgs3dRenderSurface(self));
+  ,if(type == "number",
+    // nothing to do
   ,
     cglLogWarning("unknown object type: "+type);
-  )))))))));
+  ))))))))));
   forall(parents,parent,
     if(isJSON(parent),
       parent:"children" = append(parent:"children",obj);
@@ -790,127 +936,166 @@ dgs3dNewObject(type,alg,parents,visible->true,color->cglNada,alpha->cglNada,inci
   );
   obj;
 );
-dgs3dNewPoint(alg,parents,recompute,size->cglNada,visible->true,color->cglNada,alpha->cglNada,incidences->[]):=(
-  regional(obj);
-  obj = dgs3dNewObject("point",alg,parents,visible->visible,color->color,alpha->alpha,incidences->incidences);
+dgs3dGetAlg(alg):=(
+  if(isString(alg),
+    (alg,dgs3d.alg:alg)
+  ,if(isLambda(alg),
+    ("",alg)
+  ,
+    cglLogError("unexpected value for alg, expected string or lambda: "+alg);
+    ("",()=>())
+  ));
+);
+dgs3dNewNumber(value):=(
+  obj = dgs3dNewObject("number","",cglNada,[]);
+  obj:"coords" = value;
+  obj
+);
+dgs3dNewPoint(alg,parents,size->cglNada,visible->true,color->cglNada,alpha->cglNada,incidences->[]):=(
+  regional(obj,algName,recompute);
+  [algName, recompute] = dgs3dGetAlg(alg);
+  obj = dgs3dNewObject("point",algName,recompute,parents,visible->visible,color->color,alpha->alpha,incidences->incidences);
   obj:"size" = cglValOrDefault(size,cgl3d.defaults:"sphereSize");
-  obj:"recompute" = recompute;
-  obj:"recompute".(obj);
+  obj.move.(obj);
   obj:"redraw".(obj);
   obj
 );
-dgs3dNewLine(alg,parents,recompute,size->cglNada,visible->true,color->cglNada,alpha->cglNada,incidences->[],tangencies->[]):=(
-  regional(obj);
-  obj = dgs3dNewObject("line",alg,parents,visible->visible,color->color,alpha->alpha,incidences->incidences,tangencies->tangencies);
+dgs3dNewLine(alg,parents,size->cglNada,visible->true,color->cglNada,alpha->cglNada,incidences->[],tangencies->[]):=(
+  regional(obj,algName,recompute);
+  [algName, recompute] = dgs3dGetAlg(alg);
+  obj = dgs3dNewObject("line",algName,recompute,parents,visible->visible,color->color,alpha->alpha,incidences->incidences,tangencies->tangencies);
   obj:"size" = cglValOrDefault(size,cgl3d.defaults:"cylinderSize");
-  obj:"recompute" = recompute;
-  obj:"recompute".(obj);
+  obj.move.(obj);
   obj:"redraw".(obj);
   obj
 );
-dgs3dNewConic(alg,parents,recompute,size->cglNada,visible->true,color->cglNada,alpha->cglNada,isCircle->false,incidences->[],tangencies->[]):=(
-  regional(obj);
-  obj = dgs3dNewObject("conic",alg,parents,visible->visible,color->color,alpha->alpha,incidences->incidences,tangencies->tangencies);
-  obj:"size" = cglValOrDefault(size,cgl3d.defaults:"cylinderSize");
-  obj:"isCircle" = isCircle;
-  obj:"recompute" = recompute;
-  obj:"recompute".(obj);
-  obj:"redraw".(obj);
-  obj
-);
-dgs3dNewBiQuadric(alg,parents,recompute,size->cglNada,visible->true,color->cglNada,alpha->cglNada,isCircle->false,incidences->[],tangencies->[]):=(
-  regional(obj);
-  obj = dgs3dNewObject("biquadric",alg,parents,visible->visible,color->color,alpha->alpha,incidences->incidences,tangencies->tangencies);
+dgs3dNewConic(alg,parents,size->cglNada,visible->true,color->cglNada,alpha->cglNada,isCircle->false,incidences->[],tangencies->[]):=(
+  regional(obj,algName,recompute);
+  [algName, recompute] = dgs3dGetAlg(alg);
+  obj = dgs3dNewObject("conic",algName,recompute,parents,visible->visible,color->color,alpha->alpha,incidences->incidences,tangencies->tangencies);
   obj:"size" = cglValOrDefault(size,cgl3d.defaults:"cylinderSize");
   obj:"isCircle" = isCircle;
-  obj:"recompute" = recompute;
-  obj:"recompute".(obj);
+  obj.move.(obj);
   obj:"redraw".(obj);
   obj
 );
-dgs3dNewPlane(alg,parents,recompute,visible->true,color->cglNada,alpha->cglNada,incidences->[],tangencies->[]):=(
-  regional(obj);
-  obj = dgs3dNewObject("plane",alg,parents,visible->visible,color->color,alpha->alpha,incidences->incidences,tangencies->tangencies);
-  obj:"recompute" = recompute;
-  obj:"recompute".(obj);
+dgs3dNewBiQuadric(alg,parents,size->cglNada,visible->true,color->cglNada,alpha->cglNada,isCircle->false,incidences->[],tangencies->[]):=(
+  regional(obj,algName,recompute);
+  [algName, recompute] = dgs3dGetAlg(alg);
+  obj = dgs3dNewObject("biquadric",algName,recompute,parents,visible->visible,color->color,alpha->alpha,incidences->incidences,tangencies->tangencies);
+  obj:"size" = cglValOrDefault(size,cgl3d.defaults:"cylinderSize");
+  obj:"isCircle" = isCircle;
+  obj.move.(obj);
   obj:"redraw".(obj);
   obj
 );
-dgs3dNewQuadric(alg,parents,recompute,visible->true,color->cglNada,alpha->cglNada,isSphere->false,incidences->[],tangencies->[]):=(
-  regional(obj);
-  obj = dgs3dNewObject("quadric",alg,parents,visible->visible,color->color,alpha->alpha,incidences->incidences,tangencies->tangencies);
+dgs3dNewPlane(alg,parents,visible->true,color->cglNada,alpha->cglNada,incidences->[],tangencies->[]):=(
+  regional(obj,algName,recompute);
+  [algName, recompute] = dgs3dGetAlg(alg);
+  obj = dgs3dNewObject("plane",algName,recompute,parents,visible->visible,color->color,alpha->alpha,incidences->incidences,tangencies->tangencies);
+  obj.move.(obj);
+  obj:"redraw".(obj);
+  obj
+);
+dgs3dNewQuadric(alg,parents,visible->true,color->cglNada,alpha->cglNada,isSphere->false,incidences->[],tangencies->[]):=(
+  regional(obj,algName,recompute);
+  [algName, recompute] = dgs3dGetAlg(alg);
+  obj = dgs3dNewObject("quadric",algName,recompute,parents,visible->visible,color->color,alpha->alpha,incidences->incidences,tangencies->tangencies);
   obj:"isSphere" = isSphere;
-  obj:"recompute" = recompute;
-  obj:"recompute".(obj);
+  obj.move.(obj);
   obj:"redraw".(obj);
   obj
 );
-dgs3dNewTrafo(alg,parents,recompute):=(
-  regional(obj);
-  obj = dgs3dNewObject("transform",alg,parents);
-  obj:"recompute" = recompute;
-  obj:"recompute".(obj);
+dgs3dNewTrafo(alg,parents):=(
+  regional(obj,algName,recompute);
+  [algName, recompute] = dgs3dGetAlg(alg);
+  obj = dgs3dNewObject("transform",algName,recompute,parents);
+  obj.move.(obj);
   obj:"redraw".(obj);
   obj
 );
-dgs3dNewMobiusTrafo(alg,parents,recompute):=(
-  regional(obj);
-  obj = dgs3dNewObject("mobiusTrafo",alg,parents);
-  obj:"recompute" = recompute;
-  obj:"recompute".(obj);
+dgs3dNewMobiusTrafo(alg,parents):=(
+  regional(obj,algName,recompute);
+  [algName, recompute] = dgs3dGetAlg(alg);
+  obj = dgs3dNewObject("mobiusTrafo",algName,recompute,parents);
+  obj.move.(obj);
   obj:"redraw".(obj);
   obj
 );
-dgs3dNewSurface(alg,parents,recompute,visible->true,color->cglNada,alpha->cglNada):=(
-  regional(obj);
-  obj = dgs3dNewObject("surface",alg,parents,visible->visible,color->color,alpha->alpha);
-  obj:"recompute" = recompute;
-  obj:"recompute".(obj);
+dgs3dNewSurface(alg,parents,visible->true,color->cglNada,alpha->cglNada):=(
+  regional(obj,algName,recompute);
+  [algName, recompute] = dgs3dGetAlg(alg);
+  obj = dgs3dNewObject("surface",algName,recompute,parents,visible->visible,color->color,alpha->alpha);
+  obj.move.(obj);
   obj:"redraw".(obj);
   obj
 );
-dgs3dNewPointSet(alg,parents,childCount,recompute,size->cglNada,visible->true,color->cglNada,alpha->cglNada,incidences->[]):=(
-  regional(obj);
-  obj = dgs3dNewObject("{point}",alg,parents,visible->visible,color->color,alpha->alpha);
+dgs3dMovePointPair = lambda(self,
+  dgs3dTracePair(self,eval(self.recompute,apply(self.parents,#.coords)),(x,y)=>dgs3dProjDistanceSq(x,y));
+);
+dgs3dMovePointSet  = lambda(self,
+  dgs3dTraceSet(self,eval(self.recompute,apply(self.parents,#.coords)),(x,y)=>dgs3dProjDistanceSq(x,y));
+);
+dgs3dMoveLinePair  = lambda(self,
+  dgs3dTracePair(self,eval(self.recompute,apply(self.parents,#.coords)),(x,y)=>dgs3dProjDistanceSq(x,y));
+);
+dgs3dMoveLineSet   = lambda(self,
+  dgs3dTraceSet(self,eval(self.recompute,apply(self.parents,#.coords)),(x,y)=>dgs3dProjDistanceSq(x,y));
+);
+dgs3dMovePlaneSet  = lambda(self,
+  dgs3dTraceSet(self,eval(self.recompute,apply(self.parents,#.coords)),(x,y)=>dgs3dProjDistanceSq(x,y));
+);
+dgs3dNewPointSet(alg,parents,childCount,size->cglNada,visible->true,color->cglNada,alpha->cglNada,incidences->[]):=(
+  regional(obj,algName,recompute);
+  [algName, recompute] = dgs3dGetAlg(alg);
+  obj = dgs3dNewObject("{point}",algName,recompute,parents,visible->visible,color->color,alpha->alpha);
   obj:"children" = apply(1..childCount,
     regional(child);
-    child = dgs3dNewObject("point","setElt",[obj],visible->visible,color->color,alpha->alpha,incidences->incidences);
+    child = dgs3dNewObject("point","setElt",cglNada,[obj],visible->visible,color->color,alpha->alpha,incidences->incidences);
     child.size = cglValOrDefault(size,cgl3d.defaults:"sphereSize");
     child
   );
-  obj:"recompute" = recompute;
-  obj:"recompute".(obj);
+  if(childCount>1,
+    obj.move = if(childCount == 2,dgs3dMovePointPair,dgs3dMovePointSet);
+  );
+  obj.move.(obj);
   forall(obj:"children",child,
     child:"redraw".(child);
   );
   obj
 );
-dgs3dNewLineSet(alg,parents,childCount,recompute,size->cglNada,visible->true,color->cglNada,alpha->cglNada,incidences->[],tangencies->[]):=(
-  regional(obj);
-  obj = dgs3dNewObject("{line}",alg,parents,visible->visible,color->color,alpha->alpha);
+dgs3dNewLineSet(alg,parents,childCount,size->cglNada,visible->true,color->cglNada,alpha->cglNada,incidences->[],tangencies->[]):=(
+  regional(obj,algName,recompute);
+  [algName, recompute] = dgs3dGetAlg(alg);
+  obj = dgs3dNewObject("{line}",algName,recompute,parents,visible->visible,color->color,alpha->alpha);
   obj:"children" = apply(1..childCount,
     regional(child);
-    child = dgs3dNewObject("line","setElt",[obj],visible->visible,color->color,alpha->alpha,incidences->incidences,tangencies->tangencies);
+    child = dgs3dNewObject("line","setElt",cglNada,[obj],visible->visible,color->color,alpha->alpha,incidences->incidences,tangencies->tangencies);
     child.size = cglValOrDefault(size,cgl3d.defaults:"cylinderSize");
     child
   );
-  obj:"recompute" = recompute;
-  obj:"recompute".(obj);
+  if(childCount>1,
+    obj.move = if(childCount == 2,dgs3dMoveLinePair,dgs3dMoveLineSet);
+  );
+  obj.move.(obj);
   forall(obj:"children",child,
     child:"redraw".(child);
   );
   obj
 );
-dgs3dNewPlaneSet(alg,parents,childCount,recompute,visible->true,color->cglNada,alpha->cglNada,incidences->[],tangencies->[]):=(
-  regional(obj);
-  obj = dgs3dNewObject("{plane}",alg,parents,visible->visible,color->color,alpha->alpha);
+dgs3dNewPlaneSet(alg,parents,childCount,visible->true,color->cglNada,alpha->cglNada,incidences->[],tangencies->[]):=(
+  regional(obj,algName,recompute);
+  [algName, recompute] = dgs3dGetAlg(alg);
+  obj = dgs3dNewObject("{plane}",algName,recompute,parents,visible->visible,color->color,alpha->alpha);
   obj:"children" = apply(1..childCount,
     regional(child);
-    child = dgs3dNewObject("plane","setElt",[obj],visible->visible,color->color,alpha->alpha,incidences->incidences,tangencies->tangencies);
+    child = dgs3dNewObject("plane","setElt",cglNada,[obj],visible->visible,color->color,alpha->alpha,incidences->incidences,tangencies->tangencies);
     child
   );
-  obj:"recompute" = recompute;
-  obj:"recompute".(obj);
+  if(childCount>1,
+    obj.move = dgs3dMovePlaneSet;
+  );
+  obj.move.(obj);
   forall(obj:"children",child,
     child:"redraw".(child);
   );
@@ -1106,7 +1291,7 @@ dgs3dFreePoint(p,
   color->cglNada,alpha->cglNada
 ):=(
   regional(obj);
-  obj = dgs3dNewObject("point","freePoint",[],visible->visible,color->color,alpha->alpha);
+  obj = dgs3dNewObject("point","freePoint",cglNada,[],visible->visible,color->color,alpha->alpha);
   obj:"coords" = dgs3dRP3Normalize(dgs3dPoint4(p));
   obj:"size" = cglValOrDefault(size,cgl3d.defaults:"sphereSize");
   dgs3dRenderPoint(obj);
@@ -1146,7 +1331,7 @@ line3d(l,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
 );
 dgs3dFreeLine(l,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   regional(obj);
-  obj = dgs3dNewObject("line","freeLine",[],visible->visible,color->color,alpha->alpha);
+  obj = dgs3dNewObject("line","freeLine",cglNada,[],visible->visible,color->color,alpha->alpha);
   obj:"coords" = dgs3dRP3Normalize(l);
   obj:"size" = cglValOrDefault(size,cgl3d.defaults:"cylinderSize");
   dgs3dRenderLine(obj);
@@ -1159,7 +1344,7 @@ plane3d(p,visible->true,color->cglNada,alpha->cglNada):=(
 );
 dgs3dFreePlane(p,visible->true,color->cglNada,alpha->cglNada):=(
   regional(obj);
-  obj = dgs3dNewObject("plane","freePlane",[],visible->visible,color->color,alpha->alpha);
+  obj = dgs3dNewObject("plane","freePlane",cglNada,[],visible->visible,color->color,alpha->alpha);
   obj:"coords" = dgs3dRP3Normalize(p);
   dgs3dRenderPlane(obj);
   obj
@@ -1170,7 +1355,7 @@ quadric3d(M,visible->true,color->cglNada,alpha->cglNada):=(
 );
 dgs3dFreeQuadric(M,visible->true,color->cglNada,alpha->cglNada):=(
   regional(obj);
-  obj = dgs3dNewObject("quadric","freeQuadric",[],visible->visible,color->color,alpha->alpha);
+  obj = dgs3dNewObject("quadric","freeQuadric",cglNada,[],visible->visible,color->color,alpha->alpha);
   obj:"coords" = dgs3dRP3Normalize(M+transpose(M));
   dgs3dRenderQuadric(obj);
   obj
@@ -1181,82 +1366,9 @@ randomQuadric3d(visible->true,color->cglNada,alpha->cglNada):=(
     visible->visible,color->color,alpha->alpha
   );
 );
-randomQuadricBy9P(size->cglNade,visible->true,color->cglNada,alpha->cglNada):=(
+randomQuadricBy9P(size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   pts = apply(1..9,randomPoint3d(size->size,visible->visible,color->color,alpha->alpha));
   quadricBy9P(pts);
-);
-
-// p1: point, p2: point|line, size:real = radius, visible: bool = should object be drawn
-join3d(a,b,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dJoin2(a,b,size->size,visible->visible,color->color,alpha->alpha)
-);
-dgs3dJoin2(a,b,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  if(a:"type" == "point" & b:"type" == "point",
-    dgs3dJoin2P(a,b,size->size,visible->visible,color->color,alpha->alpha);
-  ,if(a:"type" == "point" & b:"type" == "line",
-    dgs3dJoinPL(a,b,size->size,visible->visible,color->color,alpha->alpha);
-  ,if(a:"type" == "line" & b:"type" == "point",
-    dgs3dJoinPL(b,a,size->size,visible->visible,color->color,alpha->alpha);
-  ,if(a:"type" == "line" & b:"type" == "line",
-    dgs3dJoin2L(b,a,visible->visible,color->color,alpha->alpha);
-  ,
-    cglLogWarning("cannot join "+a:"type"+" and "+b:"type");
-  ))));
-);
-
-// p1: point, p2: point, size:real = radius, visible: bool = should object be drawn
-dgs3dJoin2P(p1,p2,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewLine("joinPP",[p1,p2],lambda(self,
-    regional(a,b);
-    a = (self:"parents"_1):"coords";
-    b = (self:"parents"_2):"coords";
-    self:"coords" = dgs3dRP3Normalize(dgs3dEpsilon44(a,b));
-    DGS3DmOVEoK
-  ),size->size,visible->visible,color->color,alpha->alpha,incidences->[p1,p2])
-);
-
-// p1: point, l1: line, visible: bool = should object be drawn
-dgs3dJoinPL(p1,l1,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewPlane("joinPL",[p1,l1],lambda(self,
-    regional(p,l,PQ);
-    p = self:"parents"_1;
-    l = self:"parents"_2;
-    self:"coords" = dgs3dRP3Normalize(dgs3dEpsilon46(p:"coords",dgs3dDualLine(l:"coords")));
-    DGS3DmOVEoK
-  ),visible->visible,color->color,alpha->alpha,incidences->[p1,l1])
-);
-
-// p1: point, p2: point, p3: point  or  p1: line, p2: line, p3: line, visible: bool = should object be drawn
-join3d(a,b,c,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dJoin3(a,b,c,visible->visible,color->color,alpha->alpha);
-);
-dgs3dJoin3(a,b,c,visible->true,color->cglNada,alpha->cglNada):=(
-  if(a:"type" == "point" & b:"type" == "point" & c:"type" == "point",
-    dgs3dJoin3P(a,b,c,visible->visible,color->color,alpha->alpha);
-  ,if(a:"type" == "line" & b:"type" == "line" & c:"type" == "line",
-    dgs3dJoin3L(a,b,c,visible->visible,color->color,alpha->alpha);
-  ,
-    cglLogWarning("cannot join "+a:"type"+", "+b:"type"+" and "+c:"type");
-  ));
-);
-// p1: point, p2: point, p3: point, visible: bool = should object be drawn
-dgs3dJoin3P(p1,p2,p3,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewPlane("join3P",[p1,p2,p3],lambda(self,
-    self:"coords" = dgs3dRP3Normalize(dgs3dEpsilon444(self:"parents"_1:"coords",self:"parents"_2:"coords",self:"parents"_3:"coords"));
-    DGS3DmOVEoK
-  ),visible->visible,color->color,alpha->alpha,incidences->[p1,p2,p3])
-);
-// l1: point, l2: point, l3: point, visible: bool = should object be drawn
-dgs3dJoin3L(l1,l2,l3,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewQuadric("join3L",[l1,l2,l3],lambda(self,
-    regional(M,l1,l2,l3);
-    l1 = self:"parents"_1:"coords";
-    l2 = self:"parents"_2:"coords";
-    l3 = self:"parents"_3:"coords";
-    M = dgs3dLineMatrix(l1)*dgs3dLineMatrix(dgs3dDualLine(l2))*dgs3dLineMatrix(l3);
-    self:"coords" = dgs3dRP3Normalize(M + transpose(M));
-    DGS3DmOVEoK
-  ),visible->visible,color->color,alpha->alpha,incidences->[l1,l2,l3])
 );
 
 // helpers for initial point for pointOn... operations
@@ -1318,12 +1430,12 @@ dgs3dSelectFiniteRealOrMidpoint(PQ,P,unique->false):=(
     dgs3dSelectClosest(AB,P,unique->unique)
   ,PQ_1+PQ_2);
 );
-dsg3dQuadricProjectionStep(q,P,X,unique->false):=(
+dgs3dQuadricProjectionStep(q,P,X,unique->false):=(
   regional(p,l,PQ);
   p = q*X;
   if(dgs3dIsFiniteRealPlane(p),
     // orthogonal line to p through P
-    l = dgs3dComputeOrthogonalLine(p,P);
+    l = dgs3d.alg.orthogonalLine.(p,P);
     // 2. intersect line with quadric
     dgs3dSelectFiniteRealOrMidpoint(dgs3dIntersectQuadricLine(q,l),P,unique->unique);
   ,// TODO: handle case of non-finite polar plane
@@ -1333,8 +1445,8 @@ dsg3dQuadricProjectionStep(q,P,X,unique->false):=(
 dgs3dTryProjectPointToQuadric(P,q,unique->false):=(
   regional(X);
   X = P;
-  forall(1..4,X = dsg3dQuadricProjectionStep(q,P,X));
-  dsg3dQuadricProjectionStep(q,P,X,unique->unique);
+  forall(1..4,X = dgs3dQuadricProjectionStep(q,P,X));
+  dgs3dQuadricProjectionStep(q,P,X,unique->unique);
 );
 dgs3dFindPointOnQuadric(q,P0):=(
   regional(P);
@@ -1343,7 +1455,7 @@ dgs3dFindPointOnQuadric(q,P0):=(
     P0 // TODO: use axes/planes to find real point
   )
 );
-dsg3dConicProjectionStep(q,p,P,X,unique->false):=(
+dgs3dConicProjectionStep(q,p,P,X,unique->false):=(
   regional(np,nq,l);
   nq = q * X;
   if(dgs3dIsFiniteRealPlane(nq),
@@ -1351,7 +1463,7 @@ dsg3dConicProjectionStep(q,p,P,X,unique->false):=(
     np = p_(1..3);
     // TODO: use 2D polar instead of projected 3D polar
     nq = nq - ((np*nq)/(np*np)) * np; // project normal into plane
-    l = dgs3dComputeOrthogonalLine(nq,P);
+    l = dgs3d.alg.orthogonalLine.(nq,P);
     dgs3dSelectFiniteRealOrMidpoint(dgs3dIntersectQuadricLine(q,l),P,unique->unique);
   ,// TODO: handle case of non-finite polar plane
     cglUndefinedVal()
@@ -1361,8 +1473,8 @@ dgs3dTryProjectPointToConic(P,q,p,unique->false):=(
   regional(X);
   // 1. project point into plane
   X = P = dgs3dProjectPointToPlane(P,p);
-  forall(1..4,X = dsg3dConicProjectionStep(q,p,P,X));
-  dsg3dConicProjectionStep(q,p,P,X,unique->unique);
+  forall(1..4,X = dgs3dConicProjectionStep(q,p,P,X));
+  dgs3dConicProjectionStep(q,p,P,X,unique->unique);
 );
 dgs3dFindPointOnConic(c,P0):=(
   regional(q,p,P);
@@ -1413,14 +1525,14 @@ pointOnLine3d(l,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alph
 );
 dgs3dPointOnLine(l,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
   regional(obj);
-  obj = dgs3dNewObject("point","onLine",[l],visible->visible,color->color,alpha->alpha,incidences->[l]);
+  obj = dgs3dNewObject("point","onLine",cglNada,[l],visible->visible,color->color,alpha->alpha,incidences->[l]);
   obj:"size" = cglValOrDefault(size,cgl3d.defaults:"sphereSize");
   obj:"coords" = dgs3dFindPointOnLine(l,dgs3dPoint4(p0));
-  obj:"recompute" = lambda(self,
+  obj.move = lambda(self,
     self:"coords" = dgs3dProjectPointToLine(self:"coords",self:"parents"_1:"coords");
     DGS3DmOVEoK
   );
-  obj:"recompute".(obj);
+  obj.move.(obj);
   obj:"redraw".(obj);
   if(cglValOrDefault(pinned,false),
     obj:"movable" = false;
@@ -1442,14 +1554,14 @@ pointOnPlane3d(s,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alp
 );
 dgs3dPointOnPlane(s,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
   regional(obj);
-  obj = dgs3dNewObject("point","onPlane",[s],visible->visible,color->color,alpha->alpha,incidences->[s]);
+  obj = dgs3dNewObject("point","onPlane",cglNada,[s],visible->visible,color->color,alpha->alpha,incidences->[s]);
   obj:"size" = cglValOrDefault(size,cgl3d.defaults:"sphereSize");
   obj:"coords" = dgs3dFindPointOnPlane(s,dgs3dPoint4(p0));
-  obj:"recompute" = lambda(self,
+  obj.move = lambda(self,
     self:"coords" = dgs3dProjectPointToPlane(self:"coords",self:"parents"_1:"coords");
     DGS3DmOVEoK
   );
-  obj:"recompute".(obj);
+  obj.move.(obj);
   obj:"redraw".(obj);
   if(cglValOrDefault(pinned,false),
     obj:"movable" = false;
@@ -1477,16 +1589,16 @@ dgs3dSetIfDefined(self,coords):=(
 );
 dgs3dPointOnQuadric(q,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
   regional(obj);
-  obj = dgs3dNewObject("point","onQuadric",[q],visible->visible,color->color,alpha->alpha,incidences->[q]);
+  obj = dgs3dNewObject("point","onQuadric",cglNada,[q],visible->visible,color->color,alpha->alpha,incidences->[q]);
   obj:"size" = cglValOrDefault(size,cgl3d.defaults:"sphereSize");
   obj:"coords" = dgs3dFindPointOnQuadric(q,dgs3dPoint4(p0));
-  obj:"recompute" = lambda(self,
+  obj.move = lambda(self,
     regional(p,Q,n,l,AB,a,b,ab);
     P = self:"coords";
     q = (self:"parents"_1):"coords";
     dgs3dSetIfDefined(self,dgs3dTryProjectPointToQuadric(P,q,unique->true));
   );
-  obj:"recompute".(obj);
+  obj.move.(obj);
   obj:"redraw".(obj);
   if(cglValOrDefault(pinned,false),
     obj:"movable" = false;
@@ -1508,16 +1620,16 @@ pointOnConic3d(q,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alp
 );
 dgs3dPointOnConic(q,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
   regional(obj);
-  obj = dgs3dNewObject("point","onConic",[q],visible->visible,color->color,alpha->alpha,incidences->[q]);
+  obj = dgs3dNewObject("point","onConic",cglNada,[q],visible->visible,color->color,alpha->alpha,incidences->[q]);
   obj:"size" = cglValOrDefault(size,cgl3d.defaults:"sphereSize");
   obj:"coords" = dgs3dFindPointOnConic(q,dgs3dPoint4(p0));
-  obj:"recompute" = lambda(self,
+  obj.move = lambda(self,
     regional(P,P3,Qp,Q,p,np,nq);
     P = self:"coords";
     Qp = (self:"parents"_1):"coords";
     dgs3dSetIfDefined(self,dgs3dTryProjectPointToConic(P,Qp_1,Qp_2,unique->true));
   );
-  obj:"recompute".(obj);
+  obj.move.(obj);
   obj:"redraw".(obj);
   if(cglValOrDefault(pinned,false),
     obj:"movable" = false;
@@ -1539,16 +1651,16 @@ pointOnBiQuadric3d(q,p0,size->cglNada,visible->true,pinned->false,color->cglNada
 );
 dgs3dPointOnBiQuadric(q,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
   regional(obj);
-  obj = dgs3dNewObject("point","onBiQuadric",[q],visible->visible,color->color,alpha->alpha,incidences->[q]);
+  obj = dgs3dNewObject("point","onBiQuadric",cglNada,[q],visible->visible,color->color,alpha->alpha,incidences->[q]);
   obj:"size" = cglValOrDefault(size,cgl3d.defaults:"sphereSize");
   obj:"coords" = dgs3dFindPointOnBiQuadric(q,dgs3dPoint4(p0));
-  obj:"recompute" = lambda(self,
+  obj.move = lambda(self,
     regional(oldP,P,QR,Q,R,p,q,r,n,ABCD,dsts);
     oldP = P = self:"coords";
     QR = (self:"parents"_1):"coords";
     dgs3dSetIfDefined(self,dgs3dTryProjectPointToBiQuadric(P,QR_1,QR_2,unique->true));
   );
-  obj:"recompute".(obj);
+  obj.move.(obj);
   obj:"redraw".(obj);
   if(cglValOrDefault(pinned,false),
     obj:"movable" = false;
@@ -1563,6 +1675,62 @@ pointOnBiQuadric3d(q,size->cglNada,visible->true,pinned->false,color->cglNada,al
 );
 dgs3dPointOnBiQuadric(q,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
   dgs3dPointOnBiQuadric(q,(0,0,0,1),size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
+);
+
+// p1: point, p2: point|line, size:real = radius, visible: bool = should object be drawn
+join3d(a,b,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dJoin2(a,b,size->size,visible->visible,color->color,alpha->alpha)
+);
+dgs3dJoin2(a,b,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  if(a:"type" == "point" & b:"type" == "point",
+    dgs3dJoin2P(a,b,size->size,visible->visible,color->color,alpha->alpha);
+  ,if(a:"type" == "point" & b:"type" == "line",
+    dgs3dJoinPL(a,b,size->size,visible->visible,color->color,alpha->alpha);
+  ,if(a:"type" == "line" & b:"type" == "point",
+    dgs3dJoinPL(b,a,size->size,visible->visible,color->color,alpha->alpha);
+  ,if(a:"type" == "line" & b:"type" == "line",
+    dgs3dJoin2L(b,a,visible->visible,color->color,alpha->alpha);
+  ,
+    cglLogWarning("cannot join "+a:"type"+" and "+b:"type");
+  ))));
+);
+dgs3d.alg.joinPP = (P1,P2) => dgs3dRP3Normalize(dgs3dEpsilon44(P1,P2));
+// p1: point, p2: point, size:real = radius, visible: bool = should object be drawn
+dgs3dJoin2P(P1,P2,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewLine("joinPP",[P1,P2],size->size,visible->visible,color->color,alpha->alpha,incidences->[P1,P2])
+);
+dgs3d.alg.joinPL = (P,l) => dgs3dRP3Normalize(dgs3dEpsilon46(P,dgs3dDualLine(l)));
+// p1: point, l1: line, visible: bool = should object be drawn
+dgs3dJoinPL(P1,l1,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewPlane("joinPL",[P1,l1],visible->visible,color->color,alpha->alpha,incidences->[P1,l1])
+);
+
+// p1: point, p2: point, p3: point  or  p1: line, p2: line, p3: line, visible: bool = should object be drawn
+join3d(a,b,c,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dJoin3(a,b,c,visible->visible,color->color,alpha->alpha);
+);
+dgs3dJoin3(a,b,c,visible->true,color->cglNada,alpha->cglNada):=(
+  if(a:"type" == "point" & b:"type" == "point" & c:"type" == "point",
+    dgs3dJoin3P(a,b,c,visible->visible,color->color,alpha->alpha);
+  ,if(a:"type" == "line" & b:"type" == "line" & c:"type" == "line",
+    dgs3dJoin3L(a,b,c,visible->visible,color->color,alpha->alpha);
+  ,
+    cglLogWarning("cannot join "+a:"type"+", "+b:"type"+" and "+c:"type");
+  ));
+);
+dgs3d.alg.join3P = (P1,P2,P3) => dgs3dRP3Normalize(dgs3dEpsilon444(P1,P2,P3));
+// p1: point, p2: point, p3: point, visible: bool = should object be drawn
+dgs3dJoin3P(P1,P2,P3,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewPlane("join3P",[P1,P2,P3],visible->visible,color->color,alpha->alpha,incidences->[P1,P2,P3])
+);
+dgs3d.alg.join3L = (l1,l2,l3) => (
+  regional(M);
+  M = dgs3dLineMatrix(l1)*dgs3dLineMatrix(dgs3dDualLine(l2))*dgs3dLineMatrix(l3);
+  dgs3dRP3Normalize(M + transpose(M))
+);
+// l1: point, l2: point, l3: point, visible: bool = should object be drawn
+dgs3dJoin3L(l1,l2,l3,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewQuadric("join3L",[l1,l2,l3],visible->visible,color->color,alpha->alpha,incidences->[l1,l2,l3])
 );
 
 // p1: plane, p2: plane|line, size:real = radius, visible: bool = should object be drawn
@@ -1614,215 +1782,43 @@ dgs3dMeet2(a,b,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
     cglLogWarning("cannot meet "+a:"type"+" and "+b:"type");
   ))))))))))))))))))));
 );
-// P1: plane, P2: plane, size:real = radius, visible: bool = should object be drawn
-dgs3dMeet2P(P1,P2,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewLine("meetPP",[P1,P2],lambda(self,
-    regional(A,B);
-    A = (self:"parents"_1):"coords";
-    B = (self:"parents"_2):"coords";
-    self:"coords" = dgs3dRP3Normalize(dgs3dDualLine(dgs3dEpsilon44(A,B)));
-    DGS3DmOVEoK
-  ),size->size,visible->visible,color->color,alpha->alpha,incidences->[P1,P2]);
+dgs3d.alg.meetPP = (p1,p2) => dgs3dRP3Normalize(dgs3dDualLine(dgs3dEpsilon44(p1,p2)));
+// p1: plane, p2: plane, size:real = radius, visible: bool = should object be drawn
+dgs3dMeet2P(p1,p2,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewLine("meetPP",[p1,p2],size->size,visible->visible,color->color,alpha->alpha,incidences->[p1,p2]);
 );
-// P1: plane, l1: line, size:real = radius, visible: bool = should object be drawn
-dgs3dMeetPL(P1,l1,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewPoint("meetPL",[P1,l1],lambda(self,
-    regional(p,l);
-    p = self:"parents"_1;
-    l = self:"parents"_2;
-    self:"coords" = dgs3dRP3Normalize(dgs3dEpsilon46(p:"coords",l:"coords"));
-    DGS3DmOVEoK
-  ),size->size,visible->visible,color->color,alpha->alpha,incidences->[P1,l1]);
+dgs3d.alg.meetPL = (p,l) => dgs3dRP3Normalize(dgs3dEpsilon46(p,l));
+// p1: plane, l1: line, size:real = radius, visible: bool = should object be drawn
+dgs3dMeetPL(p1,l1,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewPoint("meetPL",[p1,l1],size->size,visible->visible,color->color,alpha->alpha,incidences->[p1,l1]);
 );
 // TODO? restrict to co-planar lines
-dgs3dComputeIntersectionLL(l1,l2):=(
+dgs3d.alg.meetLL = (l1,l2) => (
   l1 = dgs3dLineMatrix(dgs3dDualLine(l1));
   l2 = dgs3dLineMatrix(l2);
-  K = l2*l1; // == -transpose(l1*l2)
-  dgs3dRP3Normalize(max(K,(#*#,#))_2);
+  dgs3dRP3Normalize(max(l2*l1,(#*#,#))_2);
 );
 // l1: line, l2: line => point, size:real = radius, visible: bool = should object be drawn
 dgs3dMeet2L(l1,l2,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewPoint("meetLL",[l1,l2],lambda(self,
-    self:"coords" = dgs3dComputeIntersectionLL((self:"parents"_1):"coords",(self:"parents"_2):"coords");
-    DGS3DmOVEoK
-  ),size->size,visible->visible,color->color,alpha->alpha,incidences->[l1,l2])
+  dgs3dNewPoint("meetLL",[l1,l2],size->size,visible->visible,color->color,alpha->alpha,incidences->[l1,l2])
+);
+dgs3d.alg.joinLL = (l1,l2) => (
+  l1 = dgs3dLineMatrix(dgs3dDualLine(l1));
+  l2 = dgs3dLineMatrix(l2);
+  dgs3dRP3Normalize(max(l1*l2,(#*#,#))_2);
 );
 // l1: line, l2: line => plane, visible: bool = should object be drawn
 dgs3dJoin2L(l1,l2,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewPlane("joinLL",[l1,l2],lambda(self,
-    regional(l1,l2,K);
-    l1 = dgs3dLineMatrix(dgs3dDualLine((self:"parents"_1):"coords"));
-    l2 = dgs3dLineMatrix((self:"parents"_2):"coords");
-    K = l1*l2;
-    self:"coords" = dgs3dRP3Normalize(max(K,(#*#,#))_2);
-    DGS3DmOVEoK
-  ),size->size,visible->visible,color->color,alpha->alpha,incidences->[l1,l2])
+  dgs3dNewPlane("joinLL",[l1,l2],size->size,visible->visible,color->color,alpha->alpha,incidences->[l1,l2])
 );
-lexCompare(a,b):=(
-  if(re(a)<re(b),
-    -1
-  ,if(re(a)>re(b),
-    1
-  ,if(im(a)<im(b),
-    -1
-  ,if(im(a)>im(b),
-    1
-  ,
-    0
-  ))))
-);
-dgs3dProjDistanceSq(P1,P2):=(
-  regional(v1,v2);
-  v1 = normalize(P1);
-  v2 = normalize(P2);
-  // we project both points to the unit-sphere and try to find the 
-  //   minimum distance up to scalar multiplications with a complex unit
-  // this results in minimizing the following expression for a real value a
-  // <(A-e^(ia)B),(A-e^(ia)B)> = <A,A>+<B,B> - 2Re(e^(ia)<A,B>)
-  // we have <A,A> = <B,B> = 1 and <A,B> = e^ib |<A,B>| with |<A,B>| <= 1
-  // we get the minimal value 2 - 2|<A,B>| for b= -a 
-  1-|v1*conjugate(v2)|;
-);
-// shader friendly version of dgs3dProjDistanceSq
-dgs3dSimpleProjDistanceSq(P1,P2):=(
-  regional(v1,v2);
-  v1 = 1/re(sqrt(sum(apply(P1,|#|)))) * P1; // normalize(vec4) does not work in shader (function can only be used with one argument type)
-  v2 = 1/re(sqrt(sum(apply(P2,|#|)))) * P2;
-  1-|v1*v2|; // conjugate not supported by CindyGL (but input should be real)
-);
-dgs3dTracePointSelect(self,AB):=(
-    regional(oldP);
-    oldP = self:"coords";
-    a = dgs3dProjDistanceSq(oldP,AB_1);
-    b = dgs3dProjDistanceSq(oldP,AB_2);
-    ab = dgs3dProjDistanceSq(AB_1,AB_2);
-    // assignment inside branches to avoid assigning value when comparison is undefined
-    if(if(a<=b,
-      self:"coords" = dgs3dRP3Normalize(AB_1);
-      ab > a
-    ,
-      self:"coords" = dgs3dRP3Normalize(AB_2);
-      ab > b
-    ),
-      DGS3DmOVEoK
-    ,
-      DGS3DmOVErETRY
-    );
-);
-dgs3dTracePointPair(self,AB):=(
-  dgs3dTracePair(self,AB,(x,y)=>dgs3dProjDistanceSq(x,y));
-);
-dgs3dTraceLinePair(self,AB):=(
-  dgs3dTracePair(self,AB,(x,y)=>dgs3dProjDistanceSq(x,y));
-);
-dgs3dTracePair(self,AB,metric):=(
-  self:"coords" = AB;
-  oldA = self:"children"_1:"coords";
-  oldB = self:"children"_2:"coords";
-  if(isUndefined(oldA) % isUndefined(oldB),
-      self:"children"_1:"coords" = AB_1;
-      self:"children"_2:"coords" = AB_2;
-      DGS3DmOVEoK
-  ,
-    // TODO find good way to detect if points are too close to each other
-    //  cindy-classic uses d(oldA,oldB)* s > d(oldA,newA)+d(oldB,newB)
-    d11 = metric.(AB_1,oldA);
-    d12 = metric.(AB_1,oldB);
-    d21 = metric.(AB_2,oldA);
-    d22 = metric.(AB_2,oldB);
-    // chose permutation that minimizes sum of squared distances
-    if(d11 + d22 <= d12 + d21,
-      self:"children"_1:"coords" = AB_1;
-      self:"children"_2:"coords" = AB_2;
-      if(d11 <= d12 & d22 <= d21,DGS3DmOVEoK,DGS3DmOVErETRY)
-    ,
-      self:"children"_1:"coords" = AB_2;
-      self:"children"_2:"coords" = AB_1;
-      if(d12 <= d11 & d21 <= d22,DGS3DmOVEoK,DGS3DmOVErETRY)
-    );
-  )
-);
-dgs3dTracePointSet(self,pts):=(
-  dgs3dTraceSet(self,pts,(x,y)=>dgs3dProjDistanceSq(x,y));
-);
-dgs3dTraceLineSet(self,pts):=(
-  dgs3dTraceSet(self,pts,(x,y)=>dgs3dProjDistanceSq(x,y));
-);
-dgs3dTracePlaneSet(self,pts):=(
-  dgs3dTraceSet(self,pts,(x,y)=>dgs3dProjDistanceSq(x,y));
-);
-dgs3dTraceSet(self,pts,metric):=(
-  if(max(apply(self:"children",isUndefined(#:"coords"))),
-    // at least one undefined child -> direly set in given order
-    forall(1..(length(pts)),i,
-      self:"children"_i:"coords" = pts_i;
-    );
-    DGS3DmOVEoK
-  ,
-    regional(n,iMin,jMin,dist);
-    n = length(pts);
-    dist = apply(pts,p,apply(self:"children",q,
-      metric.(p,q:"coords");
-    ));
-    iMin = apply(1..n,i,min(1..n,j,(dist_i_j,j))_2);// old-index closest to new-index
-    jMin = apply(1..n,j,min(1..n,i,(dist_i_j,i))_2);// new-index closest to old-index
-    if(min(apply(iMin,x,i,jMin_x==i)),// all points have a mutually closest partner
-      // closest points are unique -> apply permutation
-      forall(1..n,i,
-        self:"children"_(iMin_i):"coords" = pts_i;
-      );
-      // TODO: detect error case where distance between points smaller than distance to target points
-      DGS3DmOVEoK
-    ,
-      regional(perm,inv,y,j);
-      perm = inv = 1..n;
-      forall(iMin,x,i,
-        if(perm_i!=x,
-          // i -> y  j -> x
-          y = perm_i;
-          j = inv_x;
-          // swap if distance decreases
-          if(dist_i_x+dist_j_y<dist_i_y+dist_j_x,
-            perm_i = x;
-            perm_j = y;
-            inv_x = i;
-            inv_y = j;
-          );
-        );
-      );
-      forall(jMin,i,x,
-        if(perm_i!=x,
-          // i -> y  j -> x
-          y = perm_i;
-          j = inv_x;
-          // swap if distance decreases
-          if(dist_i_x+dist_j_y<dist_i_y+dist_j_x,
-            perm_i = x;
-            perm_j = y;
-            inv_x = i;
-            inv_y = j;
-          );
-        );
-      );
-      // TODO? how far is this algorithm from a minimal distance sum solution?
-      forall(1..n,i,
-        self:"children"_(perm_i):"coords" = pts_i;
-      );
-      // duplicate entry -> retry move
-      DGS3DmOVErETRY
-    )
-  )
+
+dgs3d.alg.meetQL = (Q,l) => (
+  dgs3dIntersectQuadricLine(Q,l)
 );
 // Q1: quadric, l1: line, size:real = radius, visible: bool = should object be drawn
 dgs3dMeetQL(Q1,l1,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewPointSet("meetQL",[Q1,l1],2,lambda(self,
-    regional(Q,l,AB,oldA,oldB,d11,d12,d21,d22);
-    Q = self:"parents"_1:"coords";
-    l = self:"parents"_2:"coords";
-    AB = dgs3dIntersectQuadricLine(Q,l);
-    dgs3dTracePointPair(self,AB);
-  ),size->size,visible->visible,color->color,alpha->alpha,incidences->[Q1,l1]);
+  dgs3dNewPointSet("meetQL",[Q1,l1],2,
+    size->size,visible->visible,color->color,alpha->alpha,incidences->[Q1,l1]);
 );
 // P1: plane, P2: plane, P3: plane, size:real = radius, visible: bool = should object be drawn
 meet3d(a,b,c,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
@@ -1849,54 +1845,42 @@ dgs3dMeet3(x,y,z,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
     cglLogWarning("cannot meet "+x:"type"+", "+y:"type"+" and "+z:"type");
   ))))))))
 );
-dgs3dMeet3P(P1,P2,P3,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewPoint("meet3P",[P1,P2,P3],lambda(self,
-    self:"coords" = dgs3dRP3Normalize(dgs3dEpsilon444(self:"parents"_1:"coords",self:"parents"_2:"coords",self:"parents"_3:"coords"));
-    DGS3DmOVEoK
-  ),size->size,visible->visible,color->color,alpha->alpha,incidences->[P1,P2,P3]);
+dgs3d.alg.meet3P = (p1,p2,p3) => dgs3dRP3Normalize(dgs3dEpsilon444(p1,p2,p3));
+dgs3dMeet3P(p1,p2,p3,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewPoint("meet3P",[p1,p2,p3],size->size,visible->visible,color->color,alpha->alpha,incidences->[p1,p2,p3]);
 );
+dgs3d.alg.meetQPP = (Q,p1,p2) => (
+  dgs3dIntersectQuadricDualLine(Q,dgs3dEpsilon44(p1,p2))
+); 
 // Q1: quadric, p1: plane, p2: plane ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeetQpp(Q1,p1,p2,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewPointSet("meetQPP",[Q1,p1,p2],2,lambda(self,
-    regional(Q,p1,p2,AB,oldA,oldB,d11,d12,d21,d22);
-    Q = self:"parents"_1:"coords";
-    p1 = self:"parents"_2:"coords";
-    p2 = self:"parents"_3:"coords";
-    AB = dgs3dIntersectQuadricDualLine(Q,dgs3dEpsilon44(p1,p2));
-    dgs3dTracePointPair(self,AB);
-  ),size->size,visible->visible,color->color,alpha->alpha,incidences->[Q1,p1,p2]);
+  dgs3dNewPointSet("meetQPP",[Q1,p1,p2],2,
+    size->size,visible->visible,color->color,alpha->alpha,incidences->[Q1,p1,p2]);
 );
-// C: conic, p: plane ; size:real = radius, visible: bool = should object be drawn
-dgs3dMeetCp(C,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewPointSet("meetCP",[C,p],2,lambda(self,
-    regional(Q,C,AB,oldA,oldB,d11,d12,d21,d22);
-    C = self:"parents"_1:"coords";
-    p = self:"parents"_2:"coords";
-    AB = dgs3dIntersectQuadricDualLine(C_1,dgs3dEpsilon44(C_2,p));
-    dgs3dTracePointPair(self,AB);
-  ),size->size,visible->visible,color->color,alpha->alpha,incidences->[C,p]);
+dgs3d.alg.meetCP = (c,p) => (
+  dgs3dIntersectQuadricDualLine(c_1,dgs3dEpsilon44(c_2,p))
 );
-// C: conic, l: line ; size:real = radius, visible: bool = should object be drawn
-dgs3dMeetCL(C,l,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+// c: conic, p: plane ; size:real = radius, visible: bool = should object be drawn
+dgs3dMeetCp(c,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewPointSet("meetCP",[c,p],2,
+    size->size,visible->visible,color->color,alpha->alpha,incidences->[c,p]);
+);
+dgs3d.alg.meetCL = (c,l) => (
+  dgs3dIntersectQuadricLine(c_1,l);
+);
+// c: conic, l: line ; size:real = radius, visible: bool = should object be drawn
+dgs3dMeetCL(c,l,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   // TODO: ensure co-planar
-  dgs3dNewPointSet("meetCL",[C,l],2,lambda(self,
-    regional(Q,C,AB,oldA,oldB,d11,d12,d21,d22);
-    C = self:"parents"_1:"coords";
-    l = self:"parents"_2:"coords";
-    AB = dgs3dIntersectQuadricLine(C_1,l);
-    dgs3dTracePointPair(self,AB);
-  ),size->size,visible->visible,color->color,alpha->alpha);
+  dgs3dNewPointSet("meetCL",[c,l],2,size->size,visible->visible,color->color,alpha->alpha);
+);
+dgs3d.alg.meetCC = (c1,c2) => (
+  // TODO? handle intersections in non-coplanar case
+  dgs3dComputeIntersectionsQQP(c1_1,c2_1,c1_2);
 );
 // c1,c2: conic ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeetConicConic(c1,c2,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   // TODO: ensure co-planar
-  dgs3dNewPointSet("meetCC",[c1,c2],4,lambda(self,
-    regional(c1,c2);
-    c1 = self:"parents"_1:"coords";
-    c2 = self:"parents"_2:"coords";
-    // TODO? handle intersections in non-coplanar case
-    dgs3dTracePointSet(self,dgs3dComputeIntersectionsQQP(c1_1,c2_1,c1_2));
-  ),size->size,visible->visible,color->color,alpha->alpha);
+  dgs3dNewPointSet("meetCC",[c1,c2],4,size->size,visible->visible,color->color,alpha->alpha);
 );
 dgs3dComputeIntersectionsQQP(Q1,Q2,p):=(
   regional(T,S,A,B,pts2D);
@@ -1910,58 +1894,43 @@ dgs3dComputeIntersectionsQQP(Q1,Q2,p):=(
   // 4. transform intersections back to original coordinate system
   apply(pts2D,v,dgs3dRP3Normalize(S*(v_1,v_2,v_3,0)));
 );
-// Q1: quadric, Q2: quadric, p: plane ; size:real = radius, visible: bool = should object be drawn
-dgs3dMeetQQp(Q1,Q2,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewPointSet("meetQQP",[Q1,Q2,p],4,lambda(self,
-    regional(Q1,Q2,p);
-    Q1 = self:"parents"_1:"coords";
-    Q2 = self:"parents"_2:"coords";
-    p = self:"parents"_3:"coords";
-    dgs3dTracePointSet(self,dgs3dComputeIntersectionsQQP(Q1,Q2,p));
-  ),size->size,visible->visible,color->color,alpha->alpha,incidences->[Q1,Q2,p]);
+dgs3d.alg.meetQQP = (q1,q2,p) => (dgs3dComputeIntersectionsQQP(q1,q2,p));
+dgs3d.alg.meetQC = (q,c) => (dgs3dComputeIntersectionsQQP(q,c_1,c_2));
+dgs3d.alg.meetBP = (b,p) => (dgs3dComputeIntersectionsQQP(b_1,b_2,p));
+// q1: quadric, q2: quadric, p: plane ; size:real = radius, visible: bool = should object be drawn
+dgs3dMeetQQp(q1,q2,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewPointSet("meetQQP",[q1,q2,p],4,
+    size->size,visible->visible,color->color,alpha->alpha,incidences->[q1,q2,p]);
 );
-// Q: quadric, C: conic ; size:real = radius, visible: bool = should object be drawn
-dgs3dMeetQuadricConic(Q,C,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewPointSet("meetQC",[Q,C],4,lambda(self,
-    regional(Q,C);
-    Q = self:"parents"_1:"coords";
-    C = self:"parents"_2:"coords";;
-    dgs3dTracePointSet(self,dgs3dComputeIntersectionsQQP(Q,C_1,C_2));
-  ),size->size,visible->visible,color->color,alpha->alpha,incidences->[Q,C]);
+// q: quadric, c: conic ; size:real = radius, visible: bool = should object be drawn
+dgs3dMeetQuadricConic(q,c,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewPointSet("meetQC",[q,c],4,
+    size->size,visible->visible,color->color,alpha->alpha,incidences->[q,c]);
 );
-// Q2: bi-quadric, p: plane ; size:real = radius, visible: bool = should object be drawn
-dgs3dMeetBiQuadricPlane(Q2,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewPointSet("meetBP",[Q2,p],4,lambda(self,
-    regional(Q2,p);
-    Q2 = self:"parents"_1:"coords";
-    p = self:"parents"_2:"coords";;
-    dgs3dTracePointSet(self,dgs3dComputeIntersectionsQQP(Q2_1,Q2_2,p));
-  ),size->size,visible->visible,color->color,alpha->alpha,incidences->[Q2,p]);
+// b: bi-quadric, p: plane ; size:real = radius, visible: bool = should object be drawn
+dgs3dMeetBiQuadricPlane(b,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewPointSet("meetBP",[b,p],4,
+    size->size,visible->visible,color->color,alpha->alpha,incidences->[b,p]);
 );
-dgs3dIntersects3Q(Q1,Q2,Q3):=(
-  dgs3de3q3(dgs3dQuadAsVec(Q1),dgs3dQuadAsVec(Q2),dgs3dQuadAsVec(Q3));
+dgs3dIntersects3Q(q1,q2,q3):=(
+  dgs3de3q3(dgs3dQuadAsVec(q1),dgs3dQuadAsVec(q2),dgs3dQuadAsVec(q3));
 );
-// Q2: bi.quadric, q: quadric ; size:real = radius, visible: bool = should object be drawn
-dgs3dMeetBiQuadricQuadric(Q2,q,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewPointSet("meetBQ",[Q2,q],8,lambda(self,
-    regional(Q2,q,sols);
-    Q2 = self:"parents"_1:"coords";
-    q = self:"parents"_2:"coords";;
-    sols = dgs3dIntersects3Q(Q2_1,Q2_2,q);
-    dgs3dTracePointSet(self,sols);
-  ),size->size,visible->visible,color->color,alpha->alpha,incidences->[Q2,q]);
+dgs3d.alg.meetBQ = (b,q) => (
+  dgs3dIntersects3Q(b_1,b_2,q)
+);
+dgs3d.alg.meet3Q = (q1,q2,q3) => (
+  dgs3dIntersects3Q(q1,q2,q3)
+);
+// b: bi.quadric, q: quadric ; size:real = radius, visible: bool = should object be drawn
+dgs3dMeetBiQuadricQuadric(b,q,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewPointSet("meetBQ",[b,q],8,
+    size->size,visible->visible,color->color,alpha->alpha,incidences->[b,q]);
 );
 
-// Q1,Q2,Q3: quadric ; size:real = radius, visible: bool = should object be drawn
-dgs3dMeet3Q(Q1,Q2,Q3,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewPointSet("meet3Q",[Q1,Q2,Q3],8,lambda(self,
-    regional(Q1,Q2,Q3,sols);
-    Q1 = self:"parents"_1:"coords";
-    Q2 = self:"parents"_2:"coords";
-    Q3 = self:"parents"_3:"coords";
-    sols = dgs3dIntersects3Q(Q1,Q2,Q3);
-    dgs3dTracePointSet(self,sols);
-  ),size->size,visible->visible,color->color,alpha->alpha,incidences->[Q1,Q2,Q3]);
+// q1,q2,q3: quadric ; size:real = radius, visible: bool = should object be drawn
+dgs3dMeet3Q(q1,q2,q3,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewPointSet("meet3Q",[q1,q2,q3],8,
+    size->size,visible->visible,color->color,alpha->alpha,incidences->[q1,q2,q3]);
 );
 ///////////
 // E3Q3
@@ -2225,109 +2194,94 @@ dgs3dPolar(Q,x,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
       cglLogWarning("cannot compute polar on "+Q:"type");
   )));
 );
-// Q: quadric, p: point => plane, visible: bool = should object be drawn
-dgs3dPolarPlane(Q,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewPlane("polarPl",[Q,p],lambda(self,
-    self:"coords" = dgs3dRP3Normalize(self:"parents"_1:"coords" * self:"parents"_2:"coords");
-    DGS3DmOVEoK
-  ),visible->visible,color->color,alpha->alpha);
+dgs3d.alg.polarPl = (q,P) => dgs3dRP3Normalize(q*P);
+dgs3d.alg.polarLn = (q,l) => (
+  regional(Q); Q = adjoint4(q);
+  dgs3dRP3Normalize(dgs3dLineFromDualMatrix(Q*dgs3dLineMatrix(l)*Q));
 );
-// Q: quadric, l: line => line, visible: bool = should object be drawn
-dgs3dPolarLine(Q,l,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewLine("polarLn",[Q,l],lambda(self,
-    regional(L,Q);
-    Q = self:"parents"_1:"coords";
-    L = dgs3dLineMatrix(self:"parents"_2:"coords");
-    self:"coords" = dgs3dRP3Normalize(dgs3dLineFromDualMatrix(adjoint4(Q)*L*adjoint4(Q)));
-    DGS3DmOVEoK
-  ),size->size,visible->visible,color->color,alpha->alpha);
+dgs3d.alg.polarPt = (q,p) => dgs3dRP3Normalize(adjoint4(q)*p);
+// q: quadric, P: point => plane, visible: bool = should object be drawn
+dgs3dPolarPlane(q,P,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewPlane("polarPl",[q,P],visible->visible,color->color,alpha->alpha);
 );
-// Q: quadric, P: plane => point, visible: bool = should object be drawn
-dgs3dPolarPoint(Q,P,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewPoint("polarPt",[Q,P],lambda(self,
-    self:"coords" = dgs3dRP3Normalize(adjoint4(self:"parents"_1:"coords") * self:"parents"_2:"coords");
-    DGS3DmOVEoK
-  ),size->size,visible->visible,color->color,alpha->alpha);
+// q: quadric, l: line => line, visible: bool = should object be drawn
+dgs3dPolarLine(q,l,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewLine("polarLn",[q,l],size->size,visible->visible,color->color,alpha->alpha);
 );
-// C: conic, p: point => line, visible: bool = should object be drawn
-dgs3dConicPolarLine(C,P,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+// q: quadric, p: plane => point, visible: bool = should object be drawn
+dgs3dPolarPoint(q,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewPoint("polarPt",[q,p],size->size,visible->visible,color->color,alpha->alpha);
+);
+dgs3d.alg.conicPolarLn = (c,P) => (
+  regional(q,p);
+  [q,p] = c;
+  q = q + transpose([p])*[p];
+  dgs3dRP3Normalize(dgs3dDualLine(dgs3dEpsilon44(q*P,p)))
+);
+dgs3d.alg.conicPolarPt = (c,l) => (
+  regional(q,p,Q);
+  [q,p] = c; 
+  Q = adjoint4(q + transpose([p])*[p]); // polar degenerates if q is othrogonal to p
+  dgs3dRP3Normalize(dgs3dEpsilon46(p,dgs3dLineFromDualMatrix(Q*dgs3dLineMatrix(l)*Q)));
+);
+// c: conic, P: point => line, visible: bool = should object be drawn
+dgs3dConicPolarLine(c,P,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   // TODO: ensure co-planar
-  dgs3dNewLine("conicPolarLn",[C,P],lambda(self,
-    regional(Q,P,p,q);
-    [Q,p] = self:"parents"_1:"coords";
-    P = self:"parents"_2:"coords";
-    q = Q*P;
-    self:"coords" = dgs3dRP3Normalize(dgs3dDualLine(dgs3dEpsilon44(p,q)));
-    DGS3DmOVEoK
-  ),size->size,visible->visible,color->color,alpha->alpha);
+  dgs3dNewLine("conicPolarLn",[c,P],size->size,visible->visible,color->color,alpha->alpha);
 );
-// C: conic, l: line => point, visible: bool = should object be drawn
-dgs3dConicPolarPoint(C,l,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+// c: conic, l: line => point, visible: bool = should object be drawn
+dgs3dConicPolarPoint(c,l,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   // TODO: ensure co-planar
-  dgs3dNewPoint("conicPolarPt",[C,l],lambda(self,
-    regional(Q,P,p,q);
-    [Q,p] = self:"parents"_1:"coords";
-    Q = Q + transpose([p])*[p]; // polar degenerates if Q is othrogonal to p
-    L = dgs3dLineMatrix(self:"parents"_2:"coords");
-    m = dgs3dLineFromDualMatrix(adjoint4(Q)*L*adjoint4(Q));
-    self:"coords" = dgs3dRP3Normalize(dgs3dEpsilon46(p,m));
-    DGS3DmOVEoK
-  ),size->size,visible->visible,color->color,alpha->alpha);
+  dgs3dNewPoint("conicPolarPt",[c,l],size->size,visible->visible,color->color,alpha->alpha);
 );
-// C: conic, p: point => line, visible: bool = should object be drawn
-dgs3dBiQuadricPolarLine(C,P,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewLine("biQuadricPolarLn",[C,P],lambda(self,
-    regional(Q,R,P,p,q,r);
-    [Q,R] = self:"parents"_1:"coords";
-    P = self:"parents"_2:"coords";
-    q = Q*P;
-    r = R*P;
-    self:"coords" = dgs3dRP3Normalize(dgs3dDualLine(dgs3dEpsilon44(q,r)));
-    DGS3DmOVEoK
-  ),size->size,visible->visible,color->color,alpha->alpha);
+dgs3d.alg.biQuadricPolarLn = (b,P) => (
+  dgs3dRP3Normalize(dgs3dDualLine(dgs3dEpsilon44((b_1)*P,(b_2)*P)))
+);
+// b: bi-quadric, p: point => line, visible: bool = should object be drawn
+dgs3dBiQuadricPolarLine(b,P,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewLine("biQuadricPolarLn",[b,P],size->size,visible->visible,color->color,alpha->alpha);
 );
 
-// Q: mat4, P: vec4
-dgs3dComputeQuadricLines(Q,P):=(
-  regional(p,T,S,l,m);
-  p = Q*P;
+
+dgs3dScaleMatrixColumns(M,v):=(
+  apply(M,r,apply(1..length(v),k,r_k*v_k))
+);
+// map e1 -> A_1, e2 -> A_2, e3 -> A_3, e4 -> A_4, (1,1,1,1) -> A_5
+dgs3dHalfTrafo(A1,A2,A3,A4,A5):=(
+  regional(T);
+  T = transpose((A1,A2,A3,A4));
+  dgs3dScaleMatrixColumns(T,linearSolve(T,A5));
+);
+// q: mat4, P: vec4
+dgs3d.alg.quadricLines = (q,P) => (
+  // TODO: this algorithm seems to break for ellipsoids
+  regional(p,T,S);
+  p = q*P;
   T = dgs3dMapPinfTo(p);
-  S = T*Q*transpose(T); // transform Q (by T^-1 = T^T)
+  S = T*q*transpose(T); // transform q (by T^-1 = T^T)
   // decompose top-left 3x3 matrix
-  [l,m] = dgs3dDecompose2DConic(apply(S_(1..3),#_(1..3)));
-  // go from 2D to 3D lines
-  l = (0,0,l_1,0,l_2,l_3) ;//dgs3dDualLine(dgs3dEpsilon44((l_1,l_2,l_3,0),(0,0,0,1)));
-  m = (0,0,m_1,0,m_2,m_3) ;//dgs3dDualLine(dgs3dEpsilon44((m_1,m_2,m_3,0),(0,0,0,1)));
-  // map lines back to correct position
-  l = dgs3dRP3Normalize(dgs3dLineFromMatrix(transpose(T)*dgs3dLineMatrix(l)*(T)));
-  m = dgs3dRP3Normalize(dgs3dLineFromMatrix(transpose(T)*dgs3dLineMatrix(m)*(T)));
-  [l,m]
+  apply(dgs3dDecompose2DConic(apply(S_(1..3),#_(1..3))),
+    dgs3dRP3Normalize(dgs3dLineFromMatrix(transpose(T)*
+      dgs3dLineMatrix((0,0,#_1,0,#_2,#_3))//dgs3dDualLine(dgs3dEpsilon44((#_1,#_2,#_3,0),(0,0,0,1)));
+    *(T)))
+  );
 );
 // q: quadric, P: point => 2 x line, visible: bool = should object be drawn
 dgs3dQuadricLines(q,P,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   // TODO: ensure P on q
-  dgs3dNewLineSet("quadricLines",[q,P],2,lambda(self,
-    regional(q,P,l,m);
-    q = self:"parents"_1:"coords";
-    P = self:"parents"_2:"coords";
-    dgs3dTraceLinePair(self,dgs3dComputeQuadricLines(q,P))
-  ),size->size,visible->visible,color->color,alpha->alpha,incidences->[q,P]);
+  dgs3dNewLineSet("quadricLines",[q,P],2,
+    size->size,visible->visible,color->color,alpha->alpha,incidences->[q,P]);
 );
-// pts: [point; 7] => point
-dgs3dCompleteCayleyOctent(pts,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewPoint("completeCayleyOctent",pts,lambda(self,
-    regional(pts,T,v,S,A,B);
-    pts = apply(self:"parents",#:"coords");
-    // find transform that maps first 5 points to e_1,e_2,e_3,e_4,(1,1,1,1)
-    T = transpose(pts_(1..4));
-    v = linearSolve(T,pts_5);
-    T = apply(T,(#_1*v_1,#_2*v_2,#_3*v_3,#_4*v_4));
-    S = inverse(T);
-    A = S * pts_6;
-    B = S * pts_7;
-    // compute 8th point in transformed context then transform back
-    // use equation from: QUARTIC CURVES AND THEIR BITANGENTS (arXiv:1008.4104v2): Proposition 7.1
-    self:"coords" = dgs3dRP3Normalize(T*[(
+dgs3d.alg.completeCayleyOctent = (p1,p2,p3,p4,p5,p6,p7) => (
+  regional(T,S,v,A,B);
+  // find transform that maps first 5 points to e_1,e_2,e_3,e_4,(1,1,1,1)
+  T = dgs3dHalfTrafo(p1,p2,p3,p4,p5);
+  S = inverse(T);
+  A = S * p6;
+  B = S * p7;
+  // compute 8th point in transformed context then transform back
+  // use equation from: QUARTIC CURVES AND THEIR BITANGENTS (arXiv:1008.4104v2): Proposition 7.1
+  dgs3dRP3Normalize(T*[(
     A_2*B_3- A_2*B_4- A_3*B_2+ A_3*B_4+ A_4*B_2- A_4*B_3
     )/(
     A_2*A_3*B_2*B_4
@@ -2366,11 +2320,26 @@ dgs3dCompleteCayleyOctent(pts,size->cglNada,visible->true,color->cglNada,alpha->
     + A_1*A_3*B_2*B_3
     + A_2*A_3*B_1*B_2
     - A_2*A_3*B_1*B_3
-    )]);
-    DGS3DmOVEoK
-  ),size->size,visible->visible,color->color,alpha->alpha);
+  )]);
+);
+// pts: [point; 7] => point
+dgs3dCompleteCayleyOctent(pts,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewPoint("completeCayleyOctent",pts,size->size,visible->visible,color->color,alpha->alpha);
 );
 
+
+dgs3dComputeQuadricBy9(pts):=(
+  regional(v,ptsSq);
+  ptsSq = apply(pts,dgs3dSqCoords(#));
+  v = transpose(kernel(append(ptsSq,(0,0,0,0,0,0,0,0,0,0))))_1;
+  ((2*v_1,v_2,v_3,v_4),(v_2,2*v_5,v_6,v_7),(v_3,v_6,2*v_8,v_9),(v_4,v_7,v_9,2*v_10));
+);
+dgs3d.alg.quadricBy9Pt = (P1,P2,P3,P4,P5,P6,P7,P8,P9) => (
+  dgs3dRP3Normalize(dgs3dComputeQuadricBy9([P1,P2,P3,P4,P5,P6,P7,P8,P9]))
+);
+dgs3d.alg.quadricBy9Pl = (p1,p2,p3,p4,p5,p6,p7,p8,p9) => (
+  dgs3dRP3Normalize(adjoint4(dgs3dComputeQuadricBy9([p1,p2,p3,p4,p5,p6,p7,p8,p9])))
+);
 // pts: [point; 9] => quadric, visible: bool = should object be drawn
 quadricBy9P(pts,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dQuadric9point(pts,visible->visible,color->color,alpha->alpha);
@@ -2382,12 +2351,7 @@ dgs3dQuadric9point(pts,visible->true,color->cglNada,alpha->cglNada):=(
   if(length(pts)!=9,
     cglLogWarning("wrong number of points expected 9 got "+length(pts));
   );
-  dgs3dNewQuadric("quadricBy9Pt",pts,lambda(self,
-    regional(pts,v);
-    pts = apply(self:"parents",#:"coords");
-    self:"coords" = dgs3dRP3Normalize(dgs3dComputeQuadricBy9(pts));
-    DGS3DmOVEoK
-  ),visible->visible,color->color,alpha->alpha,incidences->pts);
+  dgs3dNewQuadric("quadricBy9Pt",pts,visible->visible,color->color,alpha->alpha,incidences->pts);
 );
 // pts: [plane; 9] => quadric, visible: bool = should object be drawn
 quadricBy9Planes(planes,visible->true,color->cglNada,alpha->cglNada):=(
@@ -2397,24 +2361,17 @@ dgs3dQuadric9plane(planes,visible->true,color->cglNada,alpha->cglNada):=(
   if(length(planes)!=9,
     cglLogWarning("wrong number of planes expected 9 got "+length(planes));
   );
-  dgs3dNewQuadric("quadricBy9Pl",planes,lambda(self,
-    regional(planes,v,M);
-    planes = apply(self:"parents",#:"coords");
-    self:"coords" = dgs3dRP3Normalize(adjoint4(dgs3dComputeQuadricBy9(planes)));
-    DGS3DmOVEoK
-  ),visible->visible,color->color,alpha->alpha,tangencies->planes);
+  dgs3dNewQuadric("quadricBy9Pl",visible->visible,color->color,alpha->alpha,tangencies->planes);
+);
+dgs3d.alg.planesAsQuadric = (p,q) => (
+  regional(M);
+  M = transpose([p])*[q];
+  dgs3dRP3Normalize(M+transpose(M));
 );
 // degenerate quadric given by two planes
 // p: plane -> quadric
-dgs3dPlanesAsQuadric(p,q,visible->true,color->cglNade,alpha->cglNada):=(
-  dgs3dNewQuadric("planesAsQuadric",[p,q],lambda(self,
-    regional(p,M);
-    p = self:"parents"_1:"coords";
-    q = self:"parents"_2:"coords";
-    M = transpose([p])*[q];
-    self:"coords" = dgs3dRP3Normalize(M+transpose(M));
-    DGS3DmOVEoK
-  ),visible->visible,color->color,alpha->alpha);
+dgs3dPlanesAsQuadric(p,q,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewQuadric("planesAsQuadric",[p,q],visible->visible,color->color,alpha->alpha);
 );
 
 // build orthogonal transformation that maps (0,0,0,1) to p
@@ -2441,15 +2398,12 @@ dgs3dMapPinfTo(p):=(
   T_1 = T_1/sqrt(T_1*T_1);
   T
 );
-dgs3dComputeConicBy5(p,A,B,C,D,E,dual->false):=(
+dgs3dComputeConicBy5(p,pts,dual->false):=(
   regional(T,a,b,c,d,e,G,H,M,v,w,r);
+  // transform p to p-inf & project points to p
   T = dgs3dMapPinfTo(p);
-  // build conic through 5 transformed points
-  a = (T*A)_(1..3);
-  b = (T*B)_(1..3);
-  c = (T*C)_(1..3);
-  d = (T*D)_(1..3);
-  e = (T*E)_(1..3);
+  // find conic in RP2
+  [a,b,c,d,e] = apply(pts,(T*#)_(1..3));
   G = transpose([cross(d,a)])*[cross(b,e)];
   H = transpose([cross(d,b)])*[cross(a,e)];
   M = (c*G*c)*H-(c*H*c)*G;
@@ -2457,9 +2411,7 @@ dgs3dComputeConicBy5(p,A,B,C,D,E,dual->false):=(
   if(dual,
     M = adjoint3(M);
   );
-  fnz = 0;
-  forall(M,forall(#,if(fnz==0,fnz=#))); // find first non-zero entry
-  M = conjugate(fnz)*M; // scale by conjugate of first non-zero entry to map complex multiples of real matrices to real matrices
+  M = conjugate(max(M,max(#,(|#|,#)))_2)*M; // scale by conjugate of maximum entry to avoid scalar multiples of real matrix
   // find v,r such that (M v;v r)*(p_1,p_2,p_3,0) = (0,0,0,0)
   w = T*(p_1,p_2,p_3,0);
   if(w_4 != 0,
@@ -2469,34 +2421,34 @@ dgs3dComputeConicBy5(p,A,B,C,D,E,dual->false):=(
     v = (0,0,0);
     r = 0;
   );
+  // transform quadric back
   transpose(T)*((M_1_1,M_1_2,M_1_3,v_1),(M_2_1,M_2_2,M_2_3,v_2),(M_3_1,M_3_2,M_3_3,v_3),(v_1,v_2,v_3,r))*T;
 );
-dgs3dComputeCircleBy3(A,B,C):=(
-  p = dgs3dEpsilon444(A,B,C); // plane through A,B,C
-  if(p*p==0, // A,B,C colinear -> pick any plane through A and B
-    regional(d,v);
-    d = B-A;
-    v = min([(1,0,0,0),(0,1,0,0),(0,0,1,0),(1,1,1,1)],(abs(#*d),#))_2;
-    p = dgs3dEpsilon444(A,B,C+v);
-  );
-  l = dgs3dEpsilon44(p,(0,0,0,1)); // line at infinity
-  [I, J] = dgs3dIntersectQuadricDualLine(((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,0)),l);
-  M = dgs3dComputeConicBy5(p,A,B,C,I,J);
-  [M,p]
+
+dgs3d.alg.conicBy5P = (P1,P2,P3,P4,P5) => (
+  regional(p);
+  // find common plane
+  p = dgs3dRP3Normalize(dgs3dEpsilon444(P1,P2,P3));
+  // find quadric in plane
+  [dgs3dRP3Normalize(dgs3dComputeConicBy5(p,[P1,P2,P3,P4,P5])),p]
 );
-dgs3dComputeQuadricBy9(pts):=(
-  regional(v,ptsSq);
-  ptsSq = apply(pts,dgs3dSqCoords(#));
-  v = transpose(kernel(append(ptsSq,(0,0,0,0,0,0,0,0,0,0))))_1;
-  ((2*v_1,v_2,v_3,v_4),(v_2,2*v_5,v_6,v_7),(v_3,v_6,2*v_8,v_9),(v_4,v_7,v_9,2*v_10));
+dgs3d.alg.conicBy5L = (l1,l2,l3,l4,l5) => (
+  regional(K,p,A,B,C,D,E);
+  // find common plane
+  K = dgs3dLineMatrix(dgs3dDualLine(l1))*dgs3dLineMatrix(l2);
+  p = dgs3dRP3Normalize(max(K,(#*#,#))_2);
+  [dgs3dRP3Normalize(dgs3dComputeConicBy5(p,
+    apply((l1,l2,l3,l4,l5),dgs3dEpsilon46(p,dgs3dDualLine(#))),
+  dual->true)),p];
 );
-dgs3dComputeBiQuadricBy8(pts):=(
-  regional(A,B);
-  A = dgs3dComputeQuadricBy9(append(pts,(random(),random(),random(),random())));
-  B = dgs3dComputeQuadricBy9(append(pts,(random(),random(),random(),random())));
-  [dgs3dRP3Normalize(A),dgs3dRP3Normalize(B)]
+dgs3d.alg.biQuadricBy8 = (P1,P2,P3,P4,P5,P6,P7,P8) => (
+  [
+    dgs3dRP3Normalize(dgs3dComputeQuadricBy9([P1,P2,P3,P4,P5,P6,P7,P8,(random(),random(),random(),random())])),
+    dgs3dRP3Normalize(dgs3dComputeQuadricBy9([P1,P2,P3,P4,P5,P6,P7,P8,(random(),random(),random(),random())]))
+  ]
 );
 
+// TODO? ensure co-planar
 conicBy5(A,B,C,D,E,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   if(A.type=="point" & B.type == "point" & C.type == "point" & D.type == "point" & E.type =="point",
     dgs3dConic5points(A,B,C,D,E,size->size,visible->visible,color->color,alpha->alpha);
@@ -2513,130 +2465,99 @@ conicBy5Lines(A,B,C,D,E,size->cglNada,visible->true,color->cglNada,alpha->cglNad
   dgs3dConic5lines(A,B,C,D,E,size->size,visible->visible,color->color,alpha->alpha);
 );
 dgs3dConic5points(A,B,C,D,E,size->cglNada,visible->true,xcolor->cglNada,alpha->cglNada):=(
-  dgs3dNewConic("conicBy5P",[A,B,C,D,E],lambda(self,
-    regional(A,B,C,D,E,M,p);
-    A = self:"parents"_1:"coords";
-    B = self:"parents"_2:"coords";
-    C = self:"parents"_3:"coords";
-    D = self:"parents"_4:"coords";
-    E = self:"parents"_5:"coords";
-    // find plane through 3 points
-    p = dgs3dRP3Normalize(dgs3dEpsilon444(A,B,C));
-    M = dgs3dRP3Normalize(dgs3dComputeConicBy5(p,A,B,C,D,E));
-    self:"coords" = [M,p];
-    DGS3DmOVEoK
-  ),size->size,visible->visible,color->color,alpha->alpha,isCircle->false,incidences->[A,B,C,D,E]);
+  dgs3dNewConic("conicBy5P",[A,B,C,D,E],
+    size->size,visible->visible,color->color,alpha->alpha,isCircle->false,incidences->[A,B,C,D,E]);
 );
 dgs3dConic5lines(A,B,C,D,E,size->cglNada,visible->true,xcolor->cglNada,alpha->cglNada):=(
-  dgs3dNewConic("conicBy5L",[A,B,C,D,E],lambda(self,
-    regional(A,B,C,D,E,K,p);
-    A = self:"parents"_1:"coords";
-    B = self:"parents"_2:"coords";
-    C = self:"parents"_3:"coords";
-    D = self:"parents"_4:"coords";
-    E = self:"parents"_5:"coords";
-    // find plane through 3 points
-    K = dgs3dLineMatrix(dgs3dDualLine(A))*dgs3dLineMatrix(B);
-    p = dgs3dRP3Normalize(max(K,(#*#,#))_2); // common plane
-    a = dgs3dEpsilon46(p,dgs3dDualLine(A));
-    b = dgs3dEpsilon46(p,dgs3dDualLine(B));
-    c = dgs3dEpsilon46(p,dgs3dDualLine(C));
-    d = dgs3dEpsilon46(p,dgs3dDualLine(D));
-    e = dgs3dEpsilon46(p,dgs3dDualLine(E));
-    M = dgs3dRP3Normalize(dgs3dComputeConicBy5(p,a,b,c,d,e,dual->true));
-    self:"coords" = [M,p];
-    DGS3DmOVEoK
-  ),size->size,visible->visible,color->color,alpha->alpha,isCircle->false,tangencies->[A,B,C,D,E]);
+  dgs3dNewConic("conicBy5L",[A,B,C,D,E],
+    size->size,visible->visible,color->color,alpha->alpha,isCircle->false,tangencies->[A,B,C,D,E]);
 );
 biQuadricBy8Points(pts,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dBiQuadric8points(pts,size->size,visible->visible,color->color,alpha->alpha);
 );
 dgs3dBiQuadric8points(pts,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewBiQuadric("biQuadricBy8",pts,lambda(self,
-    regional(pts);
-    pts = apply(self:"parents",#:"coords");
-    self:"coords" = dgs3dComputeBiQuadricBy8(pts);
-    DGS3DmOVEoK
-  ),size->size,visible->visible,color->color,alpha->alpha,isCircle->false,incidences->pts);
+  dgs3dNewBiQuadric("biQuadricBy8",pts,
+    size->size,visible->visible,color->color,alpha->alpha,isCircle->false,incidences->pts);
 );
+dgs3d.alg.coneByConicPoint = (c,P) => (
+  regional(q,p,T,A,v,x);
+  [q,p] = c;
+  T = dgs3dMapPinfTo(p);
+  P = T*P;
+  P = P/P_4;
+  A = T*q*transpose(T);
+  A = apply(A_(1..3),#_(1..3));
+  x = P_(1..3);
+  v = -A * x;
+  transpose(T)*(
+    (A_1_1,A_1_2,A_1_3,v_1),
+    (A_2_1,A_2_2,A_2_3,v_2),
+    (A_3_1,A_3_2,A_3_3,v_3),
+    (v_1,v_2,v_3,x*A*x)
+  )*T
+);
+dgs3d.alg.quadricInPencil = (q1,q2,P) => (dgs3dRP3Normalize((P*q1*P)*q2 - (P*q2*P)*q1));
 // c: conic, P: point
 dgs3dConeByConicPoint(c,P,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewQuadric("coneByConicPoint",[c,P],lambda(self,
-    regional(q,p,T,A,P,v,x);
-    [q,p] = self:"parents"_1:"coords";
-    T = dgs3dMapPinfTo(p);
-    P = self:"parents"_2:"coords";
-    P = T*P;
-    P = P/P_4;
-    A = T*q*transpose(T);
-    A = apply(A_(1..3),#_(1..3));
-    x = P_(1..3);
-    v = -A * x;
-    self:"coords" = transpose(T)*(
-      (A_1_1,A_1_2,A_1_3,v_1),
-      (A_2_1,A_2_2,A_2_3,v_2),
-      (A_3_1,A_3_2,A_3_3,v_3),
-      (v_1,v_2,v_3,x*A*x))*T;
-    DGS3DmOVEoK
-  ),visible->visible,color->color,alpha->alpha,incidences->[c,P]);
+  dgs3dNewQuadric("coneByConicPoint",[c,P],visible->visible,color->color,alpha->alpha,incidences->[c,P]);
 );
 // cone of all tagent lines to q through p
 // q: quadric, P: point (macro operation)
 dgs3dTangentCone(q,P,visible->true,color->cglNada,alpha->cglNada):=(
-  regional(polar,polar2,tangencyConic);
+  regional(polar,tangencyConic);
   polar = polar3d(q,P,visible->false);
-  polar2 = dgs3dPlanesAsQuadric(polar,polar,visible->false);
-  dgs3dQuadricInPencil(q,polar2,P,visible->visible,color->color,alpha->alpha,incidences->[P]);
+  dgs3dQuadricInPencil(q,dgs3dPlanesAsQuadric(polar,polar,visible->false),P,
+    visible->visible,color->color,alpha->alpha,incidences->[P]);
 );
-// find quadric in pecil through Q1 and Q2 that does through P
-// Q1: quadric, Q2: quadric, P: point -> quadric
-dgs3dQuadricInPencil(Q1,Q2,P,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewQuadric("quadricInPencil",[Q1,Q2,P],lambda(self,
-    regional(Q1,Q2,P);
-    [Q1,Q2,P] = apply(self:"parents",#:"coords");
-    self:"coords" = dgs3dRP3Normalize((P*Q1*P)*Q2 - (P*Q2*P)*Q1);
-    DGS3DmOVEoK
-  ),visible->visible,color->color,alpha->alpha,incidences->[P]);
+// find quadric in pecil through q1 and q2 that does through P
+// q1: quadric, q2: quadric, P: point -> quadric
+dgs3dQuadricInPencil(q1,q2,P,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewQuadric("quadricInPencil",[q1,q2,P],visible->visible,color->color,alpha->alpha,incidences->[P]);
 );
 
-dgs3dComputeQuadricSymmetryPlanes(Q):=(
+dgs3d.alg.quadricPlanes = (q) => (
   regional(B);
-  B = apply(Q_(1..3),#_(1..3));
+  B = apply(q_(1..3),#_(1..3));
   apply(transpose(eigenvectors(B)),n,
-    (n_1*(n*B*n),n_2*(n*B*n),n_3*(n*B*n),n*Q_4_(1..3))
+    (n_1*(n*B*n),n_2*(n*B*n),n_3*(n*B*n),n*q_4_(1..3))
   );
 );
-dgs3dComputeQuadricAxes(Q):=(
-  apply(pairs(dgs3dComputeQuadricSymmetryPlanes(Q)),
+dgs3d.alg.quadricAxes = (q) => (
+  apply(pairs(dgs3d.alg.quadricPlanes.(q)),
     dgs3dDualLine(dgs3dEpsilon44(#_1,#_2))
   );
 );
+dgs3d.alg.quadricCenter = (q) => (
+  dgs3dRP3Normalize(adjoint4(q)_4)
+);
 // q: quadric => symmetry planes, 
-dgs3dQuadricPlanes(Q,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewPlaneSet("quadricPlanes",[Q],3,lambda(self,
-    regional(Q);
-    Q = self:"parents"_1:"coords";
-    dgs3dTracePlaneSet(self,dgs3dComputeQuadricSymmetryPlanes(Q));
-  ),size->size,visible->visible,color->color,alpha->alpha);
+dgs3dQuadricPlanes(q,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewPlaneSet("quadricPlanes",[q],3,size->size,visible->visible,color->color,alpha->alpha);
 );
 // q: quadric => symmetry axes, 
-dgs3dQuadricAxes(Q,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewLineSet("quadricAxes",[Q],3,lambda(self,
-    regional(Q,lines);
-    Q = self:"parents"_1:"coords";
-    dgs3dTraceLineSet(self,dgs3dComputeQuadricAxes(Q));
-  ),size->size,visible->visible,color->color,alpha->alpha);
+dgs3dQuadricAxes(q,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewLineSet("quadricAxes",[q],3,size->size,visible->visible,color->color,alpha->alpha);
 );
 // q: quadric => point, 
-dgs3dQuadricCenter(Q,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewPoint("quadricCenter",[Q],lambda(self,
-    self:"coords" = dgs3dRP3Normalize(adjoint4(self:"parents"_1:"coords")_4);
-  ),size->size,visible->visible,color->color,alpha->alpha);
+dgs3dQuadricCenter(q,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewPoint("quadricCenter",[q],size->size,visible->visible,color->color,alpha->alpha);
 );
 ////////////////
 // Euclidean Operations
 ////////////////
 
+dgs3d.alg.parallelLine = (l,Pt) => (
+  dgs3dRP3Normalize(dgs3dEpsilon44(Pt,dgs3dEpsilon46((0,0,0,1),l)))
+);
+dgs3d.alg.parallelPlane = (pl,Pt) => (
+  dgs3dRP3Normalize(dgs3dEpsilon46(Pt,dgs3dEpsilon44((0,0,0,1),pl)))
+);
+dgs3d.alg.parallel2L = (l1,l2) => (
+  regional(n1,n2);
+  n1 = dgs3dLineDirection(l1);
+  n2 = dgs3dLineDirection(l2);
+  dgs3dRP3Normalize(dgs3dPlaneWithNormalThroughPoint(cross(n1,n2),dgs3dEpsilon46((n2_1,n2_2,n2_3,0),l2)));
+);
 // x: plane|line, p: point => plane|line; size:real = radius, visible: bool = should object be drawn
 parallel3d(x,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dParallel(x,p,size->size,visible->visible,color->color,alpha->alpha);
@@ -2652,40 +2573,18 @@ dgs3dParallel(x,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
     cglLogWarning("cannot compute parallel to "+x:"type"+" through "+p:"type");
   )));
 );
-// l: line, p: point => line; size:real = radius, visible: bool = should object be drawn
-dgs3dParallelLine(l,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewLine("parallelLine",[l,p],lambda(self,
-    regional(l,p);
-    l = self:"parents"_1:"coords";
-    p = self:"parents"_2:"coords";
-    self:"coords" = dgs3dRP3Normalize(dgs3dEpsilon44(p,dgs3dEpsilon46((0,0,0,1),l)));
-    DGS3DmOVEoK
-  ),size->size,visible->visible,color->color,alpha->alpha,incidences->[l,p]);
+// l: line, P: point => line; size:real = radius, visible: bool = should object be drawn
+dgs3dParallelLine(l,P,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewLine("parallelLine",[l,P],size->size,visible->visible,color->color,alpha->alpha,incidences->[P]);
 );
 // P: plane, p: point => plane; size:real = radius, visible: bool = should object be drawn
-dgs3dParallelPlane(P,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewPlane("parallelPlane",[P,p],lambda(self,
-    regional(P,p);
-    P = self:"parents"_1:"coords";
-    p = self:"parents"_2:"coords";
-    self:"coords" = dgs3dRP3Normalize(dgs3dEpsilon46(p,dgs3dEpsilon44((0,0,0,1),P)));
-    DGS3DmOVEoK
-  ),visible->visible,color->color,alpha->alpha,incidences->[p]);
+dgs3dParallelPlane(p,P,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewPlane("parallelPlane",[p,P],visible->visible,color->color,alpha->alpha,incidences->[P]);
 );
-// paralle to l1 through l2
+// parallel to l1 through l2
 // l1,l2: line => plane; visible: bool = should object be drawn
 dgs3dParallel2Line(l1,l2,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewPlane("parallel2L",[l,p],lambda(self,
-    regional(l1,l2,n1,n2,n,p2);
-    l1 = self:"parents"_1:"coords";
-    l2 = self:"parents"_2:"coords";
-    n1 = dgs3dLineDirection(l1);
-    n2 = dgs3dLineDirection(l2);
-    n = cross(n1,n2);
-    p2 = dgs3dEpsilon46((n2_1,n2_2,n2_3,0),l2);
-    self:"coords" = dgs3dRP3Normalize(dgs3dPlaneWithNormalThroughPoint(n,p2));
-    DGS3DmOVEoK
-  ),visible->visible,color->color,alpha->alpha,incidences->[l2]);
+  dgs3dNewPlane("parallel2L",[l1,l2],visible->visible,color->color,alpha->alpha,incidences->[l2]);
 );
 // x: plane|line, p: point => line|plane|; size:real = radius, visible: bool = should object be drawn
 normal3d(x,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
@@ -2705,98 +2604,75 @@ dgs3dNormal(x,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   ))));
 );
 // p: vec3|vec4 line/normal, P: point
-dgs3dComputeOrthogonalLine(p,P):=(
-  dgs3dRP3Normalize(dgs3dEpsilon44(P,P+(p_1,p_2,p_3,0)));
+dgs3d.alg.orthogonalLine = (p,P) => dgs3dRP3Normalize(dgs3dEpsilon44(P,P+(p_1,p_2,p_3,0)));
+dgs3d.alg.orthogonalPlaneLine = (p,l) => (
+  regional(n1);
+  n1 = dgs3dLineDirection(l);
+  dgs3dRP3Normalize(dgs3dPlaneWithNormalThroughPoint(
+    cross(p_(1..3),n1),
+    dgs3dEpsilon46((n1_1,n1_2,n1_3,0),l)
+  ));
+);
+dgs3d.alg.orthogonalPlane = (l,P) => (dgs3dRP3Normalize(dgs3dPlaneWithNormalThroughPoint(dgs3dLineDirection(l),P)));
+dgs3d.alg.orthogonal2L = (l1,l2) => (
+  regional(n1,n2,n,q);
+  n1 = dgs3dLineDirection(l1);
+  n2 = dgs3dLineDirection(l2);
+  n = cross(n1,n2);
+  // intersect lines with planes through 0 normal to line
+  q = dgs3dEpsilon46(dgs3dPlaneWithNormalThroughPoint(
+    cross(n1,n),
+    dgs3dEpsilon46((n1_1,n1_2,n1_3,0),l1)
+  ),l2);
+  dgs3dRP3Normalize(dgs3dEpsilon44(q,q+(n_1,n_2,n_3,0)));
 );
 // p: plane, P: point => line; size:real = radius, visible: bool = should object be drawn
 dgs3dOrthogonalLine(p,P,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   regional(obj);
-  dgs3dNewLine("orthogonalLine",[p,P],lambda(self,
-    regional(P,p);
-    p = self:"parents"_1:"coords";
-    P = self:"parents"_2:"coords";
-    self:"coords" = dgs3dComputeOrthogonalLine(p,P);
-    DGS3DmOVEoK
-  ),size->size,visible->visible,color->color,alpha->alpha,incidences->[p]);
+  dgs3dNewLine("orthogonalLine",[p,P],size->size,visible->visible,color->color,alpha->alpha,incidences->[p,P]);
 );
 // plane orthogonal to p through l
 // p: plane, l: line => plane; visible: bool = should object be drawn
-dgs3dOrthogonalPL(l,p,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewPlane("orthogonalPlaneLine",[l,p],lambda(self,
-    regional(p,l,n1,n,p1);
-    p = self:"parents"_1:"coords";
-    l = self:"parents"_2:"coords";
-    n1 = dgs3dLineDirection(l);
-    n = cross(p_(1..3),n1);
-    p1 = dgs3dEpsilon46((n1_1,n1_2,n1_3,0),l);
-    self:"coords" = dgs3dRP3Normalize(dgs3dPlaneWithNormalThroughPoint(n,p1));
-    DGS3DmOVEoK
-  ),visible->visible,color->color,alpha->alpha,incidences->[l]);
+dgs3dOrthogonalPL(p,l,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewPlane("orthogonalPlaneLine",[p,l],visible->visible,color->color,alpha->alpha,incidences->[l]);
 );
 // l: line, p: point => line; visible: bool = should object be drawn
 dgs3dOrthogonalPlane(l,P,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewPlane("orthogonalPlane",[l,P],lambda(self,
-    regional(l,P);
-    l = self:"parents"_1:"coords";
-    P = self:"parents"_2:"coords";
-    self:"coords" = dgs3dRP3Normalize(dgs3dPlaneWithNormalThroughPoint(dgs3dLineDirection(l),P));
-    DGS3DmOVEoK
-  ),visible->visible,color->color,alpha->alpha,incidences->[p]);
+  dgs3dNewPlane("orthogonalPlane",[l,P],visible->visible,color->color,alpha->alpha,incidences->[p]);
 );
 // l1: line, l2: line => line; size:real = radius, visible: bool = should object be drawn
 dgs3dOrthogonal2L(l1,l2,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewLine("orthogonal2L",[l1,l2],lambda(self,
-    regional(l1,l2,n1,n2,p1,n3,q);
-    l1 = self:"parents"_1:"coords";
-    l2 = self:"parents"_2:"coords";
-    n1 = dgs3dLineDirection(l1);
-    n2 = dgs3dLineDirection(l2);
-    n = cross(n1,n2);
-    // intersect lines with planes through 0 normal to line
-    p1 = dgs3dEpsilon46((n1_1,n1_2,n1_3,0),l1);
-    n3 = cross(n1,n);
-    q = dgs3dEpsilon46(dgs3dPlaneWithNormalThroughPoint(n3,p1),l2);
-    self:"coords" = dgs3dRP3Normalize(dgs3dEpsilon44(q,q+(n_1,n_2,n_3,0)));
-    DGS3DmOVEoK
-  ),size->size,visible->visible,color->color,alpha->alpha,incidences->[l1,l2]);
+  dgs3dNewLine("orthogonal2L",[l1,l2],size->size,visible->visible,color->color,alpha->alpha,incidences->[l1,l2]);
+);
+dgs3d.alg.midpoint = (p1,p2) => (
+  dgs3dRP3Normalize(if(p1_4 != 0 % p2_4 != 0,
+    p1*p2_4+p2*p1_4;
+  ,if(p1_3 != 0 % p2_3 != 0,
+    p1*p2_3+p2*p1_3;
+  ,if(p1_2 != 0 % p2_2 != 0,
+    p1*p2_2+p2*p1_2;
+  ,
+    p1+p2;
+  ))));
+);
+dgs3d.alg.midpoint3 = (p1,p2,delta) => (
+  dgs3dRP3Normalize(if(p1_4 != 0 % p2_4 != 0,
+    (1-delta)*p1*p2_4+delta*p2*p1_4;
+  ,if(p1_3 != 0 % p2_3 != 0,
+    (1-delta)*p1*p2_3+delta*p2*p1_3;
+  ,if(p1_2 != 0 % p2_2 != 0,
+    (1-delta)*p1*p2_2+delta*p2*p1_2;
+  ,
+    (1-delta)*p1+delta*p2;
+  ))));
 );
 // p1,p2: point => point; size:real = radius, visible: bool = should object be drawn, delta: real -> distance at which point should be draw, default is 0.5
 dgs3dMidpoint(p1,p2,delta->cglNada,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   if(isUndefined(delta),
-    dgs3dNewPoint("midpoint",[p1,p2],lambda(self,
-      regional(p1,p2);
-      p1 = self:"parents"_1:"coords";
-      p2 = self:"parents"_2:"coords";
-      if(p1_4 != 0 % p2_4 != 0,
-        self:"coords" = p1*p2_4+p2*p1_4;
-      ,if(p1_3 != 0 % p2_3 != 0,
-        self:"coords" = p1*p2_3+p2*p1_3;
-      ,if(p1_2 != 0 % p2_2 != 0,
-        self:"coords" = p1*p2_2+p2*p1_2;
-      ,
-        self:"coords" = p1+p2;
-      )));
-      self:"coords" = dgs3dRP3Normalize(self:"coords");
-      DGS3DmOVEoK
-    ),size->size,visible->visible,color->color,alpha->alpha);
+    dgs3dNewPoint("midpoint",[p1,p2],size->size,visible->visible,color->color,alpha->alpha);
   ,
-    dgs3dNewPoint("midpoint3",[p1,p2,delta],lambda(self,
-      regional(p1,p2,delta);
-      p1 = self:"parents"_1:"coords";
-      p2 = self:"parents"_2:"coords";
-      delta = self:"parents"_3;
-      if(p1_4 != 0 % p2_4 != 0,
-        self:"coords" = (1-delta)*p1*p2_4+delta*p2*p1_4;
-      ,if(p1_3 != 0 % p2_3 != 0,
-        self:"coords" = (1-delta)*p1*p2_3+delta*p2*p1_3;
-      ,if(p1_2 != 0 % p2_2 != 0,
-        self:"coords" = (1-delta)*p1*p2_2+delta*p2*p1_2;
-      ,
-        self:"coords" = (1-delta)*p1+delta*p2;
-      )));
-      self:"coords" = dgs3dRP3Normalize(self:"coords");
-      DGS3DmOVEoK
-    ),size->size,visible->visible,color->color,alpha->alpha);
+    dgs3dNewPoint("midpoint3",[p1,p2,dgs3dNewNumber(delta)],
+      size->size,visible->visible,color->color,alpha->alpha);
   );
 );
 // trafo for mirroring at x
@@ -2814,55 +2690,53 @@ dgs3dMirrorAt(x):=(
     cglLogError("cannot mirror at "+x.type);
   ))));
 );
+dgs3d.alg.mirrorAtPoint = (P) => (
+  dgs3dRP3Normalize(((-P_4,0,0,2*P_1),(0,-P_4,0,2*P_2),(0,0,-P_4,2*P_3),(0,0,0,P_4)));
+);
+dgs3d.alg.mirrorAtLine = (l) => (
+  regional(v,P,N,d);
+  v = dgs3dLineDirection(l);
+  P = dgs3dEpsilon46((v_1,v_2,v_3,0),l); // project (0,0,0,1) to line
+  P = P_(1..3)/P_4;
+  N = 2*transpose([v])*[v]/(v*v)-idmatrix(3);
+  d = P - N*P;
+  (
+    (N_1_1,N_1_2,N_1_3,d_1),
+    (N_2_1,N_2_2,N_2_3,d_2),
+    (N_3_1,N_3_2,N_3_3,d_3),
+    (0,0,0,1)
+  );
+);
+dgs3d.alg.mirrorAtPlane = (p) => (
+  regional(n,d,N,v);
+  // x -> x - 2 (d+<x,n>/<n,n>)n
+  n = p_(1..3);
+  d = p_4;
+  N = idmatrix(3)-2*transpose([n])*[n]/(n*n);
+  v = -2*d*n/(n*n);
+  (
+    (N_1_1,N_1_2,N_1_3,v_1),
+    (N_2_1,N_2_2,N_2_3,v_2),
+    (N_3_1,N_3_2,N_3_3,v_3),
+    (0,0,0,1)
+  );
+);
+dgs3d.alg.mirrorAtSphere = (s) => (
+  regional(M,rsp);
+  [M,rsq] = dgs3dSphereToMidpointSqRadius(s);
+  [rsq*idmatrix(3),M,M];
+);
 dgs3dMirrorAtPoint(P):=(
-  dgs3dNewTrafo("mirrorAtPoint",[P],lambda(self,
-    regional(P);
-    P = self:"parents"_1:"coords";
-    v = 2*P;
-    self:"coords" = dgs3dRP3Normalize(((-P_4,0,0,v_1),(0,-P_4,0,v_2),(0,0,-P_4,v_3),(0,0,0,P_4)));
-    DGS3DmOVEoK
-  ));
+  dgs3dNewTrafo("mirrorAtPoint",[P]);
 );
 dgs3dMirrorAtLine(l):=(
-  dgs3dNewTrafo("mirrorAtLine",[l],lambda(self,
-    regional(l,P,d);
-    l = self:"parents"_1:"coords";
-    v = dgs3dLineDirection(l);
-    P = dgs3dEpsilon46((v_1,v_2,v_3,0),l); // project (0,0,0,1) to line
-    P = P_(1..3)/P_4;
-    N = 2*transpose([v])*[v]/(v*v)-idmatrix(3);
-    d = P - N*P;
-    self:"coords" = ((N_1_1,N_1_2,N_1_3,d_1),
-                     (N_2_1,N_2_2,N_2_3,d_2),
-                     (N_3_1,N_3_2,N_3_3,d_3),
-                     (0,0,0,1));
-    DGS3DmOVEoK
-  ));
+  dgs3dNewTrafo("mirrorAtLine",[l]);
 );
 dgs3dMirrorAtPlane(p):=(
-  dgs3dNewTrafo("mirrorAtPlane",[p],lambda(self,
-    regional(p,n,I3,N,d,v);
-    p = self:"parents"_1:"coords";
-    // x -> x - 2 (d+<x,n>/<n,n>)n
-    n = p_(1..3);
-    d = p_4;
-    N = idmatrix(3)-2*transpose([n])*[n]/(n*n);
-    v = -2*d*n/(n*n);
-    self:"coords" = ((N_1_1,N_1_2,N_1_3,v_1),
-                     (N_2_1,N_2_2,N_2_3,v_2),
-                     (N_3_1,N_3_2,N_3_3,v_3),
-                     (0,0,0,1));
-    DGS3DmOVEoK
-  ));
+  dgs3dNewTrafo("mirrorAtPlane",[p]);
 );
 dgs3dMirrorAtSphere(s):=(
-  dgs3dNewMobiusTrafo("mirrorAtSphere",[s],lambda(self,
-    regional(s,M,r);
-    s = self:"parents"_1:"coords";
-    [M,rsq] = dgs3dSphereToMidpointSqRadius(s);
-    self:"coords" = [rsq*idmatrix(3),M,M];
-    DGS3DmOVEoK
-  ));
+  dgs3dNewMobiusTrafo("mirrorAtSphere",[s]);
 );
 // mirror x at y
 mirror3d(x,y,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
@@ -2878,12 +2752,6 @@ dgs3dComputeSphereBy4Points(pts):=(
   v = linearSolve(apply(pts,#*#_4),b);
   [[1,0,0,0.5*v_1],[0,1,0,0.5*v_2],[0,0,1,0.5*v_3],[0.5*v_1,0.5*v_2,0.5*v_3,v_4]]
 );
-dgs3dComputeSphereBy2Points(M,R):=(
-  regional(v,r);
-  v = (M_4*R_(1..3)/R_4-M_(1..3));
-  r = v*v;
-  [[M_4,0,0,-M_1],[0,M_4,0,-M_2],[0,0,M_4,-M_3],[-M_1,-M_2,-M_3,(M_1^2+M_2^2+M_3^2-r)/M_4]]
-);
 dgs3dSphereToMidpointSqRadius(S):=(
   regional(M,r);
   // S = a * (I, -v; -v, v*v-r^2)
@@ -2892,41 +2760,50 @@ dgs3dSphereToMidpointSqRadius(S):=(
   r = M*M - S_4_4;
   [M,r];
 );
+dgs3d.alg.sphere4P = (A,B,C,D) => (dgs3dComputeSphereBy4Points([A,B,C,D]));
+dgs3d.alg.sphereMR = (M,R) => (
+  regional(v);
+  v = (M_4*R_(1..3)/R_4-M_(1..3));
+  [[M_4,0,0,-M_1],[0,M_4,0,-M_2],[0,0,M_4,-M_3],[-M_1,-M_2,-M_3,(M_1^2+M_2^2+M_3^2-v*v)/M_4]]
+);
 // A,B,C,D: point => quadric, visible: bool = should object be drawn
 sphere3d(A,B,C,D,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dSphere4points(A,B,C,D,visible->visible,color->color,alpha->alpha);
 );
 dgs3dSphere4points(A,B,C,D,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewQuadric("sphere4P",[A,B,C,D],lambda(self,
-    self:"coords" = dgs3dComputeSphereBy4Points(apply(self:"parents",#:"coords"));
-    DGS3DmOVEoK
-  ),visible->visible,color->color,alpha->alpha,isSphere->true,incidences->[A,B,C,D]);
+  dgs3dNewQuadric("sphere4P",[A,B,C,D],
+    visible->visible,color->color,alpha->alpha,isSphere->true,incidences->[A,B,C,D]);
 );
 // M,R: point => quadric, visible: bool = should object be drawn
 sphere3dMR(M,R,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dSphere2P(M,R,visible->visible,color->color,alpha->alpha);
 );
 dgs3dSphere2P(M,R,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewQuadric("sphere2P",[M,R],lambda(self,
-    regional(M,R);
-    [M,R] = apply(self:"parents",#:"coords");
-    self:"coords" = dgs3dComputeSphereBy2Points(M,R);
-    DGS3DmOVEoK
-  ),visible->visible,color->color,alpha->alpha,isSphere->true,incidences->[R]);
+  dgs3dNewQuadric("sphereMR",[M,R],
+    visible->visible,color->color,alpha->alpha,isSphere->true,incidences->[R]);
 );
 
+dgs3d.alg.circleBy3P = (A,B,C) => (
+  regional(p,I,J);
+  p = dgs3dEpsilon444(A,B,C); // plane through A,B,C
+  if(p*p~=0, // A,B,C colinear -> pick any plane through A and B
+    regional(d,v);
+    d = B-A;
+    v = min([(1,0,0,0),(0,1,0,0),(0,0,1,0),(1,1,1,1)],(abs(#*d),#))_2;
+    p = dgs3dEpsilon444(A,B,C+v);
+  );
+  [I, J] = dgs3dIntersectQuadricDualLine(
+    ((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,0)), // circle at infinity
+    dgs3dEpsilon44(p,(0,0,0,1)) // line at infinity in plane
+  );
+  [dgs3dComputeConicBy5(p,[A,B,C,I,J]),p]
+);
 circle3d(A,B,C,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dCircle3points(A,B,C,size->size,visible->visible,color->color,alpha->alpha);
 );
 dgs3dCircle3points(A,B,C,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewConic("circleBy3P",[A,B,C],lambda(self,
-    regional(A,B,C,T,M,p,l,I,J,a,b,c,d,e,G,H);
-    A = self:"parents"_1:"coords";
-    B = self:"parents"_2:"coords";
-    C = self:"parents"_3:"coords";
-    self:"coords" = dgs3dComputeCircleBy3(A,B,C);
-    DGS3DmOVEoK
-  ),size->size,visible->visible,color->color,alpha->alpha,isCircle->true,incidences->[A,B,C]);
+  dgs3dNewConic("circleBy3P",[A,B,C],
+    size->size,visible->visible,color->color,alpha->alpha,isCircle->true,incidences->[A,B,C]);
 );
 
 ////////////////
@@ -2998,32 +2875,25 @@ dgs3dDistanceQuadricQuadric(Q1,Q2,coords):=(
   P = (P / P_4 - coords / coords_4);
   0.25*(P*P)
 );
-// Q: quadric, p: plane => conic; size:real = radius, visible: bool = should object be drawn
-dgs3dMeetQP(Q,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewConic("meetQP",[Q,p],lambda(self,
-    regional(Q,p,T,R,S);
-    Q = self:"parents"_1:"coords";
-    p = self:"parents"_2:"coords";
-    // find a quadric with the same intersection that is "less similar" to p
-    // build transformation that maps (0,0,0,1) to p
-    T = dgs3dMapPinfTo(p);
-    R = T*Q*transpose(T);
-    R_4 = (0,0,0,0);
-    R_1_4 = R_2_4 = R_3_4 = 0;
-    S = dgs3dRP3Normalize(transpose(T)*R*T);
-    self:"coords" = [S,p];
-    DGS3DmOVEoK
-  ),size->size,visible->visible,color->color,alpha->alpha,isCircle->Q:"isSphere",incidences->[Q,p]);
+dgs3d.alg.meetQP = (q,p) => (
+  regional(T);
+  // find a quadric with the same intersection that is "less similar" to p
+  T = dgs3dMapPinfTo(p);
+  R = T*q*transpose(T);
+  R_4 = (0,0,0,0);
+  R_1_4 = R_2_4 = R_3_4 = 0;
+  [dgs3dRP3Normalize(transpose(T)*R*T),p];
 );
-// Q1: quadric, Q2: quadric => biquadric; size:real = radius, visible: bool = should object be drawn
-dgs3dMeet2Q(Q1,Q2,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewBiQuadric("meetQQ",[Q1,Q2],lambda(self,
-    regional(Q1,Q2);
-    Q1 = self:"parents"_1:"coords";
-    Q2 = self:"parents"_2:"coords";
-    self:"coords" = [Q1,Q2];
-    DGS3DmOVEoK
-  ),size->size,visible->visible,color->color,alpha->alpha,isCircle->Q1:"isSphere"&Q2:"isSphere",incidences->[Q1,Q2]);
+dgs3d.alg.meetQQ = (q1,q2) => ([q1,q2]);
+// q: quadric, p: plane => conic; size:real = radius, visible: bool = should object be drawn
+dgs3dMeetQP(q,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewConic("meetQP",[q,p],
+    size->size,visible->visible,color->color,alpha->alpha,isCircle->q:"isSphere",incidences->[q,p]);
+);
+// q1: quadric, q2: quadric => biquadric; size:real = radius, visible: bool = should object be drawn
+dgs3dMeet2Q(q1,q2,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewBiQuadric("meetQQ",[q1,q2],size->size,visible->visible,color->color,alpha->alpha,
+    isCircle->q1:"isSphere"&q2:"isSphere",incidences->[q1,q2]);
 );
 // ? quadric by mix of points, lines and planes
 
@@ -3035,45 +2905,38 @@ transformation3d(M):=(
 );
 dgs3dFreeTransformation(M):=(
   regional(obj);
-  obj = dgs3dNewObject("transform","freeTransform",[]);
+  obj = dgs3dNewObject("transform",cglNada,"freeTransform",[]);
   obj:"coords" = M;
   obj
 );
+dgs3d.alg.trafoBy5Pt = (A1,A2,A3,A4,A5,B1,B2,B3,B4,B5) => (
+  dgs3dRP3Normalize(dgs3dHalfTrafo(B1,B2,B3,B4,B5)*inverse(dgs3dHalfTrafo(A1,A2,A3,A4,A5)));
+);
+// map e1,e2,e3,e4 -> As_1,As_2,As_3,As_4
+dgs3dAffineHalfTrafo(As):=(
+  transpose(apply(As,dgs3ddehom4(#)))
+);
+dgs3d.alg.affineTrafoBy4Pt = (A1,A2,A3,A4,B1,B2,B3,B4) => (
+  dgs3dRP3Normalize(
+    dgs3dAffineHalfTrafo((B1,B2,B3,B4))*
+    inverse(dgs3dAffineHalfTrafo((A1,A2,A3,A4)))
+  );
+);
 dgs3dTransformBy5P(As,Bs):=(
-  dgs3dNewTrafo("trafoBy5Pt",concat(As,Bs),lambda(self,
-    regional(A,B,R,S,v,w);
-    A = apply(self:"parents"_(1..5),#:"coords");
-    B = apply(self:"parents"_(6..10),#:"coords");
-    R = transpose((A_1,A_2,A_3,A_4));
-    v = linearSolve(R,A_5);
-    R=apply(R,(#_1*v_1,#_2*v_2,#_3*v_3,#_4*v_4));
-    S = transpose((B_1,B_2,B_3,B_4));
-    w = linearSolve(S,B_5);
-    S=apply(S,(#_1*w_1,#_2*w_2,#_3*w_3,#_4*w_4));
-    self:"coords" = dgs3dRP3Normalize(S*adjoint4(R));
-    DGS3DmOVEoK
-  ))
+  dgs3dNewTrafo("trafoBy5Pt",concat(As,Bs))
 );
 dgs3dAffineTransformBy4P(As,Bs):=(
-  dgs3dNewTrafo("affineTrafoBy4Pt",concat(As,Bs),lambda(self,
-    regional(A,B,R,S);
-    A = apply(self:"parents"_(1..4),dgs3ddehom4(#:"coords"));
-    B = apply(self:"parents"_(5..8),dgs3ddehom4(#:"coords"));
-    R = transpose(A);
-    S = transpose(B);
-    self:"coords" = dgs3dRP3Normalize(S*inverse(R));
-    DGS3DmOVEoK
-  ))
+  dgs3dNewTrafo("affineTrafoBy4Pt",concat(As,Bs))
 );
 // mobius transform mapping inf -> p1, 0 -> p2, e1 -> p3 and e1-e2-plane to sphere through (p1,p2,p3,p4) where (p1,p2,p3,p4) = As
-dgs3dComputeHalfMobiusTrafo(As):=(
+dgs3dComputeHalfMobiusTrafo(A1,A2,A3,A4):=(
   regional(c,v1,v2,v3,p4,m1,s,f4,m2,m3);
   // determine möbius transform T(v) = sM(v-a)/<v-a,v-a> + c
   // 1. T(inf) = c
-  c = As_1_(1..3);
-  v1 = As_2_(1..3) - c;
-  v2 = As_3_(1..3) - c;
-  v3 = As_4_(1..3) - c;
+  c = A1_(1..3);
+  v1 = A2_(1..3) - c;
+  v2 = A3_(1..3) - c;
+  v3 = A4_(1..3) - c;
   v1 = v1/(v1*v1);
   v2 = v2/(v2*v2);
   v3 = v3/(v3*v3);
@@ -3090,8 +2953,10 @@ dgs3dComputeHalfMobiusTrafo(As):=(
   [s*transpose((m1,m2,m3)),-s*(m1,m2,m3)*v1,c]
 );
 // compute S = (M1,a1,c1) with inverse of T = (M0,a0,c0)
-dgs3dComputeComposeMobiusInverse(M1,a1,c1,M0,a0,c0):=(
-  regional(L,p,q);
+dgs3dComputeComposeMobiusInverse(T1,T0):=(
+  regional(M1,a1,c1,M0,a0,c0,L,p,q);
+  [M0,a0,c0] = T0;
+  [M1,a1,c1] = T1;
   if(|a1-a0|<1e-10,
     L = M1*transpose(M0)/(M0_1*M0_1);
     p = c1 - L*c0;
@@ -3159,33 +3024,22 @@ dgs3dComputeComposeMobius(S,T):=(
       // M((Nx+b)-a)/(Nx+b-a)^2+c = MN(x-N^-1(a-b))/(s^2(x-N^-1(a-b))^2)+c where N=s*orth
       (M0*M1/(M1_1*M1_1),inverse(M1)*(a0-c1),c0)
     ,
-      (M0,a0,c0) = S;
-      (M1,a1,c1) = T;
-      dgs3dComputeComposeMobiusInverse(M0,a0,c0,transpose(M1),c1,a1);
+      dgs3dComputeComposeMobiusInverse(S,dgs3dComputeInverseMobius(T));
     )
   )
 );
+dgs3d.alg.mobiusTrafoBy4Pt = (A1,A2,A3,A4,B1,B2,B3,B4) => (
+  [A1,A2,A3,A4,B1,B2,B3,B4] = apply([A1,A2,A3,A4,B1,B2,B3,B4],dgs3ddehom4(#));
+  dgs3dComputeComposeMobiusInverse(
+    dgs3dComputeHalfMobiusTrafo(B1,B2,B3,B4),
+    dgs3dComputeHalfMobiusTrafo(A1,A2,A3,A4)
+  );
+);
 dgs3dMobiusTransformBy4P(As,Bs):=(
-  dgs3dNewMobiusTrafo("mobiusTrafoBy4Pt",concat(As,Bs),lambda(self,
-    regional(M0,a0,c0,M1,a1,c1);
-    As = apply(self:"parents"_(1..4),dgs3ddehom4(#:"coords"));
-    Bs = apply(self:"parents"_(5..8),dgs3ddehom4(#:"coords"));
-    [M0,a0,c0] = dgs3dComputeHalfMobiusTrafo(As);
-    [M1,a1,c1] = dgs3dComputeHalfMobiusTrafo(Bs);
-    self:"coords" = dgs3dComputeComposeMobiusInverse(M1,a1,c1,M0,a0,c0);
-    DGS3DmOVEoK
-  ))
+  dgs3dNewMobiusTrafo("mobiusTrafoBy4Pt",concat(As,Bs))
 );
-dgs3dMobiusTransformPoint(T,P,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewPoint("mobiusTransform",[T,P],lambda(self,
-    regional(T,P);
-    T = self:"parents"_1:"coords";
-    P = self:"parents"_2:"coords";
-    self:"coords" = dgs3dComputeApplyMobiusTrafo(T,P);
-    DGS3DmOVEoK
-  ),size->size,visible->visible,color->color,alpha->alpha)
-);
-dgs3dComputeMobiusTransformPlane(T,v):=(
+dgs3d.alg.mobiusTransformPt = (T,P) => (dgs3dComputeApplyMobiusTrafo(T,P));
+dgs3d.alg.mobiusTransformPl = (T,v) => (
   if(length(T)==1,
     v = transpose(adjoint4(T_1))*v;
     ((0,0,0,v_1),(0,0,0,v_2),(0,0,0,v_3),(v_1,v_2,v_3,2*v_4))
@@ -3202,17 +3056,17 @@ dgs3dComputeMobiusTransformPlane(T,v):=(
     ((k,0,0,v_1),(0,k,0,v_2),(0,0,k,v_3),(v_1,v_2,v_3,r));
   )
 );
-dgs3dComputeMobiusTransformSphere(T,S):=(
+dgs3d.alg.mobiusTransformSphere = (T,s) => (
   if(length(T)==1,
     T = adjoint4(T_1);
-    transpose(T)*S*T
+    transpose(T)*s*T
   ,
     regional(MT,p,q,a,v,c,k,l,r);
     (MT,q,p) = T; // decompose inverse trafo
-    // write S as a<x,x> + <x,v> + c = 0
-    a = (S_1_1+S_2_2+S_3_3)/3;
-    v = (S_1_4,S_2_4,S_3_4)+S_4_(1..3);
-    c = S_4_4;
+    // write s as a<x,x> + <x,v> + c = 0
+    a = (s_1_1+s_2_2+s_3_3)/3;
+    v = (s_1_4,s_2_4,s_3_4)+s_4_(1..3);
+    c = s_4_4;
     k = a*q*q + q*v + c;
     l = MT*(2*a*q + v);
     // k <y,y> + 2<y,l/2-kp> + k<p,p>-<p,l> = 0
@@ -3221,137 +3075,106 @@ dgs3dComputeMobiusTransformSphere(T,S):=(
     ((k,0,0,v_1),(0,k,0,v_2),(0,0,k,v_3),(v_1,v_2,v_3,r));
   );
 );
+// find plane in pencil through two spheres
+dgs3dSpherePencileBase(S1,S2):=(
+  regional(S,plane);
+  if(S1_1_1==0,
+    plane = S1;
+    S = S2;
+  ,
+    plane = S2_1_1*S1-S1_1_1*S2; // make top-left 3x3 submatrix zero
+    S = S1_1_1*S1+S2_1_1*S2; // swap factors and one single to ensure linearly independent choice
+  );
+  (S,(plane_1_4+plane_4_1,plane_2_4+plane_4_2,plane_3_4+plane_4_3,plane_4_4));
+);
+dgs3dFind2PlanesThroughLine(l):=(
+  transpose(kernel(dgs3dLineMatrix(dgs3dDualLine(l))))
+);
+dgs3d.alg.mobiusTransformLn = (T,l) => (
+  regional(p1,p2);
+  (p1,p2) = dgs3dFind2PlanesThroughLine(l);
+  // intersect transformed planes
+  dgs3dSpherePencileBase(dgs3d.alg.mobiusTransformPl.(T,p1),dgs3d.alg.mobiusTransformPl.(T,p2));
+);
+dgs3dSphereThroughCircle(q,p):=(
+  regional(P);
+  // add multiple of degenerate quadric given by p to ensure q is a sphere
+  P = transpose([p])*[p];
+  q - if(|P_1_2|>|P_1_3| & |P_1_2|>|P_2_3|,
+    q_1_2/P_1_2;
+  ,if(|P_1_3|>|P_2_3|,
+    q_1_3/P_1_3;
+  ,
+    q_2_3/P_2_3;
+  )) * P;
+);
+dgs3d.alg.mobiusTransformCircle = (T,c) => (
+  regional(q,p);
+  (q,p) = c;
+  // intersect transformed plane and sphere
+  dgs3dSpherePencileBase(
+    dgs3d.alg.mobiusTransformPl.(T,p),
+    dgs3d.alg.mobiusTransformSphere.(T,dgs3dSphereThroughCircle(q,p))
+  );
+);
+dgs3d.alg.mobiusTransformCircle2 = (T,b) => (
+  // TODO? are the arguments guaranteed to be spheres
+  dgs3dSpherePencileBase(
+    dgs3d.alg.mobiusTransformSphere.(T,b_1),
+    dgs3d.alg.mobiusTransformSphere.(T,b_2)
+  )
+);
+dgs3d.alg.mobiusTransformTrafo = (T,S) => (
+  dgs3dComputeComposeMobius(T,dgs3dComputeComposeMobius(S,dgs3dComputeInverseMobius(T)))
+);
+dgs3d.alg.mobiusTransformQuadric = (T,q) => (
+  if(length(T)==1,
+    T = adjoint4(T_1);
+    [lambda((spacePos,M),spacePos*M*spacePos),transpose(T)*q*T]
+  ,
+    regional(M,a,c);
+    [M,a,c] = T;
+    [lambda((spacePos,data),x=(spacePos-data.p);
+      x*transpose(data.M)*data.A*data.M*x
+        +(x*x)*(2*data.q*data.A+data.b)*data.M*x
+        +(x*x)^2*(data.q*data.A*data.q+data.b*data.q+data.c)
+    ),{
+      "M": M,
+      "p": a,
+      "q": c,
+      "A": apply(q_(1..3),#_(1..3)),
+      "b": (q_1_4+q_4_1,q_2_4+q_4_2,q_3_4+q_4_2),
+      "c": q_4_4
+    }]
+  );
+);
+dgs3dMobiusTransformPoint(T,P,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewPoint("mobiusTransformPt",[T,P],size->size,visible->visible,color->color,alpha->alpha)
+);
 dgs3dMobiusTransformPlane(T,p,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewQuadric("mobiusTransform",[T,p],lambda(self,
-    regional(T,v);
-    T = self:"parents"_1:"coords";
-    v = self:"parents"_2:"coords";
-    self:"coords" = dgs3dComputeMobiusTransformPlane(T,v);
-    DGS3DmOVEoK
-  ),visible->visible,color->color,alpha->alpha,isSphere->true)
+  dgs3dNewQuadric("mobiusTransformPl",[T,p],visible->visible,color->color,alpha->alpha,isSphere->true)
 );
 dgs3dMobiusTransformSphere(T,s,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewQuadric("mobiusTransform",[T,s],lambda(self,
-    regional(T,S);
-    T = self:"parents"_1:"coords";
-    S = self:"parents"_2:"coords";
-    self:"coords" = dgs3dComputeMobiusTransformSphere(T,S);
-    DGS3DmOVEoK
-  ),visible->visible,color->color,alpha->alpha,isSphere->true)
+  dgs3dNewQuadric("mobiusTransformSphere",[T,s],visible->visible,color->color,alpha->alpha,isSphere->true)
 );
 dgs3dMobiusTransformLine(T,l,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewConic("mobiusTransform",[T,l],lambda(self,
-    regional(T,l,p1,p2,S1,S2,Q,R,q);
-    T = self:"parents"_1:"coords";
-    // find two planes through line
-    l = dgs3dLineMatrix(dgs3dDualLine(self:"parents"_2:"coords"));
-    (p1,p2) = transpose(kernel(l));
-    // transform planes
-    S1 = dgs3dComputeMobiusTransformPlane(T,p1);
-    S2 = dgs3dComputeMobiusTransformPlane(T,p2);
-    // find plane in pencil through two spheres
-    if(S1_1_1==0,
-      Q = S1;
-      R = S2;
-    ,
-      Q = S2_1_1*S1-S1_1_1*S2; // make top-left 3x3 submatrix zero
-      R = S1_1_1*S1+S2_1_1*S2; // swap factors and one single to ensure linearly independent choice
-    );
-    q = (Q_1_4+Q_4_1,Q_2_4+Q_4_2,Q_3_4+Q_4_3,Q_4_4);
-    self:"coords" = (R,q);
-    DGS3DmOVEoK
-  ),size->size,visible->visible,color->color,alpha->alpha,isCircle->true)
+  dgs3dNewConic("mobiusTransformLn",[T,l],
+    size->size,visible->visible,color->color,alpha->alpha,isCircle->true)
 );
 dgs3dMobiusTransformCircle(T,c,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewConic("mobiusTransform",[T,c],lambda(self,
-    regional(T,Q,P,s,p,S1,S2,R,q);
-    T = self:"parents"_1:"coords";
-    (Q,p) = self:"parents"_2:"coords";
-    // add multiple of degenerate quadric given by p to ensure Q is a sphere
-    P = transpose([p])*[p];
-    if(|P_1_2|>|P_1_3| & |P_1_2|>|P_2_3|,
-      s = Q_1_2/P_1_2;
-    ,if(|P_1_3|>|P_2_3|,
-      s = Q_1_3/P_1_3;
-    ,
-      s = Q_2_3/P_2_3;
-    ));
-    Q = Q - s*P;
-    // transform plane and sphere
-    S1 = dgs3dComputeMobiusTransformPlane(T,p);
-    S2 = dgs3dComputeMobiusTransformSphere(T,Q);
-    // find plane in pencil through two spheres
-    if(S1_1_1==0,
-      Q = S1;
-      R = S2;
-    ,
-      Q = S2_1_1*S1-S1_1_1*S2; // make top-left 3x3 submatrix zero
-      R = S1_1_1*S1+S2_1_1*S2; // swap factors and one single to ensure linearly independent choice
-    );
-    q = (Q_1_4+Q_4_1,Q_2_4+Q_4_2,Q_3_4+Q_4_3,Q_4_4);
-    self:"coords" = (R,q);
-    DGS3DmOVEoK
-  ),size->size,visible->visible,color->color,alpha->alpha,isCircle->true)
+  dgs3dNewConic("mobiusTransformCircle",[T,c],
+    size->size,visible->visible,color->color,alpha->alpha,isCircle->true)
 );
 dgs3dMobiusTransformCircle2(T,c,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewConic("mobiusTransform",[T,c],lambda(self,
-    regional(T,Q,P,s,p,S1,S2,R,q);
-    T = self:"parents"_1:"coords";
-    (Q1,Q2) = self:"parents"_2:"coords";
-    // TODO? are the arguments guaranteed to be spheres
-    // transform plane and sphere
-    S1 = dgs3dComputeMobiusTransformSphere(T,Q1);
-    S2 = dgs3dComputeMobiusTransformSphere(T,Q2);
-    // find plane in pencil through two spheres
-    if(S1_1_1==0,
-      Q = S1;
-      R = S2;
-    ,
-      Q = S2_1_1*S1-S1_1_1*S2; // make top-left 3x3 submatrix zero
-      R = S1_1_1*S1+S2_1_1*S2; // swap factors and one single to ensure linearly independent choice
-    );
-    q = (Q_1_4+Q_4_1,Q_2_4+Q_4_2,Q_3_4+Q_4_3,Q_4_4);
-    self:"coords" = (R,q);
-    DGS3DmOVEoK
-  ),size->size,visible->visible,color->color,alpha->alpha,isCircle->true)
+  dgs3dNewConic("mobiusTransformCircle2",[T,c],
+    size->size,visible->visible,color->color,alpha->alpha,isCircle->true)
 );
 dgs3dMobiusTransformTransform(T,S,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewMobiusTrafo("mobiusTransform",(T,S),lambda(self,
-    regional(S,T,R);
-    T = self:"parents"_1:"coords";
-    S = self:"parents"_2:"coords";
-    // need trafo with: Tx -> TSx
-    self:"coords" = dgs3dComputeComposeMobius(T,dgs3dComputeComposeMobius(S,dgs3dComputeInverseMobius(T)));
-    DGS3DmOVEoK
-  ))
+  dgs3dNewMobiusTrafo("mobiusTransformTrafo",(T,S))
 );
 dgs3dMobiusTransformQuadric(T,q,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewSurface("mobiusTransform",[T,q],lambda(self,
-    regional(T,M,a,c,q,data);
-    T = self:"parents"_1:"coords";
-    q = self:"parents"_2:"coords";
-    self:"coords" = if(length(T)==1,
-      T = adjoint4(T_1);
-      data = {"M":transpose(T)*q*T};
-      [lambda((spacePos,data),spacePos*data.M*spacePos)]
-    ,
-      [M,a,c] = T;
-      data = {
-        "M": M,
-        "p": a,
-        "q": c,
-        "A": apply(q_(1..3),#_(1..3)),
-        "b": (q_1_4+q_4_1,q_2_4+q_4_2,q_3_4+q_4_2),
-        "c": q_4_4
-      };
-      [lambda((spacePos,data),x=(spacePos-data.p);
-        x*transpose(data.M)*data.A*data.M*x
-          +(x*x)*(2*data.q*data.A+data.b)*data.M*x
-          +(x*x)^2*(data.q*data.A*data.q+data.b*data.q+data.c)
-      ),data]
-    );
-    DGS3DmOVEoK
-  ),visible->visible,color->color,alpha->alpha,isSphere->true)
+  dgs3dNewSurface("mobiusTransformQuadric",[T,q],
+    visible->visible,color->color,alpha->alpha)
 );
 
 transform3d(T,x,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
@@ -3402,69 +3225,52 @@ dgs3dTransform(T,x,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
     cglLogWarning("the first parameter of transform should be a  tranformation got: "+x:"type");
   ));
 );
+dgs3d.alg.transformPt = (T,P) => (
+  dgs3dRP3Normalize(T*P)
+);
+dgs3d.alg.transformLn = (T,l) => (
+  dgs3dRP3Normalize(dgs3dLineFromMatrix(transpose(T)*dgs3dLineMatrix(l)*T))
+);
+dgs3d.alg.transformPl = (T,p) => (
+  dgs3dRP3Normalize(transpose(inverse(T))*p)
+);
+dgs3d.alg.transformQuadric = (T,q) => (
+  T = inverse(T);
+  dgs3dRP3Normalize(transpose(T)*q*T)
+);
+dgs3d.alg.transformConic = (T,c) => (
+  regional(q,p);
+  T = inverse(T);
+  (q,p) = c;
+  [dgs3dRP3Normalize(transpose(T)*q*T),dgs3dRP3Normalize(transpose(T)*p)];
+);
+dgs3d.alg.transformBiquadric = (T,b) => (
+  T = inverse(T);
+  apply(b,dgs3dRP3Normalize(transpose(T)*#*T));
+);
+dgs3d.alg.transformTrafo = (T,S) => (
+  dgs3dRP3Normalize(T*S*inverse(T))
+);
 dgs3dTransformPoint(T,P,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewPoint("transform",[T,P],lambda(self,
-    regional(T,P);
-    T = self:"parents"_1:"coords";
-    P = self:"parents"_2:"coords";
-    self:"coords" = dgs3dRP3Normalize(T*P);
-    DGS3DmOVEoK
-  ),size->size,visible->visible,color->color,alpha->alpha)
+  dgs3dNewPoint("transformPt",[T,P],size->size,visible->visible,color->color,alpha->alpha)
 );
 dgs3dTransformLine(T,l,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewLine("transform",[T,l],lambda(self,
-    regional(T,l);
-    T = adjoint4(self:"parents"_1:"coords");
-    l = dgs3dLineMatrix(self:"parents"_2:"coords");
-    self:"coords" = dgs3dRP3Normalize(dgs3dLineFromMatrix(transpose(T)*l*T));
-    DGS3DmOVEoK
-  ),size->size,visible->visible,color->color,alpha->alpha)
+  dgs3dNewLine("transformLn",[T,l],size->size,visible->visible,color->color,alpha->alpha)
 );
 dgs3dTransformPlane(T,p,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewPlane("transform",[T,p],lambda(self,
-    regional(T,p);
-    T = adjoint4(self:"parents"_1:"coords");
-    p = self:"parents"_2:"coords";
-    self:"coords" = dgs3dRP3Normalize(transpose(T)*p);
-    DGS3DmOVEoK
-  ),visible->visible,color->color,alpha->alpha)
+  dgs3dNewPlane("transformPl",[T,p],visible->visible,color->color,alpha->alpha)
 );
 dgs3dTransformQuadric(T,q,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewQuadric("transform",[T,q],lambda(self,
-    regional(T,q);
-    T = adjoint4(self:"parents"_1:"coords");
-    q = self:"parents"_2:"coords";
-    self:"coords" = dgs3dRP3Normalize(transpose(T)*q*T);
-    DGS3DmOVEoK
-  ),visible->visible,color->color,alpha->alpha)
+  dgs3dNewQuadric("transformQuadric",[T,q],visible->visible,color->color,alpha->alpha)
 );
 dgs3dTransformConic(T,c,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewConic("transform",[T,c],lambda(self,
-    regional(T,q,p);
-    T = adjoint4(self:"parents"_1:"coords");
-    (q,p) = self:"parents"_2:"coords";
-    self:"coords" = [dgs3dRP3Normalize(transpose(T)*q*T),dgs3dRP3Normalize(transpose(T)*p)];
-    DGS3DmOVEoK
-  ),visible->visible,color->color,alpha->alpha,isCircle->false)
+  dgs3dNewConic("transformConic",[T,c],visible->visible,color->color,alpha->alpha,isCircle->false)
 );
 dgs3dTransformBiQuadric(T,c,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewBiQuadric("transform",[T,c],lambda(self,
-    regional(T,q,p);
-    T = adjoint4(self:"parents"_1:"coords");
-    (q,r) = self:"parents"_2:"coords";
-    self:"coords" = [dgs3dRP3Normalize(transpose(T)*q*T),dgs3dRP3Normalize(transpose(T)*r*T)];
-    DGS3DmOVEoK
-  ),visible->visible,color->color,alpha->alpha,isCircle->false)
+  dgs3dNewBiQuadric("transformBiquadric",[T,c],visible->visible,color->color,alpha->alpha,isCircle->false)
 );
 dgs3dTransformTrafo(T,S):=(
-  dgs3dNewTrafo("transform",(T,S),lambda(self,
-    regional(S,T);
-    T = self:"parents"_1:"coords";
-    S = self:"parents"_2:"coords";
-    // need trafo with: Tx -> TSx
-    self:"coords" = dgs3dRP3Normalize(T*S*inverse(T));
-    DGS3DmOVEoK
-  ))
+  dgs3dNewTrafo("transform",(T,S))
 );
 
 ////////////////
@@ -3548,8 +3354,21 @@ DGS3DaLGORITHMS = {
   "mobiusTrafoBy4Pt": lambda((As,Bs),dgs3dMobiusTransformBy4P(As,Bs)),
   "trafoBy5Pt": lambda((As,Bs),dgs3dTransformBy5P(As,Bs)),
   "affineTrafoBy4Pt": lambda((As,Bs),dgs3dAffineTransformBy4P(As,Bs)),
-  "mobiusTransform": lambda((mTrafo,x),dgs3dTransform(mTrafo,x)),
-  "transform": lambda((trafo,x),dgs3dTransform(trafo,x))
+  "mobiusTransformPt": lambda((mTrafo,x),dgs3dMobiusTransformPoint(mTrafo,x)),
+  "mobiusTransformPl": lambda((mTrafo,x),dgs3dMobiusTransformPlane(mTrafo,x)),
+  "mobiusTransformSphere": lambda((mTrafo,x),dgs3dMobiusTransformSphere(mTrafo,x)),
+  "mobiusTransformLn": lambda((mTrafo,x),dgs3dMobiusTransformLine(mTrafo,x)),
+  "mobiusTransformCircle": lambda((mTrafo,x),dgs3dMobiusTransformCircle(mTrafo,x)),
+  "mobiusTransformCircle2": lambda((mTrafo,x),dgs3dMobiusTransformCircle2(mTrafo,x)),
+  "mobiusTransformTrafo": lambda((mTrafo,x),dgs3dMobiusTransformTransform(mTrafo,x)),
+  "mobiusTransformQuadric": lambda((mTrafo,x),dgs3dMobiusTransformQuadric(mTrafo,x)),
+  "transformPt": lambda((trafo,x),dgs3dTransformPoint(trafo,x)),
+  "transformLn": lambda((trafo,x),dgs3dTransformLine(trafo,x)),
+  "transformPl": lambda((trafo,x),dgs3dTransformPlane(trafo,x)),
+  "transformQuadric": lambda((trafo,x),dgs3dTransformQuadric(trafo,x)),
+  "transformConic": lambda((trafo,x),dgs3dTransformConic(trafo,x)),
+  "transformBiquadric": lambda((trafo,x),dgs3dTransformConic(trafo,x)),
+  "transformTrafo": lambda((trafo,x),dgs3dTransformTrafo(trafo,x))
 };
 dgs3dNormalizeModifiers(obj3d):=(
   obj3d.color = cglColor(obj3d.color);
