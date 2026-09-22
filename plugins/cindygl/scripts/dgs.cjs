@@ -607,10 +607,15 @@ dgs3dIntersect2DConicLine(A,l):=(
   C = B + alpha*M;
   dgs3dSplit2DRank1Conic(C);
 );
+// return a root of a x^3 + b x^2 + c x + d
+// prefer real roots with small magnitude
+dgs3dCubicRoot(a,b,c,d):=(
+  sort(roots((a,b,c,d)),(!isReal(#),|#|))_1
+);
 dgs3dIntersect2DConic(A,B):=(
   regional(lambda,C,l12,p12,p34);
   // 1. find degenerate matrix in pencil
-  lambda = sort(roots((
+  lambda = dgs3dCubicRoot(
     det(A),
     -A_2_3*A_3_2*B_1_1+A_2_2*A_3_3*B_1_1+A_2_3*A_3_1*B_1_2-A_2_1*A_3_3*B_1_2
     -A_2_2*A_3_1*B_1_3+A_2_1*A_3_2*B_1_3+A_1_3*A_3_2*B_2_1-A_1_2*A_3_3*B_2_1
@@ -623,7 +628,7 @@ dgs3dIntersect2DConic(A,B):=(
     +A_1_3*B_2_1*B_3_2-A_1_1*B_2_3*B_3_2+A_2_2*B_1_1*B_3_3-A_2_1*B_1_2*B_3_3
     -A_1_2*B_2_1*B_3_3+A_1_1*B_2_2*B_3_3,
     det(B)
-  )),(!isReal(#),|#|))_1; // prefer real roots with small magnitude
+  );
   C = A+lambda*B;
   // 3. decompose into lines
   l12 = dgs3dDecompose2DConic(C);
@@ -637,9 +642,6 @@ dgs3dIntersect2DConic(A,B):=(
   );
   (p12_1,p12_2,p34_1,p34_2)
 );
-
-// TODO decouple math and UI:
-//  -> extract underlying computation for geometry operations to functions acting on coordinates
 
 ////////////////
 // Objects + Rendering
@@ -1458,7 +1460,6 @@ dgs3dConicProjectionStep(q,p,P,X,unique->false):=(
   if(dgs3dIsFiniteRealPlane(nq),
     nq = nq_(1..3);
     np = p_(1..3);
-    // TODO: use 2D polar instead of projected 3D polar
     nq = nq - ((np*nq)/(np*np)) * np; // project normal into plane
     l = dgs3d.alg.orthogonalLine.(nq,P);
     dgs3dSelectFiniteRealOrMidpoint(dgs3dIntersectQuadricLine(q,l),P,unique->unique);
@@ -2251,7 +2252,6 @@ dgs3dHalfTrafo(A1,A2,A3,A4,A5):=(
 );
 // q: mat4, P: vec4
 dgs3d.alg.quadricLines = (q,P) => (
-  // TODO: this algorithm seems to break for ellipsoids
   regional(p,T,S);
   p = q*P;
   T = dgs3dMapPinfTo(p);
@@ -2840,22 +2840,6 @@ dgs3dDistanceQuadricPlane(conicQuadric,conicPlane,samplePoint):=(
   //P = dgs3dSimpleConicProjectionStep(conicQuadric,conicPlane,planePoint,P);
   v = (P / P_4 - samplePoint / samplePoint_4);
   v*v
-);
-// TODO: the new algorithm is more acurate but less numerically stable
-//  test if renderer can be improved otherwise maybe switch back algorithm
-dgs3dDistanceQuadricPlaneOld(Quadric,Plane,coords):=(
-  regional(pol,v,plane,P);
-  // 1. get polar planes
-  pol = Quadric*coords;
-  // move plane to midpoint between polar-point and plane
-  pol_4 = 0.5*(pol_4 - ((coords_1,coords_2,coords_3)/coords_4)*(pol_1,pol_2,pol_3));
-  // 2. compute distance to intersection line
-  l = dgs3dDualLine(dgs3dEpsilon44(pol,Plane));
-  v = dgs3dEpsilon46((0,0,0,1),l);
-  plane = dgs3dPlaneWithNormalThroughPoint(v_(1..3),coords);
-  P = dgs3dEpsilon46(plane,l);
-  P = (P / P_4 - coords / coords_4);
-  P*P
 );
 // TODO? try porting iterative projection approach from dgs3dTryProjectPointToBiQuadric to shader
 // estimate squared-distance to intersection curve of quadric and quadric
