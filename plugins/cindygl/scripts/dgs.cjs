@@ -575,15 +575,12 @@ dgs3dSqCoords(p):=(
 // TODO? reuse code from 2D-geometry engine
 // TODO: check if results are correct in all cases
 dgs3dDecompose2DConic(A):=(
-  regional(B,i,beta,P,C);
+  regional(B,maxDiagEltIndex,beta,P,C);
   // 1. find anti-symmetric matrix D s.t. A+D has rank 1
   B = adjoint3(A);
-  i = if(|B_1_1|>=|B_2_2| & |B_1_1|>=|B_3_3|, 1, if(|B_2_2|>=|B_1_1| & |B_2_2|>=|B_3_3|,2, 3));
-  if(re(B_i_i)<0,
-    B = -B;
-  );
-  beta = sqrt(B_i_i);
-  P = B_i/beta;
+  maxDiagEltIndex = if(|B_1_1|>=|B_2_2| & |B_1_1|>=|B_3_3|, 1, if(|B_2_2|>=|B_1_1| & |B_2_2|>=|B_3_3|,2, 3));
+  beta = sqrt(-B_maxDiagEltIndex_maxDiagEltIndex);
+  P = B_maxDiagEltIndex/beta;
   C = A + ((0,P_3,-P_2),(-P_3,0,P_1),(P_2,-P_1,0));
   dgs3dSplit2DRank1Conic(C);
 );
@@ -840,7 +837,7 @@ dgs3dObjAddIncidences(obj,incidences):=(
   );
 );
 dgs3dObjAddTangency(obj,tangent):=(
-  obj.tangencies:tangent.id = tangent;
+  obj.tangencies:(tangent.id) = tangent;
 );
 dgs3dObjAddTangencies(obj,tangencies):=(
   forall(tangencies,
