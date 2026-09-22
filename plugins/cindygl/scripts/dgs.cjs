@@ -3282,7 +3282,7 @@ DGS3DaLGORITHMS = {
   "freePoint": lambda((coords),dgs3dFreePoint(coords)),
   "freeLine": lambda((coords),dgs3dFreeLine(coords)),
   "freePlane": lambda((coords),dgs3dFreePlane(coords)),
-  "freeQuadric": lambda((coords),dgs3dFreePlane(coords)),
+  "freeQuadric": lambda((coords),dgs3dFreeQuadric(coords)),
   "onLine": lambda((line,initPoint),dgs3dPointOnLine(line,initPoint)),
   "onPlane": lambda((plane,initPoint),dgs3dPointOnPlane(plane,initPoint)),
   "onQuadric": lambda((quadric,initPoint),dgs3dPointOnQuadric(quadric,initPoint)),
