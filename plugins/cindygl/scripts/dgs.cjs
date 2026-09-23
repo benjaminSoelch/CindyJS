@@ -481,6 +481,24 @@ dsg3dSplitRank1Quadric(M):=(
   [r,c] = max(M,v,r,max(v,x,c,(|x|,r,c)))_(2,3);
   (dgs3dRP3Normalize(M_r),dgs3dRP3Normalize(apply(M,#_c)));
 );
+dgs3dQuadricCoefficientVector(M):=(
+  (M_1_1,M_1_2+M_2_1,M_1_3+M_1_3,M_1_4+M_1_4,M_2_2,M_2_3+M_3_2,M_2_4+M_4_2,M_3_4+M_4_3,M_4_4)
+);
+// M = P^T Q + Q^T P: given point P find Q
+dsg3dSplitDegenerateQuadric1known(M,knownPoint):=(
+  // use least squares: Ax = b -> A^T A x = A^T b
+  // where b is coefficient vector of M, x is point P and A represents the equation M = P^T Q + Q^T
+  regional(a,b,c,d,AT);
+  [a,b,c,d] = knownPoint;
+  AT = (
+    (a,b,c,d,0,0,0,0,0,0),
+    (0,a,0,0,b,c,d,0,0,0),
+    (0,0,a,0,0,b,0,c,d,0),
+    (0,0,0,a,0,0,b,0,c,d)
+  );
+  // TODO: handle case where AT*transpose(AT) is (almost) not invertible?
+  linearSolve(AT*transpose(AT),AT*dgs3dQuadricCoefficientVector(M));
+);
 // l: vec6 (point-like), Q: mat4 => vec4 x 2
 dgs3dIntersectQuadricDualLine(Q,l):=(
   regional(mL,M,lineIndex,lineEntry,minorIndices,a);
@@ -493,6 +511,11 @@ dgs3dIntersectQuadricDualLine(Q,l):=(
   dsg3dSplitRank1Quadric(M+a*mL)
 );
 dgs3dIntersectQuadricLine(Q,l):=(dgs3dIntersectQuadricDualLine(Q,dgs3dDualLine(l)));
+dgs3dIntersectQuadricLine1known(Q,l,knownPoint):=(
+  regional(mL);
+  mL = dgs3dDualLineMatrix(l);
+  dsg3dSplitDegenerateQuadric1known(mL*Q*mL,knownPoint)
+);
 dgs3dRP3Normalize(p):=(
   regional(m,v);
   m = -1;
@@ -1710,10 +1733,22 @@ dgs3dJoin2L(l1,l2,visible->true,color->cglNada,alpha->cglNada):=(
 dgs3d.alg.meetQL = (Q,l) => (
   dgs3dIntersectQuadricLine(Q,l)
 );
+dgs3d.alg.meetQL1known = (Q,l) => (
+  dgs3dIntersectQuadricLine1known(Q,l)
+);
 // Q1: quadric, l1: line, size:real = radius, visible: bool = should object be drawn
 dgs3dMeetQL(Q1,l1,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewPointSet("meetQL",[Q1,l1],2,
-    size->size,visible->visible,color->color,alpha->alpha,incidences->[Q1,l1]);
+  regional(knownIntersections);
+  knownIntersections = dgs3dFindObjectsByIncidences("point",[Q1,l1]);
+  if(length(knownIntersections)>0,
+    // TODO: handle case where both intersections are known
+    knownIntersection = knownIntersections_1;
+    [knownIntersection,dgs3dNewPoint("meetQL1known",[Q1,l1,knownIntersection],
+      size->size,visible->visible,color->color,alpha->alpha,incidences->[Q1,l1])];
+  ,
+    dgs3dNewPointSet("meetQL",[Q1,l1],2,
+      size->size,visible->visible,color->color,alpha->alpha,incidences->[Q1,l1]).children;
+  )
 );
 // P1: plane, P2: plane, P3: plane, size:real = radius, visible: bool = should object be drawn
 meet3d(a,b,c,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
@@ -1750,7 +1785,7 @@ dgs3d.alg.meetQPP = (Q,p1,p2) => (
 // Q1: quadric, p1: plane, p2: plane ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeetQpp(Q1,p1,p2,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dNewPointSet("meetQPP",[Q1,p1,p2],2,
-    size->size,visible->visible,color->color,alpha->alpha,incidences->[Q1,p1,p2]);
+    size->size,visible->visible,color->color,alpha->alpha,incidences->[Q1,p1,p2]).children;
 );
 dgs3d.alg.meetCP = (c,p) => (
   dgs3dIntersectQuadricDualLine(c_1,dgs3dEpsilon44(c_2,p))
@@ -1758,7 +1793,7 @@ dgs3d.alg.meetCP = (c,p) => (
 // c: conic, p: plane ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeetCp(c,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dNewPointSet("meetCP",[c,p],2,
-    size->size,visible->visible,color->color,alpha->alpha,incidences->[c,p]);
+    size->size,visible->visible,color->color,alpha->alpha,incidences->[c,p]).children;
 );
 dgs3d.alg.meetCL = (c,l) => (
   dgs3dIntersectQuadricLine(c_1,l);
@@ -1766,7 +1801,7 @@ dgs3d.alg.meetCL = (c,l) => (
 // c: conic, l: line ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeetCL(c,l,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   // TODO: ensure co-planar
-  dgs3dNewPointSet("meetCL",[c,l],2,size->size,visible->visible,color->color,alpha->alpha);
+  dgs3dNewPointSet("meetCL",[c,l],2,size->size,visible->visible,color->color,alpha->alpha).children;
 );
 dgs3d.alg.meetCC = (c1,c2) => (
   // TODO? handle intersections in non-coplanar case
@@ -1775,7 +1810,7 @@ dgs3d.alg.meetCC = (c1,c2) => (
 // c1,c2: conic ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeetConicConic(c1,c2,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   // TODO: ensure co-planar
-  dgs3dNewPointSet("meetCC",[c1,c2],4,size->size,visible->visible,color->color,alpha->alpha);
+  dgs3dNewPointSet("meetCC",[c1,c2],4,size->size,visible->visible,color->color,alpha->alpha).children;
 );
 dgs3dComputeIntersectionsQQP(Q1,Q2,p):=(
   regional(T,S,A,B,pts2D);
@@ -1795,17 +1830,17 @@ dgs3d.alg.meetBP = (b,p) => (dgs3dComputeIntersectionsQQP(b_1,b_2,p));
 // q1: quadric, q2: quadric, p: plane ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeetQQp(q1,q2,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dNewPointSet("meetQQP",[q1,q2,p],4,
-    size->size,visible->visible,color->color,alpha->alpha,incidences->[q1,q2,p]);
+    size->size,visible->visible,color->color,alpha->alpha,incidences->[q1,q2,p]).children;
 );
 // q: quadric, c: conic ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeetQuadricConic(q,c,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dNewPointSet("meetQC",[q,c],4,
-    size->size,visible->visible,color->color,alpha->alpha,incidences->[q,c]);
+    size->size,visible->visible,color->color,alpha->alpha,incidences->[q,c]).children;
 );
 // b: bi-quadric, p: plane ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeetBiQuadricPlane(b,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dNewPointSet("meetBP",[b,p],4,
-    size->size,visible->visible,color->color,alpha->alpha,incidences->[b,p]);
+    size->size,visible->visible,color->color,alpha->alpha,incidences->[b,p]).children;
 );
 dgs3dIntersects3Q(q1,q2,q3):=(
   dgs3de3q3(dgs3dQuadAsVec(q1),dgs3dQuadAsVec(q2),dgs3dQuadAsVec(q3));
@@ -1819,13 +1854,13 @@ dgs3d.alg.meet3Q = (q1,q2,q3) => (
 // b: bi.quadric, q: quadric ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeetBiQuadricQuadric(b,q,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dNewPointSet("meetBQ",[b,q],8,
-    size->size,visible->visible,color->color,alpha->alpha,incidences->[b,q]);
+    size->size,visible->visible,color->color,alpha->alpha,incidences->[b,q]).children;
 );
 
 // q1,q2,q3: quadric ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeet3Q(q1,q2,q3,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dNewPointSet("meet3Q",[q1,q2,q3],8,
-    size->size,visible->visible,color->color,alpha->alpha,incidences->[q1,q2,q3]);
+    size->size,visible->visible,color->color,alpha->alpha,incidences->[q1,q2,q3]).children;
 );
 ///////////
 // E3Q3
@@ -2164,7 +2199,7 @@ dgs3d.alg.quadricLines = (q,P) => (
 dgs3dQuadricLines(q,P,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   // TODO: ensure P on q
   dgs3dNewLineSet("quadricLines",[q,P],2,
-    size->size,visible->visible,color->color,alpha->alpha,incidences->[q,P]);
+    size->size,visible->visible,color->color,alpha->alpha,incidences->[q,P]).children;
 );
 dgs3d.alg.completeCayleyOctent = (p1,p2,p3,p4,p5,p6,p7) => (
   regional(T,S,v,A,B);
@@ -2426,11 +2461,11 @@ dgs3d.alg.quadricCenter = (q) => (
 );
 // q: quadric => symmetry planes, 
 dgs3dQuadricPlanes(q,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewPlaneSet("quadricPlanes",[q],3,size->size,visible->visible,color->color,alpha->alpha);
+  dgs3dNewPlaneSet("quadricPlanes",[q],3,size->size,visible->visible,color->color,alpha->alpha).children;
 );
 // q: quadric => symmetry axes, 
 dgs3dQuadricAxes(q,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewLineSet("quadricAxes",[q],3,size->size,visible->visible,color->color,alpha->alpha);
+  dgs3dNewLineSet("quadricAxes",[q],3,size->size,visible->visible,color->color,alpha->alpha).children;
 );
 // q: quadric => point, 
 dgs3dQuadricCenter(q,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(

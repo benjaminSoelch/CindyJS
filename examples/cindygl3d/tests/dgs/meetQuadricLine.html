@@ -40,8 +40,8 @@
             l3 = join3d(E,F);
             Q = join3d(l1,l2,l3);
             l4 = join3d(X,Y);
-            PQ = meet3d(Q,l4);
-            dgs3dUpdateColor(PQ:"children"_1,color->"cyan");
+            (P, Q) = meet3d(Q,l4);
+            dgs3dUpdateColor(P,color->"cyan");
         </script>
         <script id="csdraw" type="text/x-cindyscript">
             dgs3dPreFrame();

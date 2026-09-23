@@ -36,10 +36,10 @@
                 point3d((random(),random(),random()),color->"cyan",size->0.05),
                 point3d((random(),random(),random()),color->"cyan",size->0.05)
             );
-            c = meet3d(Q1,Q2,p,color->"yellow");
-            (c.children_1).color = cglColor("red");
-            (c.children_2).color = cglColor("blue");
-            (c.children_3).color = cglColor("green");
+            (X,Y,Z,W) = meet3d(Q1,Q2,p,color->"yellow");
+            dgs3dUpdateColor(Y,color -> "red");
+            dgs3dUpdateColor(Z,color -> "blue");
+            dgs3dUpdateColor(W,color -> "green");
         </script>
         <script id="csdraw" type="text/x-cindyscript">
             dgs3dPreFrame();
