@@ -502,21 +502,31 @@ dsg3dSplitDegenerateQuadric1known(M,knownPoint):=(
   // TODO: handle case where AT*transpose(AT) is (almost) not invertible?
   linearSolve(AT*transpose(AT),AT*dgs3dQuadricCoefficientVector(M));
 );
-// l: vec6 (point-like), Q: mat4 => vec4 x 2
-dgs3dIntersectQuadricDualLine(Q,l):=(
-  regional(mL,M,lineIndex,lineEntry,minorIndices,a);
-  mL = dgs3dLineMatrix(l);
+dgs3dIntersectQuadricDualLineMatrix(Q,mL):=(
+  regional(M,lineEntry,minorIndices,a);
   M = mL*Q*mL;
   // find 2x2 minor that is non-zero in mL and ensure it is non-zero in linear combination
-  [lineEntry,lineIndex] = max(l,v,i,(|v|,v,i))_(2,3);
-  minorIndices = ([1,2],[1,3],[1,4],[2,3],[2,4],[3,4])_lineIndex;
+  [lineEntry,minorIndices] = max(([1,2],[1,3],[1,4],[2,3],[2,4],[3,4]),
+    regional(v); v = mL_(#_1)_(#_2);(|v|,v,#)
+  )_(2,3);
   a = sqrt(-det(apply(M_minorIndices,r,r_minorIndices)))/lineEntry;
   dsg3dSplitRank1Quadric(M+a*mL)
 );
-dgs3dIntersectQuadricLine(Q,l):=(dgs3dIntersectQuadricDualLine(Q,dgs3dDualLine(l)));
+// l: vec6 (point-like), Q: mat4 => vec4 x 2
+dgs3dIntersectQuadricDualLine(Q,L):=(
+  dgs3dIntersectQuadricDualLineMatrix(Q,dgs3dLineMatrix(L))
+);
+dgs3dIntersectQuadricLine(Q,l):=(
+  dgs3dIntersectQuadricDualLineMatrix(Q,dgs3dDualLineMatrix(l))
+);
 dgs3dIntersectQuadricLine1known(Q,l,knownIntersection):=(
   regional(mL);
   mL = dgs3dDualLineMatrix(l);
+  dsg3dSplitDegenerateQuadric1known(mL*Q*mL,knownIntersection)
+);
+dgs3dIntersectQuadricDualLine1known(Q,l,knownIntersection):=(
+  regional(mL);
+  mL = dgs3dLineMatrix(l);
   dsg3dSplitDegenerateQuadric1known(mL*Q*mL,knownIntersection)
 );
 dgs3dRP3Normalize(p):=(
@@ -1741,7 +1751,7 @@ dgs3d.alg.meetQL1known = (Q,l,knownIntersection) => (
 );
 // Q1: quadric, l1: line, size:real = radius, visible: bool = should object be drawn
 dgs3dMeetQL(Q1,l1,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  regional(knownIntersections);
+  regional(knownIntersections,knownIntersection);
   knownIntersections = dgs3dFindObjectsByIncidences("point",[Q1,l1]);
   if(length(knownIntersections)>0,
     // TODO: handle case where both intersections are known
@@ -1784,27 +1794,63 @@ dgs3dMeet3P(p1,p2,p3,size->cglNada,visible->true,color->cglNada,alpha->cglNada):
 );
 dgs3d.alg.meetQPP = (Q,p1,p2) => (
   dgs3dIntersectQuadricDualLine(Q,dgs3dEpsilon44(p1,p2))
+);
+dgs3d.alg.meetQPP1known = (Q,p1,p2,knownIntersection) => (
+  dgs3dIntersectQuadricDualLine1known(Q,dgs3dEpsilon44(p1,p2),knownIntersection)
 ); 
 // Q1: quadric, p1: plane, p2: plane ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeetQpp(Q1,p1,p2,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewPointSet("meetQPP",[Q1,p1,p2],2,
-    size->size,visible->visible,color->color,alpha->alpha,incidences->[Q1,p1,p2]).children;
+  regional(knownIntersections,knownIntersection);
+  knownIntersections = dgs3dFindObjectsByIncidences("point",[Q1,p1,p2]);
+  if(length(knownIntersections)>0,
+    // TODO: handle case where both intersections are known
+    knownIntersection = knownIntersections_1;
+    [knownIntersection,dgs3dNewPoint("meetQPP1known",[Q1,p1,p2,knownIntersection],
+      size->size,visible->visible,color->color,alpha->alpha,incidences->[Q1,p1,p2])];
+  ,
+    dgs3dNewPointSet("meetQPP",[Q1,p1,p2],2,
+      size->size,visible->visible,color->color,alpha->alpha,incidences->[Q1,p1,p2]).children;
+  )
 );
 dgs3d.alg.meetCP = (c,p) => (
   dgs3dIntersectQuadricDualLine(c_1,dgs3dEpsilon44(c_2,p))
 );
+dgs3d.alg.meetCP1known = (c,p,knownIntersection) => (
+  dgs3dIntersectQuadricDualLine1known(c_1,dgs3dEpsilon44(c_2,p),knownIntersection)
+);
 // c: conic, p: plane ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeetCp(c,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewPointSet("meetCP",[c,p],2,
-    size->size,visible->visible,color->color,alpha->alpha,incidences->[c,p]).children;
+  regional(knownIntersections,knownIntersection);
+  knownIntersections = dgs3dFindObjectsByIncidences("point",[c,p]);
+  if(length(knownIntersections)>0,
+    // TODO: handle case where both intersections are known
+    knownIntersection = knownIntersections_1;
+    [knownIntersection,dgs3dNewPoint("meetCP1known",[c,p,knownIntersection],
+      size->size,visible->visible,color->color,alpha->alpha,incidences->[c,p])];
+  ,
+    dgs3dNewPointSet("meetCP",[c,p],2,
+      size->size,visible->visible,color->color,alpha->alpha,incidences->[c,p]).children;
+  )
 );
 dgs3d.alg.meetCL = (c,l) => (
   dgs3dIntersectQuadricLine(c_1,l);
 );
+dgs3d.alg.meetCL1known = (c,l,knownIntersection) => (
+  dgs3dIntersectQuadricLine1known(c_1,l,knownIntersection);
+);
 // c: conic, l: line ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeetCL(c,l,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   // TODO: ensure co-planar
-  dgs3dNewPointSet("meetCL",[c,l],2,size->size,visible->visible,color->color,alpha->alpha).children;
+  regional(knownIntersections,knownIntersection);
+  knownIntersections = dgs3dFindObjectsByIncidences("point",[c,l]);
+  if(length(knownIntersections)>0,
+    // TODO: handle case where both intersections are known
+    knownIntersection = knownIntersections_1;
+    [knownIntersection,
+      dgs3dNewPoint("meetCL1known",[c,l,knownIntersection],size->size,visible->visible,color->color,alpha->alpha,incidences->[c,l])];
+  ,
+    dgs3dNewPointSet("meetCL",[c,l],2,size->size,visible->visible,color->color,alpha->alpha,incidences->[c,l]).children;
+  )
 );
 dgs3d.alg.meetCC = (c1,c2) => (
   // TODO? handle intersections in non-coplanar case
