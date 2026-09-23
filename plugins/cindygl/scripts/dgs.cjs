@@ -457,6 +457,9 @@ dgs3dDualLine(l):=(
 dgs3dLineMatrix(l):=(
   ((0,l_1,l_2,l_3),(-l_1,0,l_4,l_5),(-l_2,-l_4,0,l_6),(-l_3,-l_5,-l_6,0))
 );
+dgs3dDualLineMatrix(l):=(
+  ((0,l_6,-l_5,l_4),(-l_6,0,l_3,-l_2),(l_5,-l_3,0,l_1),(-l_4,l_2,-l_1,0))
+);
 dgs3dLineFromMatrix(M):=(
   (M_1_2,M_1_3,M_1_4,M_2_3,M_2_4,M_3_4)
 );
@@ -482,7 +485,7 @@ dsg3dSplitRank1Quadric(M):=(
   (dgs3dRP3Normalize(M_r),dgs3dRP3Normalize(apply(M,#_c)));
 );
 dgs3dQuadricCoefficientVector(M):=(
-  (M_1_1,M_1_2+M_2_1,M_1_3+M_1_3,M_1_4+M_1_4,M_2_2,M_2_3+M_3_2,M_2_4+M_4_2,M_3_4+M_4_3,M_4_4)
+  (M_1_1,M_1_2+M_2_1,M_1_3+M_1_3,M_1_4+M_1_4,M_2_2,M_2_3+M_3_2,M_2_4+M_4_2,M_3_3,M_3_4+M_4_3,M_4_4)
 );
 // M = P^T Q + Q^T P: given point P find Q
 dsg3dSplitDegenerateQuadric1known(M,knownPoint):=(
@@ -511,10 +514,10 @@ dgs3dIntersectQuadricDualLine(Q,l):=(
   dsg3dSplitRank1Quadric(M+a*mL)
 );
 dgs3dIntersectQuadricLine(Q,l):=(dgs3dIntersectQuadricDualLine(Q,dgs3dDualLine(l)));
-dgs3dIntersectQuadricLine1known(Q,l,knownPoint):=(
+dgs3dIntersectQuadricLine1known(Q,l,knownIntersection):=(
   regional(mL);
   mL = dgs3dDualLineMatrix(l);
-  dsg3dSplitDegenerateQuadric1known(mL*Q*mL,knownPoint)
+  dsg3dSplitDegenerateQuadric1known(mL*Q*mL,knownIntersection)
 );
 dgs3dRP3Normalize(p):=(
   regional(m,v);
@@ -1733,8 +1736,8 @@ dgs3dJoin2L(l1,l2,visible->true,color->cglNada,alpha->cglNada):=(
 dgs3d.alg.meetQL = (Q,l) => (
   dgs3dIntersectQuadricLine(Q,l)
 );
-dgs3d.alg.meetQL1known = (Q,l) => (
-  dgs3dIntersectQuadricLine1known(Q,l)
+dgs3d.alg.meetQL1known = (Q,l,knownIntersection) => (
+  dgs3dIntersectQuadricLine1known(Q,l,knownIntersection)
 );
 // Q1: quadric, l1: line, size:real = radius, visible: bool = should object be drawn
 dgs3dMeetQL(Q1,l1,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
