@@ -1245,6 +1245,12 @@ cglSurfaceRootItrNext(id) := (
   );
   if(id==1, 0, id) // return value - id 0 means we stop our DFS
 );
+cglIsLikelyRoot(direction,cnt,a,b):=(
+  cnt == 1 %   // in this case we found a root
+  if(cnt > 1 & (b-a)<.01*cglResolution, // potential multiple root
+    abs(cglSurfaceExpr.(cglRay(direction, (a+b)/2))) < 1e-3,
+  false)
+);
 // iterate roots from back to front, merge colors for roots
 cglSurfaceIterateRoots(direction,l,u):=(
   regional(a,b,color,id,hasRoot,s,cnt);
@@ -1271,8 +1277,7 @@ cglSurfaceIterateRoots(direction,l,u):=(
       b = u - (u-l)*((id+0)/s-1);
       // how many sign changes has cglSurfaceExpr(ray(direction, ·)) in (a,b)?
       cnt = cglSurfaceNsign(direction, a, b);
-      // algorithm TODO? this way of checking for multi-root seems to create artifacts, is the check necessary/ is there a better way
-      if(cnt == 1 /*% (b-a)<.01*cglResolution*/, // in this case we found a root (or it is likely to have a multiple root)
+      if(cglIsLikelyRoot(direction,cnt,a,b),
         //=>colorize and break DFS
         color = cglSurfaceUpdateColor(direction, cglSurfaceBisectf(direction, a, b), color);
         hasRoot = true;
@@ -1306,7 +1311,7 @@ cglSurfaceKthRoot(direction,l,u,K):=(
       b = l - (l-u)*((id+1)/s-1);
       // how many sign changes has cglSurfaceExpr(ray(direction, ·)) in (a,b)?
       cnt = cglSurfaceNsign(direction, a, b);
-      if(cnt == 1 /*% (b-a)<.01*cglResolution*/, // in this case we found a root (or it is likely to have a multiple root)
+      if(cglIsLikelyRoot(direction,cnt,a,b),
         //=>colorize and break DFS
         rootDepth = cglSurfaceBisectf(direction, a, b);
         rootCount = rootCount + 1;
