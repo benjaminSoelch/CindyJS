@@ -476,40 +476,21 @@ dgs3dEpsilon444(a,b,c):=(
     - a_1*b_2*c_3 + a_1*b_3*c_2 + a_2*b_1*c_3 - a_2*b_3*c_1 - a_3*b_1*c_2 + a_3*b_2*c_1
   )
 );
-dgs3dDiv0(a,b):=(
-  if(b!=0,a/b,0);
+dsg3dSplitRank1Quadric(M):=(
+  regional(r,c);
+  [r,c] = max(M,v,r,max(v,x,c,(|x|,r,c)))_(2,3);
+  (dgs3dRP3Normalize(M_r),dgs3dRP3Normalize(apply(M,#_c)));
 );
 // l: vec6 (point-like), Q: mat4 => vec4 x 2
 dgs3dIntersectQuadricDualLine(Q,l):=(
-  regional(mL,M,d12,d13,d14,d23,d24,d34,a,r,c0,c,rMax,cMax);
+  regional(mL,M,lineIndex,lineEntry,minorIndices,a);
   mL = dgs3dLineMatrix(l);
   M = mL*Q*mL;
-  // 1. find non-zero 2x2 minor in M
-  // Is it enough to only check minors on diagonal?
-  d12 = -dgs3dDiv0(det(apply(M_(3,4),r,r_(3,4))),det(apply(mL_(3,4),r,r_(3,4))));
-  d13 = -dgs3dDiv0(det(apply(M_(2,4),r,r_(2,4))),det(apply(mL_(2,4),r,r_(2,4))));
-  d14 = -dgs3dDiv0(det(apply(M_(2,3),r,r_(2,3))),det(apply(mL_(2,3),r,r_(2,3))));
-  d23 = -dgs3dDiv0(det(apply(M_(1,4),r,r_(1,4))),det(apply(mL_(1,4),r,r_(1,4))));
-  d24 = -dgs3dDiv0(det(apply(M_(1,3),r,r_(1,3))),det(apply(mL_(1,3),r,r_(1,3))));
-  d34 = -dgs3dDiv0(det(apply(M_(1,2),r,r_(1,2))),det(apply(mL_(1,2),r,r_(1,2))));
-  a = sqrt(append(remove((d12,d13,d14,d23,d24,d34),0),0)_1);
-  // 2. add multiple of mL to make minor 0
-  M = M+a*mL;
-  rMax = -1;
-  cMax = -1;
-  // 3. pick non-zero row and column
-  forall(1..4,i,
-    if(abs(M_i*M_i)>rMax,
-      r = M_i;
-      rMax = abs(M_i*M_i);
-    );
-    c0 = (M_1_i,M_2_i,M_3_i,M_4_i);
-    if(abs(c0*c0)>cMax,
-      c = c0;
-      cMax = abs(c0*c0);
-    )
-  );
-  (dgs3dRP3Normalize(r),dgs3dRP3Normalize(c));
+  // find 2x2 minor that is non-zero in mL and ensure it is non-zero in linear combination
+  [lineEntry,lineIndex] = max(l,v,i,(|v|,v,i))_(2,3);
+  minorIndices = ([1,2],[1,3],[1,4],[2,3],[2,4],[3,4])_lineIndex;
+  a = sqrt(-det(apply(M_minorIndices,r,r_minorIndices)))/lineEntry;
+  dsg3dSplitRank1Quadric(M+a*mL)
 );
 dgs3dIntersectQuadricLine(Q,l):=(dgs3dIntersectQuadricDualLine(Q,dgs3dDualLine(l)));
 dgs3dRP3Normalize(p):=(
@@ -597,13 +578,17 @@ dgs3dSplit2DRank1Conic(C):=(
   (l1,l2)
 );
 dgs3dIntersect2DConicLine(A,l):=(
-  regional(M,B,alpha,C,m,l1,l2);
-  M = ((0,l_3,-l_2),(-l_3,0,l_1),(l_2,-l_1,0));
-  B = -M*A*M;
-  // FIXME: handle case l_3 != 0
-  alpha = sqrt(B_1_2*B_2_1-B_1_1*B_2_2)/l_3;
-  C = B + alpha*M;
-  dgs3dSplit2DRank1Conic(C);
+  regional(Ml,B,alpha);
+  Ml = ((0,l_3,-l_2),(-l_3,0,l_1),(l_2,-l_1,0));
+  B = Ml*A*Ml;
+  alpha = if(|l_3|>|l_2| & |l_3| > |l_1|,
+    sqrt(B_1_2*B_2_1-B_1_1*B_2_2)/l_3;
+  ,if(|l_2|>|l_1|,
+    sqrt(B_1_3*B_3_1-B_1_1*B_3_3)/l_2;
+  ,
+    sqrt(B_2_3*B_3_2-B_2_2*B_3_3)/l_1;
+  ));
+  dgs3dSplit2DRank1Conic(B + alpha*Ml);
 );
 // return a root of a x^3 + b x^2 + c x + d
 // prefer real roots with small magnitude
@@ -1020,7 +1005,7 @@ dgs3dMoveLineSet   = lambda(self,
 dgs3dMovePlaneSet  = lambda(self,
   dgs3dTraceSet(self,eval(self.recompute,apply(self.parents,#.coords)),(x,y)=>dgs3dProjDistanceSq(x,y));
 );
-dgs3dNewPointSet(alg,parents,childCount,size->cglNada,visible->true,color->cglNada,alpha->cglNada,incidences->[],reuse->false):=(
+dgs3dNewPointSet(alg,parents,childCount,size->cglNada,visible->true,color->cglNada,alpha->cglNada,incidences->[],tangencies->[],reuse->false):=(
   dgs3dNewObject("{point}",alg,parents,onInit->lambda(obj,
       obj.children = apply(1..childCount,
         dgs3dNewObject("point","setElt",[obj],
