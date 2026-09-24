@@ -896,6 +896,20 @@ CodeBuilder.prototype.copyRequiredFunctions = function(expr) {
     }
     if(expr['key'] !== undefined)
       this.copyRequiredFunctions(expr['key']);
+    // desuggar destructured assignment 
+    // [a,b] = <...>  -> tmp = <...> ; (a = tmp_1; b = tmp_2)
+    if(expr['ctype'] === 'infix' && expr['oper'] === '=' && expr['args'][0]['ctype'] === 'function' && expr['args'][0]['oper'] === 'genList') {
+      const destructureVars = expr['args'][0]['args'];
+      const tmpVarExpr = opVar(generateUniqueHelperString());
+      expr['oper'] = ';';
+      expr['args'][0] = opAssign(tmpVarExpr,expr['args'][1]);
+      expr['args'][1] = opAssign(destructureVars[0],opTake(tmpVarExpr,opNumber(1)));
+      for(let i =1;i<destructureVars.length;i++) {
+        expr['args'][1] = opSemi(expr['args'][1],
+        opAssign(destructureVars[i],opTake(tmpVarExpr,opNumber(i+1)))
+        );
+      }
+    }
 }
 
 
@@ -1008,15 +1022,40 @@ CodeBuilder.prototype.precompile = function(expr) {
     });
 };
 
-// creates an expression for the assignemnt of rigth to left
-function opAssign(left,rigth){
-    // minimal object that is accepted as assignment operation
-    // cannot use object literal due to renaming for fields during compilation
-    let op = {};
-    op['ctype'] = 'infix';
-    op['oper'] = '=';
-    op['args'] = [left,rigth];
-    return op;
+// functions for creating minimal acepted AST objects
+function opNumber(realPart,imaginaryPart=0) {
+  // cannot use object literal due to renaming for fields during compilation
+  let op = {};
+  op['ctype'] = 'number';
+  op['value'] = {};
+  op['value']['real'] = realPart;
+  op['value']['imag'] = imaginaryPart;
+  return op;
+}
+function opVar(name) {
+  // cannot use object literal due to renaming for fields during compilation
+  let op = {};
+  op['ctype'] = 'variable';
+  op['name'] = name;
+  return op;
+}
+function opBinaryOperator(left,right,operator) {
+  // cannot use object literal due to renaming for fields during compilation
+  let op = {};
+  op['ctype'] = 'infix';
+  op['oper'] = operator;
+  op['args'] = [left,right];
+  return op;
+}
+// creates an expression for the assignemnt of right to left
+function opAssign(left,right){
+  return opBinaryOperator(left,right,"=")
+}
+function opTake(arr,index) {
+  return opBinaryOperator(arr,index,"_")
+}
+function opSemi(left,right) {
+  return opBinaryOperator(left,right,";")
 }
 
 /**
