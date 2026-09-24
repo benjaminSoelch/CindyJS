@@ -55,8 +55,11 @@ function evaluate(a) {
         if (a.obj.ctype === "userdata" || a.obj.ctype === "field") {
             Json._helper.self = evaluate(a.obj.obj);
         }
-        const result = eval_helper.evalLambda(a.obj, a.args, a.modifs);
+        const lambda = evaluate(a.obj);
+        callStack.push({ oper: `<lambda((${lambda.params.map((v) => v.name).join(",")}),...)>` });
+        const result = eval_helper.evalLambda(lambda, a.args, a.modifs);
         Json._helper.self = oldobject;
+        callStack.pop();
         return result;
     } else if (a.ctype === "userdata") {
         const obj = evaluate(a.obj);
