@@ -4952,7 +4952,6 @@ evaluator.eval$2 = function (args, modifs) {
     return eval_helper.evalLambda(lambda, lambdaArgs, modifs);
 };
 eval_helper.evalLambda = function (lambda, args, modifs) {
-    lambda = evaluate(lambda);
     if (lambda.ctype === "functionreference") return evalref(lambda, args, modifs);
     if (lambda.ctype !== "lambda") return nada;
     if (lambda.params.length != args.length) {
