@@ -4942,7 +4942,7 @@ evaluator.islambda$1 = function (args, modifs) {
     };
 };
 evaluator.eval$2 = function (args, modifs) {
-    let lambda = args[0];
+    let lambda = evaluate(args[0]);
     let lambdaArgs = evaluate(args[1]);
     if (lambdaArgs.ctype === "list") {
         lambdaArgs = lambdaArgs.value;
