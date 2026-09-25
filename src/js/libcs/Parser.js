@@ -437,6 +437,17 @@ function subsup(seq, tok, op, dict) {
     applyOperator(seq);
 }
 
+function processParameterList(paramList, args /*inout*/, modifs /*inout*/) {
+    for (const param of paramList) {
+        if (param && param.ctype === "infix" && param.oper === "->") {
+            const id = param.args[0];
+            if (id.ctype !== "variable") throw ParseError("Modifier name must be an identifier", param.start);
+            modifs[id.name] = param.args[1];
+        } else {
+            args.push(param);
+        }
+    }
+}
 // Recursively called for nested brackets. closing is the text of the
 // expected closing bracket, which will be treated as closing even if
 // it also is an opening bracket, e.g. in the case of |…|.
@@ -549,17 +560,7 @@ function parseRec(tokens, closing) {
                     callOp.obj = baseOp;
                     const args = (callOp.args = []);
                     const modifs = (callOp.modifs = {});
-                    // TODO: avoid duplicate code with normal call
-                    for (const elt of lst) {
-                        if (elt && elt.ctype === "infix" && elt.oper === "->") {
-                            const id = elt.args[0];
-                            if (id.ctype !== "variable")
-                                throw ParseError("Modifier name must be an identifier", elt.start);
-                            modifs[id.name] = elt.args[1];
-                        } else {
-                            args.push(elt);
-                        }
-                    }
+                    processParameterList(lst, args, modifs);
                     seq[seq.length - 1] = callOp;
                 } else if (!(seq.length & 1)) {
                     // value position
@@ -621,16 +622,7 @@ function parseRec(tokens, closing) {
                     const args = (fname.args = []);
                     const modifs = (fname.modifs = {});
 
-                    for (const elt of lst) {
-                        if (elt && elt.ctype === "infix" && elt.oper === "->") {
-                            const id = elt.args[0];
-                            if (id.ctype !== "variable")
-                                throw ParseError("Modifier name must be an identifier", elt.start);
-                            modifs[id.name] = elt.args[1];
-                        } else {
-                            args.push(elt);
-                        }
-                    }
+                    processParameterList(lst, args, modifs);
 
                     fname.oper = fname.name.toLowerCase() + "$" + fname.args.length;
                 }
