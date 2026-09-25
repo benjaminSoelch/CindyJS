@@ -2818,7 +2818,9 @@ dgs3dDistanceQuadricPlane(conicQuadric,conicPlane,samplePoint):=(
   regional(planePoint,P,v);
   planePoint = dgs3dProjectPointToPlane0(samplePoint,conicPlane);
   P = dgs3dSimpleConicProjectionStep(conicQuadric,conicPlane,planePoint,planePoint);
-  P = dgs3dSimpleConicProjectionStep(conicQuadric,conicPlane,planePoint,P);
+  // TODO: one additional iteration leads to more accuracy but increases potential for errors
+  // TODO: for some points this iteration does not seem to converge...
+  //P = dgs3dSimpleConicProjectionStep(conicQuadric,conicPlane,planePoint,P);
   v = (P / P_4 - samplePoint / samplePoint_4);
   v*v
 );

@@ -238,7 +238,16 @@ cgl3d.light.default = (color,direction,normal) => (
   lightCol_3=col3_3;
   lightCol;
 );
-cglLightExpr(expr(color,direction,normal)):=expr;
+cglLightExpr(expr):=(
+  if(isString(expr),
+    parse("lambda((color,direction,normal),"+expr+")")
+  ,if(isLambda(expr),
+    // TODO: check arity
+    expr
+  ,
+    cglLogError("expression has to be string or lambda-function");
+  ))
+);
 
 cglLight2gamma = [2, 20, 2, 20, 1, 10, 1, 10];
 cglLight2colors = [
@@ -2916,7 +2925,7 @@ plot3d(cgl3dPlotExpr,
   );
 );
 
-cplot3d(cgl3dCPlotExpr.(z),
+cplot3d(cgl3dCPlotExpr,
   color->cglNada,texture->cglNada,
   colorBack->cglNada,textureBack->cglNada,alpha->cgl3d.defaults.surfaceAlpha,
   df->cglNada,cutoffRegion->cgl3d.defaults.surfaceCutoff,
@@ -2927,6 +2936,7 @@ cplot3d(cgl3dCPlotExpr.(z),
     parse("lambda((z),"+cgl3dCPlotExpr+")")
   ,if(isLambda(cgl3dCPlotExpr),
     // TODO: check arity
+    cgl3dCPlotExpr
   ,
     cglLogError("expected plotted expression to be a string of lambda-expression");
   ));
