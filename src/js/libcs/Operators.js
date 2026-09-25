@@ -2242,6 +2242,11 @@ evaluator.isundefined$1 = function (args, modifs) {
             ctype: "boolean",
             value: true,
         };
+    } else if (v0.ctype === "functionreference") {
+        return {
+            ctype: "boolean",
+            value: !eval_helper.hasFunction(v0.name, v0.arity),
+        };
     }
     return {
         ctype: "boolean",
@@ -4926,13 +4931,14 @@ function infix_lambda(args, modifs) {
         body: args[1],
         params: params,
         modifs: modValues,
+        declarationScope: namespace.scopeId,
     };
 }
 evaluator.islambda$1 = function (args, modifs) {
     const v0 = evaluate(args[0]);
     return {
         ctype: "boolean",
-        value: v0.ctype === "lambda",
+        value: v0.ctype === "lambda" || v0.ctype === "functionreference",
     };
 };
 evaluator.lambdaarity$1 = function (args, modifs) {
@@ -4956,6 +4962,7 @@ evaluator.eval$2 = function (args, modifs) {
     return eval_helper.evalLambda(lambda, lambdaArgs, modifs);
 };
 eval_helper.evalLambda = function (lambda, args, modifs) {
+    if (lambda.ctype === "functionreference") return evalref(lambda, args, modifs);
     if (lambda.ctype !== "lambda") return nada;
     if (lambda.params.length != args.length) {
         console.warn("wrong number of arguments for lambda expression");
@@ -4970,6 +4977,16 @@ eval_helper.evalLambda = function (lambda, args, modifs) {
     });
     return evalfunction(lambda.params, lambda.body, args, callModifs, lambda.modifs);
 };
+function evalref(fptr, args, modifs) {
+    if (fptr.arity != args.length) {
+        console.warn("wrong number of arguments for function-reference");
+        // pad arguments to correct length
+        while (args.length < fptr.arity.length + 1) {
+            args.push(nada);
+        }
+    }
+    return eval_helper.evaluate(fptr.name + "$" + fptr.arity, args, modifs);
+}
 
 ///////////////////////////////
 //   Calling external code   //
