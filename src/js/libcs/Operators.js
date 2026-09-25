@@ -4935,13 +4935,15 @@ evaluator.islambda$1 = function (args, modifs) {
         value: v0.ctype === "lambda",
     };
 };
+evaluator.lambdaarity$1 = function (args, modifs) {
+    const lambda = evaluate(args[0]);
+    if (lambda.ctype !== "lambda") return nada;
+    return CSNumber.real(lambda.params.length);
+};
 evaluator.lambdaparams$1 = function (args, modifs) {
     const lambda = evaluate(args[0]);
     if (lambda.ctype !== "lambda") return nada;
-    return {
-        ctype: "list",
-        value: lambda.params.map((v) => General.string(v.name)),
-    };
+    return List.turnIntoCSList(lambda.params.map((v) => General.string(v.name)));
 };
 evaluator.eval$2 = function (args, modifs) {
     let lambda = evaluate(args[0]);
