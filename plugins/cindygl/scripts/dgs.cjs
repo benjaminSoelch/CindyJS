@@ -1217,8 +1217,7 @@ dgs3dRenderBiQuadric = (self) => (
 dgs3dRenderSurface = (self) => (
   if(self:"visible" == true, // treat undefined as falsy
     if(self:"drawId"==-1,
-      // TODO use 1-parameter lambda-expression in surface3d once supported
-      self:"drawId" = surface3d((x,y,z)=>f.((x,y,z),data),degree->8,// TODO make degree a parameter/modifier
+      self:"drawId" = surface3d(pos3d=>f.(pos3d,data),degree->8,// TODO make degree a parameter/modifier
         plotModifiers->{"f":self:"coords"_1,"data":self:"coords"_2},
         alpha->self:"alpha",color->self:"color");
     ,

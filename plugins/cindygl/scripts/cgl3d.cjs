@@ -240,9 +240,11 @@ cgl3d.light.default = (color,direction,normal) => (
 );
 cglLightExpr(expr):=(
   if(isString(expr),
-    parse("lambda((color,direction,normal),"+expr+")")
+    parse("lambda((surfaceColor,viewDirection,surfaceNormal),"+expr+")")
   ,if(isLambda(expr),
-    // TODO: check arity
+    if(lambdaArity(expr)!=3,
+      cglLogWarning("light expression should have exactly three parameters (surfaceColor,viewDirection,surfaceNormal)")
+    );
     expr
   ,
     cglLogError("expression has to be string or lambda-function");
@@ -1735,10 +1737,18 @@ cglColor(name):=(
 );
 cglColorExpr(expr,hasAlpha->false):=(
   expr = if(isString(expr),
-    parse("lambda((texturePos,spacePos,normal),"+expr+")")
+    parse("lambda((texturePos,spacePos,surfaceNormal),"+expr+")")
   ,if(isLambda(expr),
-    // TODO: check arity (? adjust function if arity to low)
-    expr
+    if(lambdaArity(expr)==3,
+      expr
+    ,if(lambdaArity(expr)==2,
+      lambda((texturePos,spacePos,normal),expr.(texturePos,spacePos),expr->expr);
+    ,if(lambdaArity(expr)==1,
+      lambda((texturePos,spacePos,normal),expr.(texturePos),expr->expr);
+    ,
+      cglLogWarning("the color expression should have between 1 and 3 parameters (texturePos,spacePos,surfaceNormal)");
+      expr
+    )));
   ,
     cglLogError("expression has to be string or lambda-function");
   ));
@@ -2273,7 +2283,9 @@ curve3d(curveExpr,from,to,color->cgl3d.defaults.cylinderColor,colors->cglNada,te
   curveExpr = if(isString(curveExpr),
     parse("lambda((t),"+curveExpr+")")
   ,if(isLambda(curveExpr),
-    // TODO: check arity
+    if(lambdaArity(curveExpr)!=1,
+      cglLogWarning("the curve expression should have exactly one parameter");
+    );
     curveExpr
   ,
     cglLogError("expression has to be string or lambda-function");
@@ -2421,13 +2433,18 @@ cglCheckSize(vData,vCount,msg) := (
   )
 );
 
-// code TODO? consistent order of spacePos and texture pos
+// code TODO? consistent order of spacePos and texture pos (colorExpr has texPos first)
 cglNormalExpr(expr):=(
   if(isString(expr),
     parse("lambda((spacePos,texturePos),"+expr+")")
   ,if(isLambda(expr),
-    // TODO: check arity
-    expr
+    if(lambdaArity(curveExpr)==2,
+      expr
+    ,if(lambdaArity(curveExpr)==1,
+      lambda((spacePos,texturePos),expr.(spacePos),expr->expr);
+    ,
+      cglLogWarning("the normal expression should have one or two parameter (spacePos,texturePos)");
+    ));
   ,
     cglLogError("expression has to be string or lambda-function");
   ))
@@ -2888,8 +2905,14 @@ surface3d(cgl3dSurfaceExpr,
   cgl3dSurfaceExpr = if(isString(cgl3dSurfaceExpr),
     parse("lambda((spacePos),[x,y,z]=spacePos;"+cgl3dSurfaceExpr+")")
   ,if(isLambda(cgl3dSurfaceExpr),
-    // TODO: check arity, if arity is already one do not rewrap, if arity not 1 or 3 -> warning
-    lambda((spacePos),cgl3dSurfaceExpr.(spacePos.x,spacePos.y,spacePos.z),cgl3dSurfaceExpr->cgl3dSurfaceExpr)
+    if(lambdaArity(cgl3dSurfaceExpr)==3,
+        lambda((spacePos),cgl3dSurfaceExpr.(spacePos_1,spacePos_2,spacePos_3),cgl3dSurfaceExpr->cgl3dSurfaceExpr)
+    ,if(lambdaArity(cgl3dSurfaceExpr)==1,
+      cgl3dSurfaceExpr
+    ,
+      cglLogWarning("the surface expression should have either three (x,y,z) or one parameter (spacePos)");
+      cgl3dSurfaceExpr
+    ))
   ,
     cglLogError("expected plotted expression to be a string of lambda-expression");
   ));
@@ -2912,8 +2935,14 @@ plot3d(cgl3dPlotExpr,
   cgl3dPlotExpr = if(isString(cgl3dPlotExpr),
     parse("lambda((spacePos),[x,y,z]=spacePos;"+cgl3dPlotExpr+"-z)")
   ,if(isLambda(cgl3dPlotExpr),
-    // TODO: check arity
-    lambda(p,cgl3dPlotExpr.(p_1,p_2)-p_3,cgl3dPlotExpr->cgl3dPlotExpr)
+    if(lambdaArity(cgl3dPlotExpr)==2,
+      lambda(p,cgl3dPlotExpr.(p_1,p_2)-p_3,cgl3dPlotExpr->cgl3dPlotExpr)
+    ,if(lambdaArity(cgl3dPlotExpr)==1,
+      lambda(p,cgl3dPlotExpr.(p_(1..2))-p_3,cgl3dPlotExpr->cgl3dPlotExpr)
+    ,
+      cglLogWarning("the plot expression should have one (xy) or two parameter (x,y)");
+      cgl3dPlotExpr
+    ));
   ,
     cglLogError("expected plotted expression to be a string of lambda-expression");
   ));
@@ -2935,7 +2964,9 @@ cplot3d(cgl3dCPlotExpr,
   cgl3dCPlotExpr = if(isString(cgl3dCPlotExpr),
     parse("lambda((z),"+cgl3dCPlotExpr+")")
   ,if(isLambda(cgl3dCPlotExpr),
-    // TODO: check arity
+    if(lambdaArity(cgl3dCPlotExpr)!=1,
+      cglLogWarning("the plot expression should have exactly one parameter");
+    );
     cgl3dCPlotExpr
   ,
     cglLogError("expected plotted expression to be a string of lambda-expression");
