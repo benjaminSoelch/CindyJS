@@ -207,9 +207,6 @@ function niceprint(a, modifs, options) {
     if (a.ctype === "lambda") {
         return "lambda((" + a.params.map((v) => v.name).join(",") + "),...)";
     }
-    if (a.ctype === "functionreference") {
-        return a.name + "$" + a.arity;
-    }
 
     return "_?_";
 }
@@ -221,20 +218,11 @@ niceprint.errorTypes = ["_?_", "_??_", "_???_", "___"];
 //Distinct form evaluator for code clearness :-)
 //*******************************************************
 function evalfunction(params, body, args, modifs, defaultModifs) {
-    const set = [];
+    const argValues = [];
     let i;
 
     for (i = 0; i < params.length; i++) {
-        if (params[i].ctype == "lambdaarg") {
-            set[i] = {
-                ctype: "lambda",
-                body: args[i],
-                params: params[i].args,
-                modifs: {},
-            };
-        } else {
-            set[i] = evaluate(args[i]);
-        }
+        argValues[i] = evaluate(args[i]);
     }
     //  evaluate modifiers in caller-scope
     let modValues = {};
@@ -244,11 +232,9 @@ function evalfunction(params, body, args, modifs, defaultModifs) {
     Object.entries(modifs).forEach(function ([key, value]) {
         modValues[key] = evaluate(value);
     });
-    const oldScope = namespace.scopeId;
-    namespace.scopeId = namespace.nextScopeId();
     for (i = 0; i < params.length; i++) {
         namespace.newvar(params[i].name);
-        namespace.setvar(params[i].name, set[i]);
+        namespace.setvar(params[i].name, argValues[i]);
     }
     Object.entries(modValues).forEach(function ([key, value]) {
         namespace.newvar(key);
@@ -257,14 +243,6 @@ function evalfunction(params, body, args, modifs, defaultModifs) {
 
     namespace.pushVstack("*");
     const erg = evaluate(body);
-    const captureVar = (key) => {
-        if (erg.modifs[key] === undefined) {
-            erg.modifs[key] = namespace.getvar(key);
-        }
-    };
-    if (erg !== undefined && erg.ctype === "lambda" && erg.declarationScope === namespace.scopeId) {
-        namespace.forEachLocal(captureVar);
-    }
     namespace.cleanVstack();
 
     // remove modifiers again
@@ -273,11 +251,8 @@ function evalfunction(params, body, args, modifs, defaultModifs) {
     });
 
     for (i = 0; i < params.length; i++) {
-        if (erg !== undefined && erg.ctype === "lambda" && erg.declarationScope === namespace.scopeId)
-            captureVar(params[i].name);
         namespace.removevar(params[i].name);
     }
-    namespace.scopeId = oldScope;
 
     return erg;
 }
@@ -310,14 +285,6 @@ eval_helper.evaluate = function (name, args, modifs) {
     }
     csconsole.err("Called undefined function " + n + " (as " + name + ")");
     return nada;
-};
-eval_helper.hasFunction = function (name, arity) {
-    if (myfunctions.hasOwnProperty(name)) return true;
-    if (evaluator[name]) return true;
-    let arityName = name + "$" + arity;
-    if (myfunctions.hasOwnProperty(arityName)) return true;
-    if (evaluator[arityName]) return true;
-    return false;
 };
 
 eval_helper.equals = function (v0, v1) {

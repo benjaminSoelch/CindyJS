@@ -120,18 +120,5 @@ namespace.cleanVstack = function () {
         st.pop();
     }
 };
-namespace.forEachLocal = function (action) {
-    const st = this.vstack;
-    for (let i = st.length - 1; i > 0 && st[i] !== "*"; i--) {
-        action(st[i]);
-    }
-};
-namespace.scopeId = 0;
-namespace._nextScope = 1;
-namespace.nextScopeId = function () {
-    let res = namespace._nextScope;
-    namespace._nextScope += 1;
-    return res;
-};
 
 export { namespace };
