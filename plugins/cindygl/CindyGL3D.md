@@ -93,7 +93,8 @@ Modifiers:
 
 #### Curves
 * `connect3d(points)` -> join points by cylinders
-* `curve3d(expr:(t),from,to)` -> draw a sampled curve
+* `curve3d(curveExpr,from,to)` -> draw a sampled curve
+  the curve equation can be given as a string evaluating to an expression in the variable `t` or as a lambda-function with a single argument
 
 Modifiers:
 * `colors` `colorsBack` -> colors at the sample points, the surface color will be interpolated between samples
@@ -169,10 +170,14 @@ topology
 
 #### Surfaces
 
-* `surface3d(expr:(x,y,z))` -> draw an implicit surface given by the solution set of the equation `expr==0`
+* `surface3d(expr)` -> draw an implicit surface given by the solution set of the equation `expr==0`
+    the expression can be given in one of 3 forms
+    * a lambda-expression with 3 variables for the x,y and z coordinate
+    * a lambda-expression with a single argument for the position of the point
+    * a string that evaluates to the expression with `[x,y,z]=spacePos` describing the current coordinate 
 
 Modifiers:
-* `dF:(x,y,z)` normal-vector at given (x,y,z)-coordinates
+* `dF:lambda(x,y,z)` normal-vector at given (x,y,z)-coordinates
 * `cutoffRegion` region where the surface should be rendered, possible values include:
   - `cgl3d.cutoff.screenSphere` largest centered sphere fitting in screen, updates with zoom
   - `cgl3d.cutoff.screenCylinder` largest centered cylinder fitting in screen, updates with zoom
@@ -190,9 +195,10 @@ Modifiers:
 
 #### Plotting
 * `plot3d(f:(x,y))` -> plot the 2D-function `(x,y) -> f(x,y)`
-* `complexplot3d(f:(z))` / `cplot3d(f:(z))` -> plot the Complex function `z -> f(z)`
+* `cplot3d(f:(z))` -> plot the Complex function `z -> f(z)`
     The rendered surface if the magnitude of the function while the default surface-texture is the phase value of the function
+  function expression can either be given as a lambda with 2 resp. 1 argument or a string evaluating to a expression with x,y resp. z as the current coordinates
 
 Modifiers:
-* `df:(x,y)` / `df:(z)` optional derivative of rendered function, can be used to get better normal vectors (by default the derivative is approximated numerically)
+* `df:lambda(x,y)` / `df:lambda(z)` optional derivative of rendered function, can be used to get better normal vectors (by default the derivative is approximated numerically)
 * `cutoffRegion` `degree` `layers` same modifiers as for `surface3d`

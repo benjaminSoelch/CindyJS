@@ -40,15 +40,15 @@
             );
 
             //fun is the user defined trivariate polynomial
-            fun(x, y, z) := (x ^ 2 + y ^ 2 + z ^ 2 - (0.5 + a) ^ 2) ^ 2 - (3.0 * ((0.5 + a) ^ 2) - 1.0) / (3.0 - ((0.5 + a) ^ 2)) * (1 - z - sqrt(2) * x) * (1 - z + sqrt(2) * x) * (1 + z + sqrt(2) * y) * (1 + z - sqrt(2) * y);
+            fun = (x, y, z) => (x ^ 2 + y ^ 2 + z ^ 2 - (0.5 + a) ^ 2) ^ 2 - (3.0 * ((0.5 + a) ^ 2) - 1.0) / (3.0 - ((0.5 + a) ^ 2)) * (1 - z - sqrt(2) * x) * (1 - z + sqrt(2) * x) * (1 + z + sqrt(2) * y) * (1 + z - sqrt(2) * y);
             update():=(
               reset3d();
               // TODO? customizable bounding box
               if(drawLayered,
-                surface3d(fun(x,y,z),alpha->alpha,layers->4); // render up to 4 roots of the surface
+                surface3d(fun,alpha->alpha,layers->4); // render up to 4 roots of the surface
                 // rendering time grows at leas lineary with number of layeres
               ,
-                surface3d(fun(x,y,z),alpha->alpha); // draw all layeres of surface in same draw-call
+                surface3d(fun,alpha->alpha); // draw all layeres of surface in same draw-call
               );
               if(drawAxes,
                 sphere3d([0,0,0],size->0.075,color->gridColor);
@@ -164,13 +164,13 @@
                 type="text"
                 id="inp"
                 value="(x^2+y^2+z^2-(0.5+a)^2)^2-(3*((0.5+a)^2)-1)/(3-((0.5+a)^2))*(1-z-sqrt(2)*x)*(1-z+sqrt(2)*x)*(1+z+sqrt(2)*y)*(1+z-sqrt(2)*y)"
-                onkeypress="if((event.which ? event.which : event.keyCode)==13) { cdy.evokeCS('fun(x,y,z) := (' + this.value + '); update();'); }"
+                onkeypress="if((event.which ? event.which : event.keyCode)==13) { cdy.evokeCS('fun = (x,y,z) => (' + this.value + '); update();'); }"
                 size="80"
                 style="font-size: 18px"
             />
             <select
                 id="sel"
-                onchange="document.getElementById('inp').value = this.value; cdy.evokeCS('fun(x,y,z) := (' + this.value + '); update();');"
+                onchange="document.getElementById('inp').value = this.value; cdy.evokeCS('fun = (x,y,z) => (' + this.value + '); update();');"
                 style="width: 20em"
             >
                 <option

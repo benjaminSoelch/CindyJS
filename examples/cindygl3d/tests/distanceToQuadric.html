@@ -69,7 +69,7 @@
             );
             polar3d(Q,A);
             A:"recompute".(A);
-            surface3d(distanceToQuadric((x,y,z,1),Q:"coords")-quadDistance,degree->8,alpha->0.75);
+            surface3d((x,y,z)=>distanceToQuadric((x,y,z,1),Q:"coords")-quadDistance,degree->8,alpha->0.75);
         </script>
         <script id="csdraw" type="text/x-cindyscript">
             dgs3dPreFrame();

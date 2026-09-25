@@ -1521,7 +1521,7 @@ cgl3d.cutoff.cuboid = (center,v1,v2,v3) => {
 };
 
 // intersect cutoff-region with the half-space {P ; P*normal <= depth} // code TODO? better name
-cutoffAddPlane(oldCutoff,normal.(),depth.(),plotModifiers->{}):=(
+cutoffAddPlane(oldCutoff,normal,depth,plotModifiers->{}):=(
   {
     "expr":lambda((rayStart,direction),
       regional(depths,l,n);
@@ -1529,8 +1529,8 @@ cutoffAddPlane(oldCutoff,normal.(),depth.(),plotModifiers->{}):=(
       // <v + l*d , n> <= x
       // <v,n> + l<d , n> <= x
       // l <= (x-<v,n>)/<d,n>
-      n = normal.(); // current compiler does not support direct multplication with constant vector
-      l = (depth.()-(rayStart*n))/(direction*n);
+      n = normal; // current compiler does not support direct multplication with constant vector
+      l = (depth-(rayStart*n))/(direction*n);
       if(n*direction>0,
         depths_2 = min(depths_2,l);
       ,
@@ -1620,7 +1620,7 @@ cgl3d.resetDefaults.(); // initialisation of code complete -> can initialize def
 //    ? add texture mode to automatically ignore pixels belows certain alpha value
 // TODO side effects of function arguments are evaluated out of order
 //   -> parameters that depend on global variables might have the wrong value
-//   e.g. surface3d(x+y+z,colorExpr->(t=0;t,t=1;t,t=0.5;t)); produces a surface with color (0.5,0.5,0.5)
+//   e.g. surface3d("x+y+z",colorExpr->(t=0;t,t=1;t,t=0.5;t)); produces a surface with color (0.5,0.5,0.5)
 // ? change compiler to compute function arguments in order and store results in temporary variables
 // TODO handle radius <= 0
 // * <0 -> use abs-value, (? use mirrored texture coordinates)
@@ -1724,7 +1724,15 @@ cglColor(name):=(
     name
   )))
 );
-cglColorExpr(expr.(texturePos,spacePos,normal),hasAlpha->false):=(
+cglColorExpr(expr,hasAlpha->false):=(
+  expr = if(isString(expr),
+    parse("lambda((texturePos,spacePos,normal),"+expr+")")
+  ,if(isLambda(expr),
+    // TODO: check arity (? adjust function if arity to low)
+    expr
+  ,
+    cglLogError("expression has to be string or lambda-function");
+  ));
   {
     "type": "expr",
     "expr": expr,
@@ -2246,23 +2254,31 @@ connect3d(points,
     );
   )));
 );
-curve3d(expr.(t),from,to,color->cgl3d.defaults.cylinderColor,colors->cglNada,texture->cglNada,
+curve3d(curveExpr,from,to,color->cgl3d.defaults.cylinderColor,colors->cglNada,texture->cglNada,
   colorBack->cglNada,colorsBack->cglNada,textureBack->cglNada,
   samples->cgl3d.defaults.curveSamples,closed->false,renderBack->false,
   caps->cgl3d.defaults.curveCaps,joints->cgl3d.defaults.curveJoints,
   size->cgl3d.defaults.cylinderSize,alpha->cgl3d.defaults.cylinderAlpha,
   light->cgl3d.defaults.light,plotModifiers->{}
 ):=(
+  curveExpr = if(isString(curveExpr),
+    parse("lambda((t),"+curveExpr+")")
+  ,if(isLambda(curveExpr),
+    // TODO: check arity
+    curveExpr
+  ,
+    cglLogError("expression has to be string or lambda-function");
+  ));
   samples = cglValOrDefault(samples,cgl3d.defaults.curveSamples)-1;
   if(from==to,
-    sphere3d(expr.(from),size,
+    sphere3d(curveExpr.(from),size,
       color->color,texture->texture,colorBack->colorBack,textureBack->textureBack,
       alpha->alpha,light->light,plotModifiers->plotModifiers
     );
   ,
     connect3d(apply(0..samples,k,
       t = k/samples;
-      expr.(t*to+(1-t)*from);
+      curveExpr.(t*to+(1-t)*from);
     ),
       color->color,colors->colors,texture->texture,
       colorBack->colorBack,colorsBack->colorsBack,textureBack->textureBack,
@@ -2397,7 +2413,16 @@ cglCheckSize(vData,vCount,msg) := (
 );
 
 // code TODO? consistent order of spacePos and texture pos
-cglNormalExpr(expr.(spacePos,texturePos)):=expr;
+cglNormalExpr(expr):=(
+  if(isString(expr),
+    parse("lambda((spacePos,texturePos),"+expr+")")
+  ,if(isLambda(expr),
+    // TODO: check arity
+    expr
+  ,
+    cglLogError("expression has to be string or lambda-function");
+  ))
+);
 // feature TODO? normalTexture to be plugged into normals (texture of normal vectors)
 draw3d(p1,p2,p3,color->cgl3d.defaults.triangleColor,colors->cglNada,texture->cglNada,
   colorBack->cglNada,colorsBack->cglNada,textureBack->cglNada,alpha->cgl3d.defaults.triangleAlpha,
@@ -2844,35 +2869,23 @@ cglSurface3d(F,// lambda: p: vec3 -> float
     );
 );
 // TODO! prefix internal variables with cgl..  to avoid name collisions with globals
-surface3d(cgl3dSurfaceExpr.(x,y,z),
+surface3d(cgl3dSurfaceExpr,
   color->cgl3d.defaults.surfaceColor,texture->cglNada,
   colorBack->cglNada,textureBack->cglNada,alpha->cgl3d.defaults.surfaceAlpha,
   dF->cglNada,cutoffRegion->cgl3d.defaults.surfaceCutoff,
   degree->cglNada,layers->0,
   light->cgl3d.defaults.light,plotModifiers->{}
 ) := (
-  if(isUndefined(degree),
-      degree = min(cglTryDetermineDegree(cgl3dSurfaceExpr),cglMaxAutoDeg);
-  );
+  cgl3dSurfaceExpr = if(isString(cgl3dSurfaceExpr),
+    parse("lambda((spacePos),[x,y,z]=spacePos;"+cgl3dSurfaceExpr+")")
+  ,if(isLambda(cgl3dSurfaceExpr),
+    // TODO: check arity, if arity is already one do not rewrap, if arity not 1 or 3 -> warning
+    lambda((spacePos),cgl3dSurfaceExpr.(spacePos.x,spacePos.y,spacePos.z),cgl3dSurfaceExpr->cgl3dSurfaceExpr)
+  ,
+    cglLogError("expected plotted expression to be a string of lambda-expression");
+  ));
   // convert function to form taking vector insteads of 3 arguments
-  cglSurface3d(lambda(p,cgl3dSurfaceExpr.(p.x, p.y, p.z),cgl3dSurfaceExpr->cgl3dSurfaceExpr),
-    color->color,texture->texture,colorBack->colorBack,textureBack->textureBack,alpha->alpha,
-    dF->dF,cutoffRegion->cutoffRegion,degree->degree,layers->layers,
-    light->light,plotModifiers->plotModifiers
-  );
-);
-surface3dL(cgl3dSurfaceExpr,
-  color->cgl3d.defaults.surfaceColor,texture->cglNada,
-  colorBack->cglNada,textureBack->cglNada,alpha->cgl3d.defaults.surfaceAlpha,
-  dF->cglNada,cutoffRegion->cgl3d.defaults.surfaceCutoff,
-  degree->cglNada,layers->0,
-  light->cgl3d.defaults.light,plotModifiers->{}
-) := (
-  if(isUndefined(degree),
-      degree = min(cglTryDetermineDegree(cgl3dSurfaceExpr),cglMaxAutoDeg);
-  );
-  // convert function to form taking vector insteads of 3 arguments
-  cglSurface3d(lambda(p,cgl3dSurfaceExpr.(p.x, p.y, p.z),cgl3dSurfaceExpr->cgl3dSurfaceExpr),
+  cglSurface3d(cgl3dSurfaceExpr,
     color->color,texture->texture,colorBack->colorBack,textureBack->textureBack,alpha->alpha,
     dF->dF,cutoffRegion->cutoffRegion,degree->degree,layers->layers,
     light->light,plotModifiers->plotModifiers
@@ -2880,30 +2893,22 @@ surface3dL(cgl3dSurfaceExpr,
 );
 
 // feature TODO: allow using function value in color-expression (? accessible through special modifier)
-plot3d(cgl3dPlotExpr.(x,y),
+plot3d(cgl3dPlotExpr,
   color->cgl3d.defaults.surfaceColor,texture->cglNada,
   colorBack->cglNada,textureBack->cglNada,alpha->cgl3d.defaults.surfaceAlpha,
   df->cglNada,cutoffRegion->cgl3d.defaults.surfaceCutoff,
   degree->cglNada,layers->0,
   light->cgl3d.defaults.light,plotModifiers->{}
 ):=(
-  plot3dL(cgl3dPlotExpr,
-    color->color,texture->texture,colorBack->colorBack,textureBack->textureBack,alpha->alpha,
-    df->df,cutoffRegion->cutoffRegion,degree->degree,layers->layers,
-    light->light,plotModifiers->plotModifiers
-  );
-);
-plot3dL(cgl3dPlotExpr,
-  color->cgl3d.defaults.surfaceColor,texture->cglNada,
-  colorBack->cglNada,textureBack->cglNada,alpha->cgl3d.defaults.surfaceAlpha,
-  df->cglNada,cutoffRegion->cgl3d.defaults.surfaceCutoff,
-  degree->cglNada,layers->0,
-  light->cgl3d.defaults.light,plotModifiers->{}
-):=(
-  if(isUndefined(degree),
-      degree = min(cglTryDetermineDegree(cgl3dPlotExpr),cglMaxAutoDeg);
-  );
-  cglSurface3d(lambda(p,cgl3dPlotExpr.(p.x,p.y)-p.z,cgl3dPlotExpr->cgl3dPlotExpr),
+  cgl3dPlotExpr = if(isString(cgl3dPlotExpr),
+    parse("lambda((spacePos),[x,y,z]=spacePos;"+cgl3dPlotExpr+"-z)")
+  ,if(isLambda(cgl3dPlotExpr),
+    // TODO: check arity
+    lambda(p,cgl3dPlotExpr.(p_1,p_2)-p_3,cgl3dPlotExpr->cgl3dPlotExpr)
+  ,
+    cglLogError("expected plotted expression to be a string of lambda-expression");
+  ));
+  cglSurface3d(cgl3dPlotExpr,
     color->color,texture->texture,colorBack->colorBack,textureBack->textureBack,alpha->alpha,
     dF->if(isUndefined(df),cglNada,lambda((x,y,z),regional(dxy);dxy=df.(x,y);(dxy_1,dxy_2,-1),df->df)),
     cutoffRegion->cutoffRegion,degree->degree,layers->layers,
@@ -2911,38 +2916,32 @@ plot3dL(cgl3dPlotExpr,
   );
 );
 
-cplot3d(cgl3dPlotExpr.(z),
+cplot3d(cgl3dCPlotExpr.(z),
   color->cglNada,texture->cglNada,
   colorBack->cglNada,textureBack->cglNada,alpha->cgl3d.defaults.surfaceAlpha,
   df->cglNada,cutoffRegion->cgl3d.defaults.surfaceCutoff,
   degree->cglNada,layers->0,
   light->cgl3d.defaults.light,plotModifiers->{}
 ):=(
-  cplot3dL(cgl3dPlotExpr,
-    color->color,texture->texture,colorBack->colorBack,textureBack->textureBack,alpha->alpha,
-    df->df,cutoffRegion->cutoffRegion,degree->degree,layers->layers,
-    light->light,plotModifiers->plotModifiers
-  );
-);
-cplot3dL(cgl3dPlotExpr,
-  color->cglNada,texture->cglNada,
-  colorBack->cglNada,textureBack->cglNada,alpha->cgl3d.defaults.surfaceAlpha,
-  df->cglNada,cutoffRegion->cgl3d.defaults.surfaceCutoff,
-  degree->cglNada,layers->0,
-  light->cgl3d.defaults.light,plotModifiers->{}
-):=(
+  cgl3dCPlotExpr = if(isString(cgl3dCPlotExpr),
+    parse("lambda((z),"+cgl3dCPlotExpr+")")
+  ,if(isLambda(cgl3dCPlotExpr),
+    // TODO: check arity
+  ,
+    cglLogError("expected plotted expression to be a string of lambda-expression");
+  ));
   if(isUndefined(color) & isUndefined(texture), // TODO find better condition for choosing phase-coloring
     color = {
       "type": "expr",
       "expr": lambda((texturePos,spacePos,normal),
         regional(z);
-        z=cgl3dPlotExpr.(spacePos_1+i*spacePos_2);
+        z=cgl3dCPlotExpr.(spacePos_1+i*spacePos_2);
         hue((arctan2(re(z),im(z))+pi)/(2*pi))
-      ,cgl3dPlotExpr->cgl3dPlotExpr),
+      ,cgl3dCPlotExpr->cgl3dCPlotExpr),
       "hasAlpha": false
     };
   );
-  cglSurface3d(lambda(p,abs(cgl3dPlotExpr.(p.x+i*p.y))-p.z,cgl3dPlotExpr->cgl3dPlotExpr),
+  cglSurface3d(lambda(p,abs(cgl3dCPlotExpr.(p.x+i*p.y))-p.z,cgl3dCPlotExpr->cgl3dCPlotExpr),
     color->color,texture->texture,colorBack->colorBack,textureBack->textureBack,alpha->alpha,
     dF->cglNada/*if(isUndefined(df),cglNada,lambda((x,y,z),,df->df))*/,//TODO: compute surface dF from df
     cutoffRegion->cutoffRegion,degree->cglValOrDefault(degree,-1),layers->layers,

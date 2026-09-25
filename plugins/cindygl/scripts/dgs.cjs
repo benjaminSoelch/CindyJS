@@ -1157,7 +1157,7 @@ dgs3dRenderPlane = (self) => (
   if(self:"visible" == true & dgs3dIsFiniteRealPlane(self:"coords"), // treat undefined as falsy
     if(self:"drawId"==-1,
       n = self:"coords";
-      self:"drawId" = surface3d((x,y,z,1)*n,plotModifiers->{"n":self:"coords"},color->self:"color",alpha->self:"alpha");
+      self:"drawId" = surface3d((x,y,z)=>(x,y,z,1)*n,plotModifiers->{"n":self:"coords"},color->self:"color",alpha->self:"alpha");
     ,
       cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["n","cglColor","cglAlpha"],[self:"coords",self:"color",self:"alpha"]);
       cgl3d.setVisible.(self:"drawId",true);
@@ -1172,7 +1172,7 @@ dgs3dRenderQuadric = (self) => (
   if(self:"visible" == true & dgs3dIsRealQuadric(self:"coords"), // treat undefined as falsy
     if(self:"drawId"==-1,
       M = self:"coords";
-      self:"drawId" = surface3d((x,y,z,1)*M*(x,y,z,1),plotModifiers->{"M":self:"coords"},alpha->self:"alpha",color->self:"color");
+      self:"drawId" = surface3d((x,y,z)=>(x,y,z,1)*M*(x,y,z,1),plotModifiers->{"M":self:"coords"},alpha->self:"alpha",color->self:"color");
     ,
       cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["M","cglColor","cglAlpha"],[self:"coords",self:"color",self:"alpha"]);
       cgl3d.setVisible.(self:"drawId",true);
@@ -1186,7 +1186,7 @@ dgs3dRenderConic = (self) => (
   if(self:"visible" == true & dgs3dIsFiniteRealConic(self:"coords"), // treat undefined as falsy
     if(self:"drawId"==-1,
       M = self:"coords";
-      self:"drawId" = surface3d(dgs3dDistanceQuadricPlane(Q,p,(x,y,z,1))-r*r,degree->8,
+      self:"drawId" = surface3d((x,y,z)=>dgs3dDistanceQuadricPlane(Q,p,(x,y,z,1))-r*r,degree->8,
         plotModifiers->{"Q":self:"coords"_1,"p":self:"coords"_2,"r":self:"size"},
         alpha->self:"alpha",color->self:"color");
     ,
@@ -1202,7 +1202,7 @@ dgs3dRenderBiQuadric = (self) => (
   if(self:"visible" == true & dgs3dIsRealBiQuadric(self:"coords"), // treat undefined as falsy
     if(self:"drawId"==-1,
       M = self:"coords";
-      self:"drawId" = surface3d(dgs3dDistanceQuadricQuadric(Q1,Q2,(x,y,z,1))-(r*r),degree->8,
+      self:"drawId" = surface3d((x,y,z)=>dgs3dDistanceQuadricQuadric(Q1,Q2,(x,y,z,1))-(r*r),degree->8,
         plotModifiers->{"Q1":self:"coords"_1,"Q2":self:"coords"_2,"r":self:"size"},
         alpha->self:"alpha",color->self:"color");
     ,
@@ -1217,7 +1217,8 @@ dgs3dRenderBiQuadric = (self) => (
 dgs3dRenderSurface = (self) => (
   if(self:"visible" == true, // treat undefined as falsy
     if(self:"drawId"==-1,
-      self:"drawId" = surface3d(f.((x,y,z),data),degree->8,
+      // TODO use 1-parameter lambda-expression in surface3d once supported
+      self:"drawId" = surface3d((x,y,z)=>f.((x,y,z),data),degree->8,// TODO make degree a parameter/modifier
         plotModifiers->{"f":self:"coords"_1,"data":self:"coords"_2},
         alpha->self:"alpha",color->self:"color");
     ,
