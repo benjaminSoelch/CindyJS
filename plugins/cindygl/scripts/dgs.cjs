@@ -487,6 +487,9 @@ dsg3dSplitRank1Quadric(M):=(
 dgs3dQuadricCoefficientVector(M):=(
   (M_1_1,M_1_2+M_2_1,M_1_3+M_1_3,M_1_4+M_1_4,M_2_2,M_2_3+M_3_2,M_2_4+M_4_2,M_3_3,M_3_4+M_4_3,M_4_4)
 );
+dgs3dConicCoefficientVector(M):=(
+  (M_1_1,M_1_2+M_2_1,M_1_3+M_1_3,M_2_2,M_2_3+M_3_2,M_3_3)
+);
 // M = P^T Q + Q^T P: given point P find Q
 dsg3dSplitDegenerateQuadric1known(M,knownPoint):=(
   // use least squares: Ax = b -> A^T A x = A^T b
@@ -660,6 +663,23 @@ dgs3dIntersect2DConic(A,B):=(
     p34 = dgs3dIntersect2DConicLine(B,l12_2);
   );
   (p12_1,p12_2,p34_1,p34_2)
+);
+dgs3dIntersect2DConic2known(A,B,knownIntersection1,knownIntersection2):=(
+  regional(a,b,l,MT,xym);
+  l = cross(knownIntersection1,knownIntersection2);
+  // find second line in degenerate conic m^T l + l^T m in pencil through A and B
+  // solve linear system x*A+y*B + (m^T l + l^T m) = 0 -> M*(x,y,m1,m2,m3) = 0
+  // use least squares: Mv = b -> M^T M v = M^T b
+  MT = (
+    dgs3dConicCoefficientVector(A),
+    dgs3dConicCoefficientVector(B),
+    (l_1,l_2,l_3,  0,  0,  0),
+    (  0,l_1,  0,l_2,l_3,  0),
+    (  0,  0,l_1,  0,l_2,l_3)
+  );
+  xym = transpose(kernel(MT*transpose(MT)))_1; // TODO: is using kernel numerically stable
+  // intersect A or B with 2nd line in degenerate conic in pencil through A and B
+  dgs3dIntersect2DConicLine(if(abs(xym_1)<abs(xym_2),A,B),xym_(3..5))
 );
 
 ////////////////
@@ -1861,25 +1881,52 @@ dgs3dMeetConicConic(c1,c2,size->cglNada,visible->true,color->cglNada,alpha->cglN
   // TODO: ensure co-planar
   dgs3dNewPointSet("meetCC",[c1,c2],4,size->size,visible->visible,color->color,alpha->alpha).children;
 );
+dgs3dTopLeft3x3(M):=(
+  apply(M_(1..3),#_(1..3))
+);
 dgs3dComputeIntersectionsQQP(Q1,Q2,p):=(
-  regional(T,S,A,B,pts2D);
+  regional(T,S,A,B);
+  T = dgs3dMapPinfTo(p);
+  S = transpose(T); // invert T
+  // 2. transform quadrics such that p = (0,0,0,1)
+  A = transpose(S)*Q1*S;
+  B = transpose(S)*Q2*S;
+  // 3. intersect conics given by first 3 coordinates´
+  // 4. transform intersections back to original coordinate system
+  apply(dgs3dIntersect2DConic(dgs3dTopLeft3x3(A),dgs3dTopLeft3x3(B)),v,
+    dgs3dRP3Normalize(S*(v_1,v_2,v_3,0))
+  );
+);
+dgs3dComputeIntersectionsQQP2known(Q1,Q2,p,X,Y):=(
+  regional(T,S,A,B);
   T = dgs3dMapPinfTo(p);
   S = transpose(T); // invert T
   // 2. transform quadrics such that p = (0,0,0,1)
   A = transpose(S)*Q1*S;
   B = transpose(S)*Q2*S;
   // 3. intersect conics given by first 3 coordinates
-  pts2D = dgs3dIntersect2DConic(apply(A_(1..3),#_(1..3)),apply(B_(1..3),#_(1..3)));
   // 4. transform intersections back to original coordinate system
-  apply(pts2D,v,dgs3dRP3Normalize(S*(v_1,v_2,v_3,0)));
+  apply(dgs3dIntersect2DConic2known(dgs3dTopLeft3x3(A),dgs3dTopLeft3x3(B),(T*X)_(1..3),(T*Y)_(1..3)),v,
+    dgs3dRP3Normalize(S*(v_1,v_2,v_3,0))
+  );
 );
 dgs3d.alg.meetQQP = (q1,q2,p) => (dgs3dComputeIntersectionsQQP(q1,q2,p));
 dgs3d.alg.meetQC = (q,c) => (dgs3dComputeIntersectionsQQP(q,c_1,c_2));
 dgs3d.alg.meetBP = (b,p) => (dgs3dComputeIntersectionsQQP(b_1,b_2,p));
+dgs3d.alg.meetQQP2known = (q1,q2,p,X,Y) => (dgs3dComputeIntersectionsQQP2known(q1,q2,p,X,Y));
 // q1: quadric, q2: quadric, p: plane ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeetQQp(q1,q2,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewPointSet("meetQQP",[q1,q2,p],4,
-    size->size,visible->visible,color->color,alpha->alpha,incidences->[q1,q2,p]).children;
+  regional(knownIntersections);
+  knownIntersections = dgs3dFindObjectsByIncidences("point",[c,l]);
+  if(length(knownIntersections)==2,
+    // TODO: ensure known intersections are distinct; handle case of 1 or 3 known intersections
+    knownIntersections ++
+    dgs3dNewPointSet("meetQQP2known",[q1,q2,p]++knownIntersections,2,
+      size->size,visible->visible,color->color,alpha->alpha,incidences->[q1,q2,p]).children;
+  ,
+    dgs3dNewPointSet("meetQQP",[q1,q2,p],4,
+      size->size,visible->visible,color->color,alpha->alpha,incidences->[q1,q2,p]).children;
+  )
 );
 // q: quadric, c: conic ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeetQuadricConic(q,c,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
@@ -2238,7 +2285,7 @@ dgs3d.alg.quadricLines = (q,P) => (
   T = dgs3dMapPinfTo(p);
   S = T*q*transpose(T); // transform q (by T^-1 = T^T)
   // decompose top-left 3x3 matrix
-  apply(dgs3dDecompose2DConic(apply(S_(1..3),#_(1..3))),
+  apply(dgs3dDecompose2DConic(dgs3dTopLeft3x3(S)),
     dgs3dRP3Normalize(dgs3dLineFromMatrix(transpose(T)*
       dgs3dLineMatrix((0,0,#_1,0,#_2,#_3))//dgs3dDualLine(dgs3dEpsilon44((#_1,#_2,#_3,0),(0,0,0,1)));
     *(T)))
@@ -2463,8 +2510,7 @@ dgs3d.alg.coneByConicPoint = (c,P) => (
   T = dgs3dMapPinfTo(p);
   P = T*P;
   P = P/P_4;
-  A = T*q*transpose(T);
-  A = apply(A_(1..3),#_(1..3));
+  A = dgs3dTopLeft3x3(T*q*transpose(T));
   x = P_(1..3);
   v = -A * x;
   transpose(T)*(
@@ -2495,7 +2541,7 @@ dgs3dQuadricInPencil(q1,q2,P,visible->true,color->cglNada,alpha->cglNada):=(
 
 dgs3d.alg.quadricPlanes = (q) => (
   regional(B);
-  B = apply(q_(1..3),#_(1..3));
+  B = dgs3dTopLeft3x3(q);
   apply(transpose(eigenvectors(B)),n,
     (n_1*(n*B*n),n_2*(n*B*n),n_3*(n*B*n),n*q_4_(1..3))
   );
@@ -3096,7 +3142,7 @@ dgs3d.alg.mobiusTransformQuadric = (T,q) => (
       "M": M,
       "p": a,
       "q": c,
-      "A": apply(q_(1..3),#_(1..3)),
+      "A": dgs3dTopLeft3x3(q),
       "b": (q_1_4+q_4_1,q_2_4+q_4_2,q_3_4+q_4_2),
       "c": q_4_4
     }]
