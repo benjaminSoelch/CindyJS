@@ -330,4 +330,19 @@ eval_helper.equals = function (v0, v1) {
     };
 };
 
+eval_helper.ignoreErrors = false;
+eval_helper.tryEvaluate = function (arg) {
+    let result;
+    let oldIgnoreUndefined = namespace.ignoreUndefined; // ingore warnings
+    let oldIgnoreErrors = eval_helper.ignoreErrors;
+    eval_helper.ignoreErrors = namespace.ignoreUndefined = true;
+    try {
+        result = evaluate(arg);
+    } finally {
+        namespace.ignoreUndefined = oldIgnoreUndefined;
+        eval_helper.ignoreErrors = oldIgnoreErrors;
+    }
+    return result;
+};
+
 export { niceprint, evaluator, eval_helper, infixmap, myfunctions };

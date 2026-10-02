@@ -4913,7 +4913,7 @@ function infix_lambda(args, modifs) {
             modValues[params[i].args[0].name] = params[i].args[1];
             params.splice(i, 1); // remove from params
         } else if (params[i].ctype !== "variable") {
-            console.error("lambda parameter should be variable got: " + args[i].ctype);
+            printStackTrace("lambda parameter should be variable got: " + args[i].ctype);
             return nada;
         }
     }
@@ -4952,8 +4952,10 @@ evaluator.eval$2 = function (args, modifs) {
 };
 eval_helper.evalLambda = function (lambda, args, modifs) {
     if (lambda.ctype !== "lambda") return nada;
-    if (lambda.params.length != args.length) {
-        console.warn("wrong number of arguments for lambda expression");
+    if (lambda.params.length !== args.length) {
+        printStackTrace(
+            `WARNING: Wrong number of arguments for lambda expression expected ${lambda.params.length} got ${args.length}`
+        );
         // pad arguments to correct length
         while (args.length < lambda.params.length) {
             args.push(nada);

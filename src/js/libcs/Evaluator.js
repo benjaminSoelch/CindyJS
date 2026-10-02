@@ -223,7 +223,18 @@ function labelCode(code, label) {
     };
 }
 
+function prepareLambdaArguments(lambdaExpr, argCount) {
+    if (lambdaExpr.params.length !== argCount) {
+        printStackTrace(
+            `WARNING: PlotExpression should have exactly ${argCount} parameter(s) got ${lambdaExpr.params.length}`
+        );
+    }
+    const lambdaArguments = new Array(lambdaExpr.params.length);
+    lambdaArguments.fill(nada);
+    return lambdaArguments;
+}
 function printStackTrace(msg) {
+    if (eval_helper.ignoreErrors) return;
     csconsole.err(
         msg +
             callStack
@@ -234,4 +245,13 @@ function printStackTrace(msg) {
     );
 }
 
-export { evaluate, analyse, labelCode, usedFunctions, evaluateAndVal, evaluateAndHomog, printStackTrace };
+export {
+    evaluate,
+    analyse,
+    labelCode,
+    usedFunctions,
+    evaluateAndVal,
+    evaluateAndHomog,
+    printStackTrace,
+    prepareLambdaArguments,
+};

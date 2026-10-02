@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>Cindy JS</title>
+        <script type="text/javascript" src="../build/js/Cindy.js"></script>
+
+        <link rel="stylesheet" href="../css/cindy.css" />
+    </head>
+
+    <body style="font-family: Arial">
+        <h1>CindyJS: Function Plotting</h1>
+
+        <script id="csinit" type="text/x-cindyscript">
+            f = (x) => A.y*sin(x-A.x);
+        </script>
+        <script id="csmove" type="text/x-cindyscript">
+             draw(A);
+
+             plot(f);
+             plot(t);
+        </script>
+
+        <div id="CSCanvas" style="width: 500px; height: 500px; border: 2px solid #000000"></div>
+
+        <script type="text/javascript">
+            var gslp = [{ name: "A", kind: "P", type: "Free", pos: [2, 2, 1] }];
+            CindyJS({ canvasname: "CSCanvas", scripts: "cs*", geometry: gslp });
+        </script>
+    </body>
+</html>

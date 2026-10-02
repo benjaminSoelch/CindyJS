@@ -8,7 +8,7 @@ import { eval_helper, evaluator, niceprint } from "libcs/Essentials";
 import { namespace } from "libcs/Namespace";
 import { Accessor } from "libcs/Accessors";
 import { imageFromValue } from "libcs/OpImageDrawing";
-import { evaluateAndVal, evaluateAndHomog, evaluate } from "libcs/Evaluator";
+import { evaluateAndVal, evaluateAndHomog, evaluate, prepareLambdaArguments } from "libcs/Evaluator";
 import { Render2D } from "libcs/Render2D";
 import { csport } from "libgeo/GeoState";
 import { defaultAppearance } from "libgeo/GeoBasics";
@@ -1258,28 +1258,41 @@ evaluator.plot$2 = function (args, modifs) {
     let step = 0.1;
     let steps = 1000;
 
-    const v1 = args[0];
+    const plotExpression = args[0];
     let runv;
+    let evalPlotExpression = function (samplePoint) {
+        namespace.setvar(runv, samplePoint);
+        return evaluate(plotExpression);
+    };
     if (args[1] !== null && args[1].ctype === "variable") {
         runv = args[1].name;
     } else {
-        const li = eval_helper.plotvars(v1);
-        runv = "#";
-        if (li.includes("t")) {
-            runv = "t";
-        }
-        if (li.includes("z")) {
-            runv = "z";
-        }
-        if (li.includes("y")) {
-            runv = "y";
-        }
-        if (li.includes("x")) {
-            runv = "x";
+        const lambdaExpr = eval_helper.tryEvaluate(plotExpression);
+        if (lambdaExpr.ctype === "lambda") {
+            const lambdaArguments = prepareLambdaArguments(lambdaExpr, 1);
+            evalPlotExpression = function (samplePoint) {
+                if (lambdaArguments.length > 0) lambdaArguments[0] = samplePoint;
+                return eval_helper.evalLambda(lambdaExpr, lambdaArguments, {});
+            };
+        } else {
+            const li = eval_helper.plotvars(plotExpression);
+            runv = "#";
+            if (li.includes("t")) {
+                runv = "t";
+            }
+            if (li.includes("z")) {
+                runv = "z";
+            }
+            if (li.includes("y")) {
+                runv = "y";
+            }
+            if (li.includes("x")) {
+                runv = "x";
+            }
         }
     }
 
-    namespace.newvar(runv);
+    if (runv !== undefined) namespace.newvar(runv);
 
     const m = csport.drawingstate.matrix;
     const col = csport.drawingstate.linecolor;
@@ -1367,8 +1380,7 @@ evaluator.plot$2 = function (args, modifs) {
         if (!drawable1 && !drawable2) return; //also hier gibt's nix zu malen, ist ja nix da
 
         const mid = CSNumber.real((x1.value.real + x2.value.real) / 2);
-        namespace.setvar(runv, mid);
-        const ergmid = evaluate(v1);
+        const ergmid = evalPlotExpression(mid);
 
         const drawablem = canbedrawn(ergmid);
 
@@ -1382,12 +1394,10 @@ evaluator.plot$2 = function (args, modifs) {
             if (drawit) {
                 //Weiterer Qualitätscheck eventuell wieder rausnehmen.
                 const mid1 = CSNumber.real((x1.value.real + mid.value.real) / 2);
-                namespace.setvar(runv, mid1);
-                const ergmid1 = evaluate(v1);
+                const ergmid1 = evalPlotExpression(mid1);
 
                 const mid2 = CSNumber.real((mid.value.real + x2.value.real) / 2);
-                namespace.setvar(runv, mid2);
-                const ergmid2 = evaluate(v1);
+                const ergmid2 = evalPlotExpression(mid2);
 
                 const ab = limit(ergmid1.value.real);
                 const bc = limit(ergmid2.value.real);
@@ -1420,8 +1430,7 @@ evaluator.plot$2 = function (args, modifs) {
     stroking = false;
 
     x = CSNumber.real(14.32);
-    namespace.setvar(runv, x);
-    v = evaluate(v1);
+    v = evalPlotExpression(x);
     if (v.ctype !== "number") {
         if (List.isNumberVector(v).value) {
             if (v.value.length === 2) {
@@ -1429,8 +1438,7 @@ evaluator.plot$2 = function (args, modifs) {
                 stroking = false;
                 step = (stop - start) / steps;
                 for (x = start; x < stop; x = x + step) {
-                    namespace.setvar(runv, CSNumber.real(x));
-                    const erg = evaluate(v1);
+                    const erg = evalPlotExpression(CSNumber.real(x));
                     if (List.isNumberVector(erg).value && erg.value.length === 2) {
                         const x1 = +erg.value[0].value.real;
                         const y = +erg.value[1].value.real;
@@ -1447,7 +1455,7 @@ evaluator.plot$2 = function (args, modifs) {
                     }
                 }
                 if (stroking) csctx.stroke();
-                namespace.removevar(runv);
+                if (runv !== undefined) namespace.removevar(runv);
             }
         }
         return nada;
@@ -1455,8 +1463,7 @@ evaluator.plot$2 = function (args, modifs) {
 
     for (xx = start; xx < stop + step; xx = xx + step) {
         x = CSNumber.real(xx);
-        namespace.setvar(runv, x);
-        v = evaluate(v1);
+        v = evalPlotExpression(x);
 
         if (x.value.real > start) {
             drawrec(xo, x, vo, v, step);
@@ -1466,7 +1473,7 @@ evaluator.plot$2 = function (args, modifs) {
     }
 
     if (stroking) csctx.stroke();
-    namespace.removevar(runv);
+    if (runv !== undefined) namespace.removevar(runv);
 
     return nada;
 };
@@ -1474,23 +1481,37 @@ evaluator.plot$2 = function (args, modifs) {
 evaluator.plotX$1 = function (args, modifs) {
     //OK
 
-    const v1 = args[0];
-    const li = eval_helper.plotvars(v1);
-    let runv = "#";
-    if (li.includes("t")) {
-        runv = "t";
-    }
-    if (li.includes("z")) {
-        runv = "z";
-    }
-    if (li.includes("y")) {
-        runv = "y";
-    }
-    if (li.includes("x")) {
-        runv = "x";
+    const plotExpression = args[0];
+    let runv;
+    let evalPlotExpression = function (samplePoint) {
+        namespace.setvar(runv, samplePoint);
+        return evaluate(plotExpression);
+    };
+    const lambdaExpr = eval_helper.tryEvaluate(plotExpression);
+    if (lambdaExpr.ctype === "lambda") {
+        const lambdaArguments = prepareLambdaArguments(lambdaExpr, 1);
+        evalPlotExpression = function (samplePoint) {
+            if (lambdaArguments.length > 0) lambdaArguments[0] = samplePoint;
+            return eval_helper.evalLambda(lambdaExpr, lambdaArguments, {});
+        };
+    } else {
+        const li = eval_helper.plotvars(plotExpression);
+        runv = "#";
+        if (li.includes("t")) {
+            runv = "t";
+        }
+        if (li.includes("z")) {
+            runv = "z";
+        }
+        if (li.includes("y")) {
+            runv = "y";
+        }
+        if (li.includes("x")) {
+            runv = "x";
+        }
     }
 
-    namespace.newvar(runv);
+    if (runv !== undefined) namespace.newvar(runv);
     const start = -10;
     const stop = 10;
     const step = 0.01;
@@ -1505,9 +1526,7 @@ evaluator.plotX$1 = function (args, modifs) {
     let stroking = false;
 
     for (let x = start; x < stop; x = x + step) {
-        namespace.setvar(runv, CSNumber.real(x));
-
-        const erg = evaluate(v1);
+        const erg = evalPlotExpression(CSNumber.real(x));
         if (erg.ctype === "number") {
             const y = +erg.value.real;
             const xx = x * m.a - y * m.b + m.tx;
@@ -1523,7 +1542,7 @@ evaluator.plotX$1 = function (args, modifs) {
     }
     csctx.stroke();
 
-    namespace.removevar(runv);
+    if (runv !== undefined) namespace.removevar(runv);
 
     return nada;
 };
