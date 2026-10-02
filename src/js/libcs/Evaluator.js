@@ -233,6 +233,13 @@ function prepareLambdaArguments(lambdaExpr, argCount) {
     lambdaArguments.fill(nada);
     return lambdaArguments;
 }
+function evalUnaryExprFromLambda(lambdaExpr) {
+    const lambdaArguments = prepareLambdaArguments(lambdaExpr, 1);
+    return function (argument) {
+        if (lambdaArguments.length > 0) lambdaArguments[0] = argument;
+        return eval_helper.evalLambda(lambdaExpr, lambdaArguments, {});
+    };
+}
 function printStackTrace(msg) {
     if (eval_helper.ignoreErrors) return;
     csconsole.err(
@@ -253,5 +260,5 @@ export {
     evaluateAndVal,
     evaluateAndHomog,
     printStackTrace,
-    prepareLambdaArguments,
+    evalUnaryExprFromLambda,
 };

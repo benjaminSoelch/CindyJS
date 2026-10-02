@@ -8,7 +8,7 @@ import { eval_helper, evaluator, niceprint } from "libcs/Essentials";
 import { namespace } from "libcs/Namespace";
 import { Accessor } from "libcs/Accessors";
 import { imageFromValue } from "libcs/OpImageDrawing";
-import { evaluateAndVal, evaluateAndHomog, evaluate, prepareLambdaArguments } from "libcs/Evaluator";
+import { evaluateAndVal, evaluateAndHomog, evaluate, evalUnaryExprFromLambda } from "libcs/Evaluator";
 import { Render2D } from "libcs/Render2D";
 import { csport } from "libgeo/GeoState";
 import { defaultAppearance } from "libgeo/GeoBasics";
@@ -1269,11 +1269,7 @@ evaluator.plot$2 = function (args, modifs) {
     } else {
         const lambdaExpr = eval_helper.tryEvaluate(plotExpression);
         if (lambdaExpr.ctype === "lambda") {
-            const lambdaArguments = prepareLambdaArguments(lambdaExpr, 1);
-            evalPlotExpression = function (samplePoint) {
-                if (lambdaArguments.length > 0) lambdaArguments[0] = samplePoint;
-                return eval_helper.evalLambda(lambdaExpr, lambdaArguments, {});
-            };
+            evalPlotExpression = evalUnaryExprFromLambda(lambdaExpr);
         } else {
             const li = eval_helper.plotvars(plotExpression);
             runv = "#";
@@ -1489,11 +1485,7 @@ evaluator.plotX$1 = function (args, modifs) {
     };
     const lambdaExpr = eval_helper.tryEvaluate(plotExpression);
     if (lambdaExpr.ctype === "lambda") {
-        const lambdaArguments = prepareLambdaArguments(lambdaExpr, 1);
-        evalPlotExpression = function (samplePoint) {
-            if (lambdaArguments.length > 0) lambdaArguments[0] = samplePoint;
-            return eval_helper.evalLambda(lambdaExpr, lambdaArguments, {});
-        };
+        evalPlotExpression = evalUnaryExprFromLambda(lambdaExpr);
     } else {
         const li = eval_helper.plotvars(plotExpression);
         runv = "#";
