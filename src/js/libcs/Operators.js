@@ -38,7 +38,14 @@ import {
     setTextRendererHtml,
 } from "libcs/OpDrawing";
 import { imageFromValue } from "libcs/OpImageDrawing";
-import { evaluate, printStackTrace, evaluateAndVal, evaluateAndHomog, analyse } from "libcs/Evaluator";
+import {
+    evaluate,
+    printStackTrace,
+    evaluateAndVal,
+    evaluateAndHomog,
+    analyse,
+    evalUnaryExprFromLambda,
+} from "libcs/Evaluator";
 import { CSad } from "libcs/CSad";
 import { tools, setActiveTool } from "libcs/Tools";
 import { csport, csgstorage } from "libgeo/GeoState";
@@ -183,10 +190,27 @@ evaluator.repeat$3 = function (args, modifs) {
 
     const v1 = evaluateAndVal(args[0]);
 
-    let lauf = "#";
+    let lauf;
+    let evalExpr = function (value) {
+        namespace.setvar(lauf, value);
+        return evaluate(args[2]);
+    };
     if (args[1] !== null) {
         if (args[1].ctype === "variable") {
             lauf = args[1].name;
+        }
+    } else {
+        const lambdaExpr = eval_helper.tryEvaluate(args[2]);
+        if (lambdaExpr.ctype === "lambda") {
+            if (lambdaExpr.params.length == 0) {
+                evalExpr = function (_ignored) {
+                    return eval_helper.evalLambda(lambdaExpr, [], {});
+                };
+            } else {
+                evalExpr = evalUnaryExprFromLambda(lambdaExpr);
+            }
+        } else {
+            lauf = "#";
         }
     }
     if (v1.ctype !== "number") {
@@ -205,21 +229,18 @@ evaluator.repeat$3 = function (args, modifs) {
             n = Math.floor((stop - start) / step);
         }
 
-    namespace.pushVstack("*");
-    namespace.newvar(lauf);
+    if (lauf !== undefined) {
+        namespace.pushVstack("*");
+        namespace.newvar(lauf);
+    }
     let erg = nada;
     for (let i = 0; i < n; i++) {
-        namespace.setvar(lauf, {
-            ctype: "number",
-            value: {
-                real: i * step + start,
-                imag: 0,
-            },
-        });
-        erg = evaluate(args[2]);
+        erg = evalExpr(CSNumber.real(i * step + start));
     }
-    namespace.removevar(lauf);
-    namespace.cleanVstack();
+    if (lauf !== undefined) {
+        namespace.removevar(lauf);
+        namespace.cleanVstack();
+    }
 
     return erg;
 };
