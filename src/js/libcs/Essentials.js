@@ -338,6 +338,8 @@ eval_helper.tryEvaluate = function (arg) {
     eval_helper.ignoreErrors = namespace.ignoreUndefined = true;
     try {
         result = evaluate(arg);
+    } catch (e) {
+        result = nada;
     } finally {
         namespace.ignoreUndefined = oldIgnoreUndefined;
         eval_helper.ignoreErrors = oldIgnoreErrors;
