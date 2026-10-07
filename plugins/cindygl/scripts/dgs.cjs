@@ -1769,19 +1769,22 @@ dgs3d.alg.meetQL = (Q,l) => (
 dgs3d.alg.meetQL1known = (Q,l,knownIntersection) => (
   dgs3dIntersectQuadricLine1known(Q,l,knownIntersection)
 );
-// Q1: quadric, l1: line, size:real = radius, visible: bool = should object be drawn
-dgs3dMeetQL(Q1,l1,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+dgs3dMeetQLImpl(alg,parents,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   regional(knownIntersections,knownIntersection);
-  knownIntersections = dgs3dFindObjectsByIncidences("point",[Q1,l1]);
+  knownIntersections = dgs3dFindObjectsByIncidences("point",parents);
   if(length(knownIntersections)>0,
     // TODO: handle case where both intersections are known
     knownIntersection = knownIntersections_1;
-    [knownIntersection,dgs3dNewPoint("meetQL1known",[Q1,l1,knownIntersection],
-      size->size,visible->visible,color->color,alpha->alpha,incidences->[Q1,l1])];
+    [knownIntersection,dgs3dNewPoint(alg+"1known",append(parents,knownIntersection),
+      size->size,visible->visible,color->color,alpha->alpha,incidences->parents)];
   ,
-    dgs3dNewPointSet("meetQL",[Q1,l1],2,
-      size->size,visible->visible,color->color,alpha->alpha,incidences->[Q1,l1]).children;
+    dgs3dNewPointSet(alg,parents,2,
+      size->size,visible->visible,color->color,alpha->alpha,incidences->parents).children;
   )
+);
+// Q1: quadric, l1: line, size:real = radius, visible: bool = should object be drawn
+dgs3dMeetQL(Q1,l1,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dMeetQLImpl("meetQL",[Q1,l1],size->size,visible->visible,color->color,alpha->alpha)
 );
 // P1: plane, P2: plane, P3: plane, size:real = radius, visible: bool = should object be drawn
 meet3d(a,b,c,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
@@ -1820,17 +1823,7 @@ dgs3d.alg.meetQPP1known = (Q,p1,p2,knownIntersection) => (
 ); 
 // Q1: quadric, p1: plane, p2: plane ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeetQpp(Q1,p1,p2,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  regional(knownIntersections,knownIntersection);
-  knownIntersections = dgs3dFindObjectsByIncidences("point",[Q1,p1,p2]);
-  if(length(knownIntersections)>0,
-    // TODO: handle case where both intersections are known
-    knownIntersection = knownIntersections_1;
-    [knownIntersection,dgs3dNewPoint("meetQPP1known",[Q1,p1,p2,knownIntersection],
-      size->size,visible->visible,color->color,alpha->alpha,incidences->[Q1,p1,p2])];
-  ,
-    dgs3dNewPointSet("meetQPP",[Q1,p1,p2],2,
-      size->size,visible->visible,color->color,alpha->alpha,incidences->[Q1,p1,p2]).children;
-  )
+  dgs3dMeetQLImpl("meetQPP",[Q1,p1,p2],size->size,visible->visible,color->color,alpha->alpha)
 );
 dgs3d.alg.meetCP = (c,p) => (
   dgs3dIntersectQuadricDualLine(c_1,dgs3dEpsilon44(c_2,p))
@@ -1840,17 +1833,7 @@ dgs3d.alg.meetCP1known = (c,p,knownIntersection) => (
 );
 // c: conic, p: plane ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeetCp(c,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  regional(knownIntersections,knownIntersection);
-  knownIntersections = dgs3dFindObjectsByIncidences("point",[c,p]);
-  if(length(knownIntersections)>0,
-    // TODO: handle case where both intersections are known
-    knownIntersection = knownIntersections_1;
-    [knownIntersection,dgs3dNewPoint("meetCP1known",[c,p,knownIntersection],
-      size->size,visible->visible,color->color,alpha->alpha,incidences->[c,p])];
-  ,
-    dgs3dNewPointSet("meetCP",[c,p],2,
-      size->size,visible->visible,color->color,alpha->alpha,incidences->[c,p]).children;
-  )
+  dgs3dMeetQLImpl("meetCP",[c,p],size->size,visible->visible,color->color,alpha->alpha)
 );
 dgs3d.alg.meetCL = (c,l) => (
   dgs3dIntersectQuadricLine(c_1,l);
@@ -1861,25 +1844,20 @@ dgs3d.alg.meetCL1known = (c,l,knownIntersection) => (
 // c: conic, l: line ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeetCL(c,l,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   // TODO: ensure co-planar
-  regional(knownIntersections,knownIntersection);
-  knownIntersections = dgs3dFindObjectsByIncidences("point",[c,l]);
-  if(length(knownIntersections)>0,
-    // TODO: handle case where both intersections are known
-    knownIntersection = knownIntersections_1;
-    [knownIntersection,
-      dgs3dNewPoint("meetCL1known",[c,l,knownIntersection],size->size,visible->visible,color->color,alpha->alpha,incidences->[c,l])];
-  ,
-    dgs3dNewPointSet("meetCL",[c,l],2,size->size,visible->visible,color->color,alpha->alpha,incidences->[c,l]).children;
-  )
+  dgs3dMeetQLImpl("meetCL",[c,l],size->size,visible->visible,color->color,alpha->alpha)
 );
 dgs3d.alg.meetCC = (c1,c2) => (
   // TODO? handle intersections in non-coplanar case
   dgs3dComputeIntersectionsQQP(c1_1,c2_1,c1_2);
 );
+dgs3d.alg.meetCC2known = (c1,c2,X,Y) => (
+  // TODO? handle intersections in non-coplanar case
+  dgs3dComputeIntersectionsQQP(c1_1,c2_1,c1_2,X,Y);
+);
 // c1,c2: conic ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeetConicConic(c1,c2,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   // TODO: ensure co-planar
-  dgs3dNewPointSet("meetCC",[c1,c2],4,size->size,visible->visible,color->color,alpha->alpha).children;
+  dgs3dMeetQQPImpl("meetCC",c1,c2,size->size,visible->visible,color->color,alpha->alpha)
 );
 dgs3dTopLeft3x3(M):=(
   apply(M_(1..3),#_(1..3))
@@ -1914,29 +1892,33 @@ dgs3d.alg.meetQQP = (q1,q2,p) => (dgs3dComputeIntersectionsQQP(q1,q2,p));
 dgs3d.alg.meetQC = (q,c) => (dgs3dComputeIntersectionsQQP(q,c_1,c_2));
 dgs3d.alg.meetBP = (b,p) => (dgs3dComputeIntersectionsQQP(b_1,b_2,p));
 dgs3d.alg.meetQQP2known = (q1,q2,p,X,Y) => (dgs3dComputeIntersectionsQQP2known(q1,q2,p,X,Y));
+dgs3d.alg.meetQC2known = (q,c,X,Y) => (dgs3dComputeIntersectionsQQP2known(q,c_1,c_2,X,Y));
+dgs3d.alg.meetBP2known = (b,p,X,Y) => (dgs3dComputeIntersectionsQQP2known(b_1,b_2,p,X,Y));
+dgs3dMeetQQPImpl(alg,parents,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  regional(knownIntersections);
+  knownIntersections = dgs3dFindObjectsByIncidences("point",parents);
+  // TODO: ensure known intersections are distinct
+  // TODO: handle case of 1 or 3 known intersections
+  if(length(knownIntersections)==2,
+    knownIntersections ++
+    dgs3dNewPointSet(alg+"2known",parents++knownIntersections,2,
+      size->size,visible->visible,color->color,alpha->alpha,incidences->parents).children;
+  ,
+    dgs3dNewPointSet(alg,parents,4,
+      size->size,visible->visible,color->color,alpha->alpha,incidences->parents).children;
+  )
+);
 // q1: quadric, q2: quadric, p: plane ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeetQQp(q1,q2,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  regional(knownIntersections);
-  knownIntersections = dgs3dFindObjectsByIncidences("point",[c,l]);
-  if(length(knownIntersections)==2,
-    // TODO: ensure known intersections are distinct; handle case of 1 or 3 known intersections
-    knownIntersections ++
-    dgs3dNewPointSet("meetQQP2known",[q1,q2,p]++knownIntersections,2,
-      size->size,visible->visible,color->color,alpha->alpha,incidences->[q1,q2,p]).children;
-  ,
-    dgs3dNewPointSet("meetQQP",[q1,q2,p],4,
-      size->size,visible->visible,color->color,alpha->alpha,incidences->[q1,q2,p]).children;
-  )
+  dgs3dMeetQQPImpl("meetQQP",[q1,q2,p],size->size,visible->visible,color->color,alpha->alpha)
 );
 // q: quadric, c: conic ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeetQuadricConic(q,c,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewPointSet("meetQC",[q,c],4,
-    size->size,visible->visible,color->color,alpha->alpha,incidences->[q,c]).children;
+  dgs3dMeetQQPImpl("meetQQP",[q,c],size->size,visible->visible,color->color,alpha->alpha)
 );
 // b: bi-quadric, p: plane ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeetBiQuadricPlane(b,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewPointSet("meetBP",[b,p],4,
-    size->size,visible->visible,color->color,alpha->alpha,incidences->[b,p]).children;
+  dgs3dMeetQQPImpl("meetQQP",[b,p],size->size,visible->visible,color->color,alpha->alpha)
 );
 dgs3dIntersects3Q(q1,q2,q3):=(
   dgs3de3q3(dgs3dQuadAsVec(q1),dgs3dQuadAsVec(q2),dgs3dQuadAsVec(q3));
@@ -1947,17 +1929,23 @@ dgs3d.alg.meetBQ = (b,q) => (
 dgs3d.alg.meet3Q = (q1,q2,q3) => (
   dgs3dIntersects3Q(q1,q2,q3)
 );
-// b: bi.quadric, q: quadric ; size:real = radius, visible: bool = should object be drawn
-dgs3dMeetBiQuadricQuadric(b,q,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewPointSet("meetBQ",[b,q],8,
-    size->size,visible->visible,color->color,alpha->alpha,incidences->[b,q]).children;
-);
 
+dgs3dMeet3QImpl(alg,parents,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  regional(knownIntersections);
+  knownIntersections = dgs3dFindObjectsByIncidences("point",parents);
+  // TODO: handle known intersections
+  dgs3dNewPointSet(alg,parents,8,
+    size->size,visible->visible,color->color,alpha->alpha,incidences->parents).children;
+);
 // q1,q2,q3: quadric ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeet3Q(q1,q2,q3,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewPointSet("meet3Q",[q1,q2,q3],8,
-    size->size,visible->visible,color->color,alpha->alpha,incidences->[q1,q2,q3]).children;
+  dgs3dMeet3QImpl("meet3Q",[q1,q2,q3],size->size,visible->visible,color->color,alpha->alpha);
 );
+// b: bi.quadric, q: quadric ; size:real = radius, visible: bool = should object be drawn
+dgs3dMeetBiQuadricQuadric(b,q,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dMeet3QImpl("meetBQ",[b,q],size->size,visible->visible,color->color,alpha->alpha);
+);
+
 ///////////
 // E3Q3
 ///////////
