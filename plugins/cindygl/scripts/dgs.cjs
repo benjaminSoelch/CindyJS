@@ -1134,6 +1134,7 @@ dgs3dRenderPoint = (self) => (
   p = self:"coords";
   // TODO? only render points within drawing region
   if(self:"visible" == true & dgs3dIsFiniteRealPoint(p), // treat undefined as falsy
+    p = re(p); // isReal allows small imaginary parts
     ptColor = if(self == dgs3dMouseState:"target",dgs3dFocusColor,self:"color");
     if(self:"drawId"==-1,
       self:"drawId" = draw3d(p_(1..3)/p_4,size->self:"size",color->ptColor,alpha->self:"alpha");
@@ -1151,6 +1152,7 @@ dgs3dRenderLine = (self) => (
   regional(l,PQ,P,Q);
   l = self:"coords";
   if(self:"visible" == true & dgs3dIsFiniteRealLine(l), // treat undefined as falsy
+    l = re(l); // isReal allows small imaginary parts
     // compute intersections of line with clipping sphere
     PQ = dgs3dIntersectQuadricLine(((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,-dgs3dCutoffRadius*dgs3dCutoffRadius)),l);
     if(isRealVec(PQ_1),// real solution
@@ -1173,13 +1175,14 @@ dgs3dRenderLine = (self) => (
 );
 // TODO? polygons: render only region bounded by set of (potentially infinite) points
 dgs3dRenderPlane = (self) => (
-  regional(n); // make n visible in callee scopes
-  if(self:"visible" == true & dgs3dIsFiniteRealPlane(self:"coords"), // treat undefined as falsy
-    if(self:"drawId"==-1,
+  regional(n);
       n = self:"coords";
-      self:"drawId" = surface3d((x,y,z)=>(x,y,z,1)*n,plotModifiers->{"n":self:"coords"},color->self:"color",alpha->self:"alpha");
+  if(self:"visible" == true & dgs3dIsFiniteRealPlane(n), // treat undefined as falsy
+    n = re(n); // isReal allows small imaginary parts
+    if(self:"drawId"==-1,
+      self:"drawId" = surface3d((x,y,z)=>(x,y,z,1)*n,plotModifiers->{"n":n},color->self:"color",alpha->self:"alpha");
     ,
-      cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["n","cglColor","cglAlpha"],[self:"coords",self:"color",self:"alpha"]);
+      cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["n","cglColor","cglAlpha"],[n,self:"color",self:"alpha"]);
       cgl3d.setVisible.(self:"drawId",true);
     );
   ,if(self:"drawId"!=-1,
@@ -1187,14 +1190,15 @@ dgs3dRenderPlane = (self) => (
   ));
 );
 dgs3dRenderQuadric = (self) => (
-  regional(M); // make M visible in callee scopes
+  regional(M);
+  M = self:"coords";
   // is quadric matrix is not real (up to scalar) then the set of real points is one dimensional (TODO? render 1D set of real points)
-  if(self:"visible" == true & dgs3dIsRealQuadric(self:"coords"), // treat undefined as falsy
+  if(self:"visible" == true & dgs3dIsRealQuadric(M), // treat undefined as falsy
+    M = re(M); // isReal allows small imaginary parts
     if(self:"drawId"==-1,
-      M = self:"coords";
-      self:"drawId" = surface3d((x,y,z)=>(x,y,z,1)*M*(x,y,z,1),plotModifiers->{"M":self:"coords"},alpha->self:"alpha",color->self:"color");
+      self:"drawId" = surface3d((x,y,z)=>(x,y,z,1)*M*(x,y,z,1),plotModifiers->{"M":M},alpha->self:"alpha",color->self:"color");
     ,
-      cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["M","cglColor","cglAlpha"],[self:"coords",self:"color",self:"alpha"]);
+      cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["M","cglColor","cglAlpha"],[M,self:"color",self:"alpha"]);
       cgl3d.setVisible.(self:"drawId",true);
     );
   ,if(self:"drawId"!=-1,
@@ -1202,15 +1206,16 @@ dgs3dRenderQuadric = (self) => (
   ));
 );
 dgs3dRenderConic = (self) => (
-  regional(M); // make M visible in callee scopes
-  if(self:"visible" == true & dgs3dIsFiniteRealConic(self:"coords"), // treat undefined as falsy
-    if(self:"drawId"==-1,
+  regional(M);
       M = self:"coords";
+  if(self:"visible" == true & dgs3dIsFiniteRealConic(M), // treat undefined as falsy
+    M = re(M); // isReal allows small imaginary parts
+    if(self:"drawId"==-1,
       self:"drawId" = surface3d((x,y,z)=>dgs3dDistanceQuadricPlane(Q,p,(x,y,z,1))-r*r,degree->8,
-        plotModifiers->{"Q":self:"coords"_1,"p":self:"coords"_2,"r":self:"size"},
+        plotModifiers->{"Q":M_1,"p":M_2,"r":self:"size"},
         alpha->self:"alpha",color->self:"color");
     ,
-      cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["Q","p","r","cglColor","cglAlpha"],[self:"coords"_1,self:"coords"_2,self:"size",self:"color",self:"alpha"]);
+      cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["Q","p","r","cglColor","cglAlpha"],[M_1,M_2,self:"size",self:"color",self:"alpha"]);
       cgl3d.setVisible.(self:"drawId",true);
     );
   ,if(self:"drawId"!=-1,
@@ -1218,16 +1223,17 @@ dgs3dRenderConic = (self) => (
   ));
 );
 dgs3dRenderBiQuadric = (self) => (
-  regional(M); // make M visible in callee scopes
-  if(self:"visible" == true & dgs3dIsRealBiQuadric(self:"coords"), // treat undefined as falsy
-    if(self:"drawId"==-1,
+  regional(M);
       M = self:"coords";
+  if(self:"visible" == true & dgs3dIsRealBiQuadric(M), // treat undefined as falsy
+    M = re(M); // isReal allows small imaginary parts
+    if(self:"drawId"==-1,
       self:"drawId" = surface3d((x,y,z)=>dgs3dDistanceQuadricQuadric(Q1,Q2,(x,y,z,1))-(r*r),degree->8,
-        plotModifiers->{"Q1":self:"coords"_1,"Q2":self:"coords"_2,"r":self:"size"},
+        plotModifiers->{"Q1":M_1,"Q2":M_2,"r":self:"size"},
         alpha->self:"alpha",color->self:"color");
     ,
       cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["Q1","Q2","r","cglColor","cglAlpha"],
-        [self:"coords"_1,self:"coords"_2,self:"size",self:"color",self:"alpha"]);
+        [M_1,M_2,self:"size",self:"color",self:"alpha"]);
       cgl3d.setVisible.(self:"drawId",true);
     );
   ,if(self:"drawId"!=-1,
@@ -3270,14 +3276,22 @@ dgs3dFindPointDist = (pt,root,dir) => (
   regional(center,radius);
   center = cgl3dObjectGet(cgl3d.getObject.(pt:"drawId"),"center");
   radius = cgl3dObjectGet(cgl3d.getObject.(pt:"drawId"),"radius");
+  if(isReal(center)&isReal(radius),
   cglEvalOrDiscard(cgl3d.compute.sphereDepths.(root,dir,center,radius)_1);
+  ,
+    cglUndefinedVal()
+  )
 );
 dgs3dFindLineDist = (ln,root,dir) => (
   regional(center,orientation,radius);
   center = cgl3dObjectGet(cgl3d.getObject.(ln:"drawId"),"center");
   orientation = cgl3dObjectGet(cgl3d.getObject.(ln:"drawId"),"orientation");
   radius = cgl3dObjectGet(cgl3d.getObject.(ln:"drawId"),"radius");
+  if(isReal(center)&isReal(orientation)&isReal(radius),
   cglEvalOrDiscard(cgl3d.compute.cappedCylinderDepths.(root,dir,center,orientation,radius)_1);
+  ,
+    cglUndefinedVal()
+  );
 );
 dgs3dFindPlaneDist = (pl,root,dir) => (
   regional(v,n,s,l,l0,l1);
@@ -3285,7 +3299,7 @@ dgs3dFindPlaneDist = (pl,root,dir) => (
   n = v_(1..3);
   s = v_4;
   // n*(r+l*d)+s = 0 ->  l = -(s+n*r)/(n*d)
-  if(n*dir == 0,cglUndefinedVal(), // avoid warning for div by 0
+  if(n*dir == 0 % !isReal(v),cglUndefinedVal(), // avoid warning for div by 0
     l = -(s+n*root)/(n*dir);
     cglEvalOrDiscard(
       [l0,l1] = cgl3d.cutoff.screenSphere.expr.(root,dir);
