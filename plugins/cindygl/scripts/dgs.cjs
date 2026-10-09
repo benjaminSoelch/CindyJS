@@ -634,6 +634,9 @@ dgs3dIntersect2DConicLine(A,l):=(
 dgs3dCubicRoot(a,b,c,d):=(
   sort(roots((a,b,c,d)),(!isReal(#),|#|))_1
 );
+dgs3dQuarticRoots(p):=(
+  sort(roots(p),(!isReal(#),|#|))
+);
 dgs3dIntersect2DConic(A,B):=(
   regional(lambda,C,l12,p12,p34);
   // 1. find degenerate matrix in pencil
@@ -1176,7 +1179,7 @@ dgs3dRenderLine = (self) => (
 // TODO? polygons: render only region bounded by set of (potentially infinite) points
 dgs3dRenderPlane = (self) => (
   regional(n);
-      n = self:"coords";
+  n = self:"coords";
   if(self:"visible" == true & dgs3dIsFiniteRealPlane(n), // treat undefined as falsy
     n = re(n); // isReal allows small imaginary parts
     if(self:"drawId"==-1,
@@ -1207,7 +1210,7 @@ dgs3dRenderQuadric = (self) => (
 );
 dgs3dRenderConic = (self) => (
   regional(M);
-      M = self:"coords";
+  M = self:"coords";
   if(self:"visible" == true & dgs3dIsFiniteRealConic(M), // treat undefined as falsy
     M = re(M); // isReal allows small imaginary parts
     if(self:"drawId"==-1,
@@ -1224,7 +1227,7 @@ dgs3dRenderConic = (self) => (
 );
 dgs3dRenderBiQuadric = (self) => (
   regional(M);
-      M = self:"coords";
+  M = self:"coords";
   if(self:"visible" == true & dgs3dIsRealBiQuadric(M), // treat undefined as falsy
     M = re(M); // isReal allows small imaginary parts
     if(self:"drawId"==-1,
@@ -1951,6 +1954,191 @@ dgs3dMeet3Q(q1,q2,q3,size->cglNada,visible->true,color->cglNada,alpha->cglNada):
 dgs3dMeetBiQuadricQuadric(b,q,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dMeet3QImpl("meetBQ",[b,q],size->size,visible->visible,color->color,alpha->alpha);
 );
+///////////
+// new algo for intersection of 3 quadrics
+///////////
+// det(A+l*B) as polynomial in l, detA and detB given to avoid recomputation
+dgs3dDegeneratePencilBasisDetPoly(A,B,detA,detB):=([
+  detA,
+  -A_2_4*A_3_3*A_4_2*B_1_1+A_2_3*A_3_4*A_4_2*B_1_1+A_2_4*A_3_2*A_4_3*B_1_1-A_2_2*A_3_4*A_4_3*B_1_1
+  -A_2_3*A_3_2*A_4_4*B_1_1+A_2_2*A_3_3*A_4_4*B_1_1+A_2_4*A_3_3*A_4_1*B_1_2-A_2_3*A_3_4*A_4_1*B_1_2
+  -A_2_4*A_3_1*A_4_3*B_1_2+A_2_1*A_3_4*A_4_3*B_1_2+A_2_3*A_3_1*A_4_4*B_1_2-A_2_1*A_3_3*A_4_4*B_1_2
+  -A_2_4*A_3_2*A_4_1*B_1_3+A_2_2*A_3_4*A_4_1*B_1_3+A_2_4*A_3_1*A_4_2*B_1_3-A_2_1*A_3_4*A_4_2*B_1_3
+  -A_2_2*A_3_1*A_4_4*B_1_3+A_2_1*A_3_2*A_4_4*B_1_3+A_2_3*A_3_2*A_4_1*B_1_4-A_2_2*A_3_3*A_4_1*B_1_4
+  -A_2_3*A_3_1*A_4_2*B_1_4+A_2_1*A_3_3*A_4_2*B_1_4+A_2_2*A_3_1*A_4_3*B_1_4-A_2_1*A_3_2*A_4_3*B_1_4
+  +A_1_4*A_3_3*A_4_2*B_2_1-A_1_3*A_3_4*A_4_2*B_2_1-A_1_4*A_3_2*A_4_3*B_2_1+A_1_2*A_3_4*A_4_3*B_2_1
+  +A_1_3*A_3_2*A_4_4*B_2_1-A_1_2*A_3_3*A_4_4*B_2_1-A_1_4*A_3_3*A_4_1*B_2_2+A_1_3*A_3_4*A_4_1*B_2_2
+  +A_1_4*A_3_1*A_4_3*B_2_2-A_1_1*A_3_4*A_4_3*B_2_2-A_1_3*A_3_1*A_4_4*B_2_2+A_1_1*A_3_3*A_4_4*B_2_2
+  +A_1_4*A_3_2*A_4_1*B_2_3-A_1_2*A_3_4*A_4_1*B_2_3-A_1_4*A_3_1*A_4_2*B_2_3+A_1_1*A_3_4*A_4_2*B_2_3
+  +A_1_2*A_3_1*A_4_4*B_2_3-A_1_1*A_3_2*A_4_4*B_2_3-A_1_3*A_3_2*A_4_1*B_2_4+A_1_2*A_3_3*A_4_1*B_2_4
+  +A_1_3*A_3_1*A_4_2*B_2_4-A_1_1*A_3_3*A_4_2*B_2_4-A_1_2*A_3_1*A_4_3*B_2_4+A_1_1*A_3_2*A_4_3*B_2_4
+  -A_1_4*A_2_3*A_4_2*B_3_1+A_1_3*A_2_4*A_4_2*B_3_1+A_1_4*A_2_2*A_4_3*B_3_1-A_1_2*A_2_4*A_4_3*B_3_1
+  -A_1_3*A_2_2*A_4_4*B_3_1+A_1_2*A_2_3*A_4_4*B_3_1+A_1_4*A_2_3*A_4_1*B_3_2-A_1_3*A_2_4*A_4_1*B_3_2
+  -A_1_4*A_2_1*A_4_3*B_3_2+A_1_1*A_2_4*A_4_3*B_3_2+A_1_3*A_2_1*A_4_4*B_3_2-A_1_1*A_2_3*A_4_4*B_3_2
+  -A_1_4*A_2_2*A_4_1*B_3_3+A_1_2*A_2_4*A_4_1*B_3_3+A_1_4*A_2_1*A_4_2*B_3_3-A_1_1*A_2_4*A_4_2*B_3_3
+  -A_1_2*A_2_1*A_4_4*B_3_3+A_1_1*A_2_2*A_4_4*B_3_3+A_1_3*A_2_2*A_4_1*B_3_4-A_1_2*A_2_3*A_4_1*B_3_4
+  -A_1_3*A_2_1*A_4_2*B_3_4+A_1_1*A_2_3*A_4_2*B_3_4+A_1_2*A_2_1*A_4_3*B_3_4-A_1_1*A_2_2*A_4_3*B_3_4
+  +A_1_4*A_2_3*A_3_2*B_4_1-A_1_3*A_2_4*A_3_2*B_4_1-A_1_4*A_2_2*A_3_3*B_4_1+A_1_2*A_2_4*A_3_3*B_4_1
+  +A_1_3*A_2_2*A_3_4*B_4_1-A_1_2*A_2_3*A_3_4*B_4_1-A_1_4*A_2_3*A_3_1*B_4_2+A_1_3*A_2_4*A_3_1*B_4_2
+  +A_1_4*A_2_1*A_3_3*B_4_2-A_1_1*A_2_4*A_3_3*B_4_2-A_1_3*A_2_1*A_3_4*B_4_2+A_1_1*A_2_3*A_3_4*B_4_2
+  +A_1_4*A_2_2*A_3_1*B_4_3-A_1_2*A_2_4*A_3_1*B_4_3-A_1_4*A_2_1*A_3_2*B_4_3+A_1_1*A_2_4*A_3_2*B_4_3
+  +A_1_2*A_2_1*A_3_4*B_4_3-A_1_1*A_2_2*A_3_4*B_4_3-A_1_3*A_2_2*A_3_1*B_4_4+A_1_2*A_2_3*A_3_1*B_4_4
+  +A_1_3*A_2_1*A_3_2*B_4_4-A_1_1*A_2_3*A_3_2*B_4_4-A_1_2*A_2_1*A_3_3*B_4_4+A_1_1*A_2_2*A_3_3*B_4_4,
+  A_3_4*A_4_3*B_1_2*B_2_1-A_3_3*A_4_4*B_1_2*B_2_1-A_3_4*A_4_2*B_1_3*B_2_1+A_3_2*A_4_4*B_1_3*B_2_1
+  +A_3_3*A_4_2*B_1_4*B_2_1-A_3_2*A_4_3*B_1_4*B_2_1-A_3_4*A_4_3*B_1_1*B_2_2+A_3_3*A_4_4*B_1_1*B_2_2
+  +A_3_4*A_4_1*B_1_3*B_2_2-A_3_1*A_4_4*B_1_3*B_2_2-A_3_3*A_4_1*B_1_4*B_2_2+A_3_1*A_4_3*B_1_4*B_2_2
+  +A_3_4*A_4_2*B_1_1*B_2_3-A_3_2*A_4_4*B_1_1*B_2_3-A_3_4*A_4_1*B_1_2*B_2_3+A_3_1*A_4_4*B_1_2*B_2_3
+  +A_3_2*A_4_1*B_1_4*B_2_3-A_3_1*A_4_2*B_1_4*B_2_3-A_3_3*A_4_2*B_1_1*B_2_4+A_3_2*A_4_3*B_1_1*B_2_4
+  +A_3_3*A_4_1*B_1_2*B_2_4-A_3_1*A_4_3*B_1_2*B_2_4-A_3_2*A_4_1*B_1_3*B_2_4+A_3_1*A_4_2*B_1_3*B_2_4
+  -A_2_4*A_4_3*B_1_2*B_3_1+A_2_3*A_4_4*B_1_2*B_3_1+A_2_4*A_4_2*B_1_3*B_3_1-A_2_2*A_4_4*B_1_3*B_3_1
+  -A_2_3*A_4_2*B_1_4*B_3_1+A_2_2*A_4_3*B_1_4*B_3_1+A_1_4*A_4_3*B_2_2*B_3_1-A_1_3*A_4_4*B_2_2*B_3_1
+  -A_1_4*A_4_2*B_2_3*B_3_1+A_1_2*A_4_4*B_2_3*B_3_1+A_1_3*A_4_2*B_2_4*B_3_1-A_1_2*A_4_3*B_2_4*B_3_1
+  +A_2_4*A_4_3*B_1_1*B_3_2-A_2_3*A_4_4*B_1_1*B_3_2-A_2_4*A_4_1*B_1_3*B_3_2+A_2_1*A_4_4*B_1_3*B_3_2
+  +A_2_3*A_4_1*B_1_4*B_3_2-A_2_1*A_4_3*B_1_4*B_3_2-A_1_4*A_4_3*B_2_1*B_3_2+A_1_3*A_4_4*B_2_1*B_3_2
+  +A_1_4*A_4_1*B_2_3*B_3_2-A_1_1*A_4_4*B_2_3*B_3_2-A_1_3*A_4_1*B_2_4*B_3_2+A_1_1*A_4_3*B_2_4*B_3_2
+  -A_2_4*A_4_2*B_1_1*B_3_3+A_2_2*A_4_4*B_1_1*B_3_3+A_2_4*A_4_1*B_1_2*B_3_3-A_2_1*A_4_4*B_1_2*B_3_3
+  -A_2_2*A_4_1*B_1_4*B_3_3+A_2_1*A_4_2*B_1_4*B_3_3+A_1_4*A_4_2*B_2_1*B_3_3-A_1_2*A_4_4*B_2_1*B_3_3
+  -A_1_4*A_4_1*B_2_2*B_3_3+A_1_1*A_4_4*B_2_2*B_3_3+A_1_2*A_4_1*B_2_4*B_3_3-A_1_1*A_4_2*B_2_4*B_3_3
+  +A_2_3*A_4_2*B_1_1*B_3_4-A_2_2*A_4_3*B_1_1*B_3_4-A_2_3*A_4_1*B_1_2*B_3_4+A_2_1*A_4_3*B_1_2*B_3_4
+  +A_2_2*A_4_1*B_1_3*B_3_4-A_2_1*A_4_2*B_1_3*B_3_4-A_1_3*A_4_2*B_2_1*B_3_4+A_1_2*A_4_3*B_2_1*B_3_4
+  +A_1_3*A_4_1*B_2_2*B_3_4-A_1_1*A_4_3*B_2_2*B_3_4-A_1_2*A_4_1*B_2_3*B_3_4+A_1_1*A_4_2*B_2_3*B_3_4
+  +A_2_4*A_3_3*B_1_2*B_4_1-A_2_3*A_3_4*B_1_2*B_4_1-A_2_4*A_3_2*B_1_3*B_4_1+A_2_2*A_3_4*B_1_3*B_4_1
+  +A_2_3*A_3_2*B_1_4*B_4_1-A_2_2*A_3_3*B_1_4*B_4_1-A_1_4*A_3_3*B_2_2*B_4_1+A_1_3*A_3_4*B_2_2*B_4_1
+  +A_1_4*A_3_2*B_2_3*B_4_1-A_1_2*A_3_4*B_2_3*B_4_1-A_1_3*A_3_2*B_2_4*B_4_1+A_1_2*A_3_3*B_2_4*B_4_1
+  +A_1_4*A_2_3*B_3_2*B_4_1-A_1_3*A_2_4*B_3_2*B_4_1-A_1_4*A_2_2*B_3_3*B_4_1+A_1_2*A_2_4*B_3_3*B_4_1
+  +A_1_3*A_2_2*B_3_4*B_4_1-A_1_2*A_2_3*B_3_4*B_4_1-A_2_4*A_3_3*B_1_1*B_4_2+A_2_3*A_3_4*B_1_1*B_4_2
+  +A_2_4*A_3_1*B_1_3*B_4_2-A_2_1*A_3_4*B_1_3*B_4_2-A_2_3*A_3_1*B_1_4*B_4_2+A_2_1*A_3_3*B_1_4*B_4_2
+  +A_1_4*A_3_3*B_2_1*B_4_2-A_1_3*A_3_4*B_2_1*B_4_2-A_1_4*A_3_1*B_2_3*B_4_2+A_1_1*A_3_4*B_2_3*B_4_2
+  +A_1_3*A_3_1*B_2_4*B_4_2-A_1_1*A_3_3*B_2_4*B_4_2-A_1_4*A_2_3*B_3_1*B_4_2+A_1_3*A_2_4*B_3_1*B_4_2
+  +A_1_4*A_2_1*B_3_3*B_4_2-A_1_1*A_2_4*B_3_3*B_4_2-A_1_3*A_2_1*B_3_4*B_4_2+A_1_1*A_2_3*B_3_4*B_4_2
+  +A_2_4*A_3_2*B_1_1*B_4_3-A_2_2*A_3_4*B_1_1*B_4_3-A_2_4*A_3_1*B_1_2*B_4_3+A_2_1*A_3_4*B_1_2*B_4_3
+  +A_2_2*A_3_1*B_1_4*B_4_3-A_2_1*A_3_2*B_1_4*B_4_3-A_1_4*A_3_2*B_2_1*B_4_3+A_1_2*A_3_4*B_2_1*B_4_3
+  +A_1_4*A_3_1*B_2_2*B_4_3-A_1_1*A_3_4*B_2_2*B_4_3-A_1_2*A_3_1*B_2_4*B_4_3+A_1_1*A_3_2*B_2_4*B_4_3
+  +A_1_4*A_2_2*B_3_1*B_4_3-A_1_2*A_2_4*B_3_1*B_4_3-A_1_4*A_2_1*B_3_2*B_4_3+A_1_1*A_2_4*B_3_2*B_4_3
+  +A_1_2*A_2_1*B_3_4*B_4_3-A_1_1*A_2_2*B_3_4*B_4_3-A_2_3*A_3_2*B_1_1*B_4_4+A_2_2*A_3_3*B_1_1*B_4_4
+  +A_2_3*A_3_1*B_1_2*B_4_4-A_2_1*A_3_3*B_1_2*B_4_4-A_2_2*A_3_1*B_1_3*B_4_4+A_2_1*A_3_2*B_1_3*B_4_4
+  +A_1_3*A_3_2*B_2_1*B_4_4-A_1_2*A_3_3*B_2_1*B_4_4-A_1_3*A_3_1*B_2_2*B_4_4+A_1_1*A_3_3*B_2_2*B_4_4
+  +A_1_2*A_3_1*B_2_3*B_4_4-A_1_1*A_3_2*B_2_3*B_4_4-A_1_3*A_2_2*B_3_1*B_4_4+A_1_2*A_2_3*B_3_1*B_4_4
+  +A_1_3*A_2_1*B_3_2*B_4_4-A_1_1*A_2_3*B_3_2*B_4_4-A_1_2*A_2_1*B_3_3*B_4_4+A_1_1*A_2_2*B_3_3*B_4_4,
+  -A_4_4*B_1_3*B_2_2*B_3_1+A_4_3*B_1_4*B_2_2*B_3_1+A_4_4*B_1_2*B_2_3*B_3_1-A_4_2*B_1_4*B_2_3*B_3_1
+  -A_4_3*B_1_2*B_2_4*B_3_1+A_4_2*B_1_3*B_2_4*B_3_1+A_4_4*B_1_3*B_2_1*B_3_2-A_4_3*B_1_4*B_2_1*B_3_2
+  -A_4_4*B_1_1*B_2_3*B_3_2+A_4_1*B_1_4*B_2_3*B_3_2+A_4_3*B_1_1*B_2_4*B_3_2-A_4_1*B_1_3*B_2_4*B_3_2
+  -A_4_4*B_1_2*B_2_1*B_3_3+A_4_2*B_1_4*B_2_1*B_3_3+A_4_4*B_1_1*B_2_2*B_3_3-A_4_1*B_1_4*B_2_2*B_3_3
+  -A_4_2*B_1_1*B_2_4*B_3_3+A_4_1*B_1_2*B_2_4*B_3_3+A_4_3*B_1_2*B_2_1*B_3_4-A_4_2*B_1_3*B_2_1*B_3_4
+  -A_4_3*B_1_1*B_2_2*B_3_4+A_4_1*B_1_3*B_2_2*B_3_4+A_4_2*B_1_1*B_2_3*B_3_4-A_4_1*B_1_2*B_2_3*B_3_4
+  +A_3_4*B_1_3*B_2_2*B_4_1-A_3_3*B_1_4*B_2_2*B_4_1-A_3_4*B_1_2*B_2_3*B_4_1+A_3_2*B_1_4*B_2_3*B_4_1
+  +A_3_3*B_1_2*B_2_4*B_4_1-A_3_2*B_1_3*B_2_4*B_4_1-A_2_4*B_1_3*B_3_2*B_4_1+A_2_3*B_1_4*B_3_2*B_4_1
+  +A_1_4*B_2_3*B_3_2*B_4_1-A_1_3*B_2_4*B_3_2*B_4_1+A_2_4*B_1_2*B_3_3*B_4_1-A_2_2*B_1_4*B_3_3*B_4_1
+  -A_1_4*B_2_2*B_3_3*B_4_1+A_1_2*B_2_4*B_3_3*B_4_1-A_2_3*B_1_2*B_3_4*B_4_1+A_2_2*B_1_3*B_3_4*B_4_1
+  +A_1_3*B_2_2*B_3_4*B_4_1-A_1_2*B_2_3*B_3_4*B_4_1-A_3_4*B_1_3*B_2_1*B_4_2+A_3_3*B_1_4*B_2_1*B_4_2
+  +A_3_4*B_1_1*B_2_3*B_4_2-A_3_1*B_1_4*B_2_3*B_4_2-A_3_3*B_1_1*B_2_4*B_4_2+A_3_1*B_1_3*B_2_4*B_4_2
+  +A_2_4*B_1_3*B_3_1*B_4_2-A_2_3*B_1_4*B_3_1*B_4_2-A_1_4*B_2_3*B_3_1*B_4_2+A_1_3*B_2_4*B_3_1*B_4_2
+  -A_2_4*B_1_1*B_3_3*B_4_2+A_2_1*B_1_4*B_3_3*B_4_2+A_1_4*B_2_1*B_3_3*B_4_2-A_1_1*B_2_4*B_3_3*B_4_2
+  +A_2_3*B_1_1*B_3_4*B_4_2-A_2_1*B_1_3*B_3_4*B_4_2-A_1_3*B_2_1*B_3_4*B_4_2+A_1_1*B_2_3*B_3_4*B_4_2
+  +A_3_4*B_1_2*B_2_1*B_4_3-A_3_2*B_1_4*B_2_1*B_4_3-A_3_4*B_1_1*B_2_2*B_4_3+A_3_1*B_1_4*B_2_2*B_4_3
+  +A_3_2*B_1_1*B_2_4*B_4_3-A_3_1*B_1_2*B_2_4*B_4_3-A_2_4*B_1_2*B_3_1*B_4_3+A_2_2*B_1_4*B_3_1*B_4_3
+  +A_1_4*B_2_2*B_3_1*B_4_3-A_1_2*B_2_4*B_3_1*B_4_3+A_2_4*B_1_1*B_3_2*B_4_3-A_2_1*B_1_4*B_3_2*B_4_3
+  -A_1_4*B_2_1*B_3_2*B_4_3+A_1_1*B_2_4*B_3_2*B_4_3-A_2_2*B_1_1*B_3_4*B_4_3+A_2_1*B_1_2*B_3_4*B_4_3
+  +A_1_2*B_2_1*B_3_4*B_4_3-A_1_1*B_2_2*B_3_4*B_4_3-A_3_3*B_1_2*B_2_1*B_4_4+A_3_2*B_1_3*B_2_1*B_4_4
+  +A_3_3*B_1_1*B_2_2*B_4_4-A_3_1*B_1_3*B_2_2*B_4_4-A_3_2*B_1_1*B_2_3*B_4_4+A_3_1*B_1_2*B_2_3*B_4_4
+  +A_2_3*B_1_2*B_3_1*B_4_4-A_2_2*B_1_3*B_3_1*B_4_4-A_1_3*B_2_2*B_3_1*B_4_4+A_1_2*B_2_3*B_3_1*B_4_4
+  -A_2_3*B_1_1*B_3_2*B_4_4+A_2_1*B_1_3*B_3_2*B_4_4+A_1_3*B_2_1*B_3_2*B_4_4-A_1_1*B_2_3*B_3_2*B_4_4
+  +A_2_2*B_1_1*B_3_3*B_4_4-A_2_1*B_1_2*B_3_3*B_4_4-A_1_2*B_2_1*B_3_3*B_4_4+A_1_1*B_2_2*B_3_3*B_4_4,
+  detB
+]);
+dgs3dComputeDegeneratePencilBasis(A,B):=(
+  regional(detA,detB,l1,l2);
+  detA = det(A);
+  detB = det(B);
+  if(|detA|>|detB|,[A,B,detA,detB]=[B,A,detB,detA]);
+  if(detA == 0, // TODO! allow numeric error in zero-check
+    if(detB == 0,
+      [A,B]
+    , // TODO: what happens in the case where the l^1 coefficient also is zero
+      [A,A+dgs3dCubicRoot(dgs3dDegeneratePencilBasisDetPoly(A,B,detA,detB)_(2..5))*B]
+    )
+  ,
+    [l1,l2] = dgs3dQuarticRoots(dgs3dDegeneratePencilBasisDetPoly(A,B,detA,detB));
+    [A+l1*B,A+l2*B]
+  )
+);
+dgs3dComputeDegeneratePencilBasis(A,B,C):=(
+  // find three independent cones in pencil
+  [A,B] = dgs3dComputeDegeneratePencilBasis(A,B);
+  prepend(A,dgs3dComputeDegeneratePencilBasis(B,C));
+);
+dgs3dComputeR4Basis3(pqr):=(
+  pqr = apply(pqr,#/|#|);
+  min([(0,0,0,1),(1,0,0,0),(0,1,0,0),(0,0,1,0)],v,(max(pqr,|v*#|),v))_2
+);
+dgs3dIntersects3Qnew(q1,q2,q3):=(
+  regional(A,B,C);
+  [A,B,C] = dgs3dComputeDegeneratePencilBasis(q1,q2,q3);
+  // TODO: handle case where one of the degenerate quadrics decomposes into two lines
+  dgs3dIntersect3Cones(A,B,C)
+);
+dgs3dComputeConeCenter(C):= (
+  transpose(kernel(C))_1 // using quadric-center algo fails when center-point is at infinity
+);
+// given the conic coefficientVector*(x^2,x*y,x,y^2,y,1) = 0
+// return polynomials p,q such that y = p(x) + sqrt(q(x))
+dgs3dSolveConicForY(coefficientVector):=(
+  regional(a,b,c,d,e,f);
+  [a,b,c,d,e,f] = coefficientVector;
+  // a x^2 + b xy + c x + d y^2 + e y + f = d y^2 + (bx+e) y + (a x^2 + c x + f)
+  // y = -(bx+e)/2d + sqrt((bx+e)*(bx+e) - 4*d*(a x^2 + c x + f))/2d
+  // (bx+e)*(bx+e) + 4*d*(a x^2 + c x + f) =(b^2+4ad) x^2 + (2be+4cd) x + e^2 - 4df
+  [
+    -[e,b]/(2*d),
+    [e^2-4*d*f,2*b*e-4*c*d,b^2-4*a*d]/(4*d*d)
+  ]
+);
+// given the conic C(y,z) coefficientVector*(y^2,y*z,y,z^2,z,1) = 0
+// and equations y = g(x) = a(x) + sqrt(b(x))  ; z = h(x) = c(x) + sqrt(d(x))
+// return a polynomial p(x) satisfying p(x) = 0 iff C(g(x),h(x)) = 0
+dsg3dComputeConeIntersectionPoly(coefficientsYZW,a,b,c,d):=(
+  regional(f1,f2,f3,f4,g1,g2);
+  // find f1,f2,f3,f4 s.t. C(g(x),h(x)) = f1 + f2 sqrt(b) + f3 sqrt(d) + f4 sqrt(b) sqrt(d)
+  f1 = dgs3dPadd(dgs3dPadd(dgs3dPadd(coefficientsYZW_1 * dgs3dPadd(dsg3dPsq(a),b),coefficientsYZW_2 *dgs3dPmul(a,c)),
+      dgs3dPadd(coefficientsYZW_3*a,coefficientsYZW_4*dgs3dPadd(dsg3dPsq(c),d))),dgs3dPadd(coefficientsYZW_5*c,[coefficientsYZW_6]));
+  f2 = dgs3dPadd(dgs3dPadd(2*coefficientsYZW_1*a,coefficientsYZW_2*c),[coefficientsYZW_3]);
+  f3 = dgs3dPadd(dgs3dPadd(coefficientsYZW_2*a,2*coefficientsYZW_4*c),[coefficientsYZW_5]);
+  f4 = coefficientsYZW_2;
+  // f1 + f2 sqrt(b) + f3 sqrt(d) + f4 sqrt(b) sqrt(d) = 0 -> b (f2 + f4 sqrt(d))^2 = (-f1 -f3 sqrt(d))^2 -> g1 + g2 sqrt(d) = 0
+  g1 = dgs3dPsub(dgs3dPadd(dgs3dPmul(b,dsg3dPsq(f2)),f4*f4 *dgs3dPmul(b,d)),dgs3dPadd(dsg3dPsq(f1),dgs3dPmul(d,dsg3dPsq(f3))));
+  g2 = dgs3dPsub(2*f4*dgs3dPmul(b,f2),2*dgs3dPmul(f1,f3));
+  dgs3dPsub(dgs3dPmul(d,dsg3dPsq(g2)),dsg3dPsq(g1))
+);
+dsg3dPSqrtEval(a,b,x):=(
+  dgs3dPeval(a,x)+sqrt(dgs3dPeval(b,x))
+);
+// pick correct signs for roots
+// TODO? is there a better way than checking all four choices?
+dgs3dIntersect3ConesPickRoot(x,a,b,c,d,YZ):=(
+  regional(pts);
+  a = dgs3dPeval(a,x);
+  b = sqrt(dgs3dPeval(b,x));
+  c = dgs3dPeval(c,x);
+  d = sqrt(dgs3dPeval(d,x));
+  pts = [(x,a+b,c+d,1),(x,a+b,c-d,1),(x,a-b,c+d,1),(x,a-b,c-d,1)];
+  // TODO handle multi-roots with more than one solutions for given x (currently the same point is choose in all cases)
+  min(pts,(|#*YZ*#|,#))_2
+);
+dgs3dIntersect3Cones(A,B,C):=(
+  regional(centers,T,XY,XZ,YZ,a,b,c,d);
+  centers = apply([A,B,C],dgs3dComputeConeCenter(#));
+  // TODO handle case where two of the centers coincide
+  // obtain transformation such that each cone uses only two variables
+  T = transpose(append(centers,dgs3dComputeR4Basis3(centers)));
+  [YZ,XZ,XY] = apply([A,B,C],transpose(T)*#*T);
+  // cone-centers are all at infinity -> all intersections are finite
+  [a,b] = dgs3dSolveConicForY(dgs3dConicCoefficientVector(apply(XY_(1,2,4),#_(1,2,4))));
+  [c,d] = dgs3dSolveConicForY(dgs3dConicCoefficientVector(apply(XZ_(1,3,4),#_(1,3,4))));
+  // TODO are there relations between the roots (have four choices for y,z given x)
+  apply(roots(dsg3dComputeConeIntersectionPoly(dgs3dConicCoefficientVector(apply(YZ_(2,3,4),#_(2,3,4))),a,b,c,d)),x,
+    T*dgs3dIntersect3ConesPickRoot(x,a,b,c,d,YZ)
+  );
+);
 
 ///////////
 // E3Q3
@@ -1970,6 +2158,7 @@ dgs3dPmul(a,b):=(
     a*b
   )
 );
+dsg3dPsq(a):=(dgs3dPmul(a,a));
 dgs3dPadd(a,b):=(
   dgs3dPnormalize(apply(1..(max(length(a),length(b))),i,if(i <= length(a),a_i,0)+if(i <= length(b),b_i,0)))
 );
@@ -3277,7 +3466,7 @@ dgs3dFindPointDist = (pt,root,dir) => (
   center = cgl3dObjectGet(cgl3d.getObject.(pt:"drawId"),"center");
   radius = cgl3dObjectGet(cgl3d.getObject.(pt:"drawId"),"radius");
   if(isReal(center)&isReal(radius),
-  cglEvalOrDiscard(cgl3d.compute.sphereDepths.(root,dir,center,radius)_1);
+    cglEvalOrDiscard(cgl3d.compute.sphereDepths.(root,dir,center,radius)_1);
   ,
     cglUndefinedVal()
   )
@@ -3288,7 +3477,7 @@ dgs3dFindLineDist = (ln,root,dir) => (
   orientation = cgl3dObjectGet(cgl3d.getObject.(ln:"drawId"),"orientation");
   radius = cgl3dObjectGet(cgl3d.getObject.(ln:"drawId"),"radius");
   if(isReal(center)&isReal(orientation)&isReal(radius),
-  cglEvalOrDiscard(cgl3d.compute.cappedCylinderDepths.(root,dir,center,orientation,radius)_1);
+    cglEvalOrDiscard(cgl3d.compute.cappedCylinderDepths.(root,dir,center,orientation,radius)_1);
   ,
     cglUndefinedVal()
   );
