@@ -631,8 +631,8 @@ dgs3dIntersect2DConicLine(A,l):=(
 );
 // return a root of a x^3 + b x^2 + c x + d
 // prefer real roots with small magnitude
-dgs3dCubicRoot(a,b,c,d):=(
-  sort(roots((a,b,c,d)),(!isReal(#),|#|))_1
+dgs3dCubicRoot(p):=(
+  sort(roots(p),(!isReal(#),|#|))_1
 );
 dgs3dQuarticRoots(p):=(
   sort(roots(p),(!isReal(#),|#|))
@@ -640,7 +640,7 @@ dgs3dQuarticRoots(p):=(
 dgs3dIntersect2DConic(A,B):=(
   regional(lambda,C,l12,p12,p34);
   // 1. find degenerate matrix in pencil
-  lambda = dgs3dCubicRoot(
+  lambda = dgs3dCubicRoot([
     det(A),
     -A_2_3*A_3_2*B_1_1+A_2_2*A_3_3*B_1_1+A_2_3*A_3_1*B_1_2-A_2_1*A_3_3*B_1_2
     -A_2_2*A_3_1*B_1_3+A_2_1*A_3_2*B_1_3+A_1_3*A_3_2*B_2_1-A_1_2*A_3_3*B_2_1
@@ -653,7 +653,7 @@ dgs3dIntersect2DConic(A,B):=(
     +A_1_3*B_2_1*B_3_2-A_1_1*B_2_3*B_3_2+A_2_2*B_1_1*B_3_3-A_2_1*B_1_2*B_3_3
     -A_1_2*B_2_1*B_3_3+A_1_1*B_2_2*B_3_3,
     det(B)
-  );
+  ]);
   C = A+lambda*B;
   // 3. decompose into lines
   l12 = dgs3dDecompose2DConic(C);
@@ -2062,48 +2062,62 @@ dgs3dComputeDegeneratePencilBasis(A,B):=(
     [A+l1*B,A+l2*B]
   )
 );
-dgs3dComputeDegeneratePencilBasis(A,B,C):=(
-  // find three independent cones in pencil
-  [A,B] = dgs3dComputeDegeneratePencilBasis(A,B);
-  prepend(A,dgs3dComputeDegeneratePencilBasis(B,C));
-);
-dgs3dComputeR4Basis3(pqr):=(
+dgs3dComputeR4Basis2(pqr):=(
   pqr = apply(pqr,#/|#|);
-  min([(0,0,0,1),(1,0,0,0),(0,1,0,0),(0,0,1,0)],v,(max(pqr,|v*#|),v))_2
+  sort([(0,0,0,1),(1,0,0,0),(0,1,0,0),(0,0,1,0)],v,max(pqr,|v*#|))_(1..2)
 );
-dgs3dIntersects3Qnew(q1,q2,q3):=(
+dgs3dIntersects3Qnew(q1,q2,q3,debug->false):=(
   regional(A,B,C);
-  [A,B,C] = dgs3dComputeDegeneratePencilBasis(q1,q2,q3);
+  [A,B] = dgs3dComputeDegeneratePencilBasis(q1,q2);
+  C = q3;
+  if(debug,
+    print((rank(A),rank(B)));
+    print((adjoint4(A),adjoint4(B)));
+  );
   // TODO: handle case where one of the degenerate quadrics decomposes into two lines
-  dgs3dIntersect3Cones(A,B,C)
+  // TODO: is 2-cones + quadric smarter / more stable (one cone y=g(x), one cone z = h(x), plug in quadric, solve)
+  // 1. find the two quadrics in pencil that are the least similar swap such that those are A,B
+  // 2. check all four degenerate elements in pencil through A,B
+  //  a) if one/two decomposes into planes -> do intersection QQP/QPP with those planes
+  //  b) pick the cones with most distinct centers
+  // 3. transform such that centers are at 0,1,0,0, and 0,0,1,0
+  // 4. solve conic equations to get y = g(x) z = h(x)
+  // 5. plug g,h in third quadric to get polynomial f(x) for x-coordinate
+  // 6. use y,z to get remaining coordinates
+  dgs3dIntersectConeConeQuadric(A,B,C)
 );
 dgs3dComputeConeCenter(C):= (
-  transpose(kernel(C))_1 // using quadric-center algo fails when center-point is at infinity
+  // adjoint of cone matrix has rank 1
+  max(adjoint4(#),(|#|,#))_2 // using quadric-center algorithm fails when center-point is at infinity
 );
 // given the conic coefficientVector*(x^2,x*y,x,y^2,y,1) = 0
 // return polynomials p,q such that y = p(x) + sqrt(q(x))
 dgs3dSolveConicForY(coefficientVector):=(
   regional(a,b,c,d,e,f);
   [a,b,c,d,e,f] = coefficientVector;
+  if(4*d*d==0,
+    print((d*1e100,coefficientVector));
+  );
   // a x^2 + b xy + c x + d y^2 + e y + f = d y^2 + (bx+e) y + (a x^2 + c x + f)
   // y = -(bx+e)/2d + sqrt((bx+e)*(bx+e) - 4*d*(a x^2 + c x + f))/2d
   // (bx+e)*(bx+e) + 4*d*(a x^2 + c x + f) =(b^2+4ad) x^2 + (2be+4cd) x + e^2 - 4df
   [
     -[e,b]/(2*d),
-    [e^2-4*d*f,2*b*e-4*c*d,b^2-4*a*d]/(4*d*d)
+    [e^2/d-4*f,2*b*e/d-4*c,b^2/d-4*a]/(4*d)
   ]
 );
-// given the conic C(y,z) coefficientVector*(y^2,y*z,y,z^2,z,1) = 0
+// given the conic C(y,z) coefficientVector*(x^2,x*y,x*z,x,y^2,y*z,y,z^2,z,1) = 0
 // and equations y = g(x) = a(x) + sqrt(b(x))  ; z = h(x) = c(x) + sqrt(d(x))
 // return a polynomial p(x) satisfying p(x) = 0 iff C(g(x),h(x)) = 0
-dsg3dComputeConeIntersectionPoly(coefficientsYZW,a,b,c,d):=(
+dsg3dComputeConeIntersectionPoly(coefficients,a,b,c,d):=(
   regional(f1,f2,f3,f4,g1,g2);
+  // TODO? directly compute polynomial coefficients instead of going through Padd/Pmul functions
   // find f1,f2,f3,f4 s.t. C(g(x),h(x)) = f1 + f2 sqrt(b) + f3 sqrt(d) + f4 sqrt(b) sqrt(d)
-  f1 = dgs3dPadd(dgs3dPadd(dgs3dPadd(coefficientsYZW_1 * dgs3dPadd(dsg3dPsq(a),b),coefficientsYZW_2 *dgs3dPmul(a,c)),
-      dgs3dPadd(coefficientsYZW_3*a,coefficientsYZW_4*dgs3dPadd(dsg3dPsq(c),d))),dgs3dPadd(coefficientsYZW_5*c,[coefficientsYZW_6]));
-  f2 = dgs3dPadd(dgs3dPadd(2*coefficientsYZW_1*a,coefficientsYZW_2*c),[coefficientsYZW_3]);
-  f3 = dgs3dPadd(dgs3dPadd(coefficientsYZW_2*a,2*coefficientsYZW_4*c),[coefficientsYZW_5]);
-  f4 = coefficientsYZW_2;
+  f1 = dgs3dPadd(dgs3dPadd(dgs3dPadd(coefficients_5 * dgs3dPadd(dsg3dPsq(a),b),coefficients_6 *dgs3dPmul(a,c)),
+      dgs3dPadd(dgs3dPmul([coefficients_7,coefficients_2],a),coefficients_8*dgs3dPadd(dsg3dPsq(c),d))),dgs3dPadd(dgs3dPmul([coefficients_9,coefficients_3],c),[coefficients_10,coefficients_4,coefficients_1]));
+  f2 = dgs3dPadd(dgs3dPadd(2*coefficients_5*a,coefficients_6*c),[coefficients_7,coefficients_2]);
+  f3 = dgs3dPadd(dgs3dPadd(coefficients_6*a,2*coefficients_8*c),[coefficients_9,coefficients_3]);
+  f4 = coefficients_6;
   // f1 + f2 sqrt(b) + f3 sqrt(d) + f4 sqrt(b) sqrt(d) = 0 -> b (f2 + f4 sqrt(d))^2 = (-f1 -f3 sqrt(d))^2 -> g1 + g2 sqrt(d) = 0
   g1 = dgs3dPsub(dgs3dPadd(dgs3dPmul(b,dsg3dPsq(f2)),f4*f4 *dgs3dPmul(b,d)),dgs3dPadd(dsg3dPsq(f1),dgs3dPmul(d,dsg3dPsq(f3))));
   g2 = dgs3dPsub(2*f4*dgs3dPmul(b,f2),2*dgs3dPmul(f1,f3));
@@ -2114,7 +2128,7 @@ dsg3dPSqrtEval(a,b,x):=(
 );
 // pick correct signs for roots
 // TODO? is there a better way than checking all four choices?
-dgs3dIntersect3ConesPickRoot(x,a,b,c,d,YZ):=(
+dgs3dIntersect3ConesPickRoot(x,a,b,c,d,Q):=(
   regional(pts);
   a = dgs3dPeval(a,x);
   b = sqrt(dgs3dPeval(b,x));
@@ -2122,21 +2136,27 @@ dgs3dIntersect3ConesPickRoot(x,a,b,c,d,YZ):=(
   d = sqrt(dgs3dPeval(d,x));
   pts = [(x,a+b,c+d,1),(x,a+b,c-d,1),(x,a-b,c+d,1),(x,a-b,c-d,1)];
   // TODO handle multi-roots with more than one solutions for given x (currently the same point is choose in all cases)
-  min(pts,(|#*YZ*#|,#))_2
+  min(pts,(|#*Q*#|,#))_2
 );
-dgs3dIntersect3Cones(A,B,C):=(
-  regional(centers,T,XY,XZ,YZ,a,b,c,d);
-  centers = apply([A,B,C],dgs3dComputeConeCenter(#));
-  // TODO handle case where two of the centers coincide
+dgs3dIntersectConeConeQuadric(A,B,Q):=(
+  regional(centers,T,XY,XZ,v1,v4,a,b,c,d);
+  centers = apply([A,B],dgs3dRP3Normalize(dgs3dComputeConeCenter(#)));
+  // TODO handle case where the centers coincide
+  // TODO: special handling for case where centers are close
   // obtain transformation such that each cone uses only two variables
-  T = transpose(append(centers,dgs3dComputeR4Basis3(centers)));
-  [YZ,XZ,XY] = apply([A,B,C],transpose(T)*#*T);
+  [v1,v4] = dgs3dComputeR4Basis2(centers);
+  T = transpose([v1,centers_1,centers_2,v4]);
+  [XZ,XY,Q] = apply([A,B,Q],transpose(T)*#*T);
+  if(debug,
+    print("det T: "+det(T)+" T: "+centers);
+    print([XZ,XY]);
+  );
   // cone-centers are all at infinity -> all intersections are finite
   [a,b] = dgs3dSolveConicForY(dgs3dConicCoefficientVector(apply(XY_(1,2,4),#_(1,2,4))));
   [c,d] = dgs3dSolveConicForY(dgs3dConicCoefficientVector(apply(XZ_(1,3,4),#_(1,3,4))));
   // TODO are there relations between the roots (have four choices for y,z given x)
-  apply(roots(dsg3dComputeConeIntersectionPoly(dgs3dConicCoefficientVector(apply(YZ_(2,3,4),#_(2,3,4))),a,b,c,d)),x,
-    T*dgs3dIntersect3ConesPickRoot(x,a,b,c,d,YZ)
+  apply(roots(dsg3dComputeConeIntersectionPoly(dgs3dQuadricCoefficientVector(Q),a,b,c,d)),x,
+    T*dgs3dIntersect3ConesPickRoot(x,a,b,c,d,Q)
   );
 );
 
@@ -2366,6 +2386,47 @@ dgs3de3q3Impl(q1,q2,q3):=(
       ))))));
     );
   );
+);
+
+dsg3dGenerate3RandomQuadrics():=(
+  apply(1..3,
+    dgs3dQuadAsMat(apply(1..10,random()))
+  )
+);
+dgs3dMeetQ3TestErrors(pts,A,B,C):=(
+  apply(flatten(apply(pts,p,(p*A*p,p*B*p,p*C*p))),|#|);
+);
+dgs3dMeetQ3TestErrorValues(errors,A,B,C):=(
+  (sum(errors),max(errors),min(errors),(A,B,C))
+);
+dgs3dMeetQ3TestAlgWorstCase(errs):=(
+  apply(1..3,index,max(errs,(#_index,#_4)))
+);
+dt(t0,t1):=(
+  (((t1_1-t0_1)*60 + (t1_2-t0_2))*60 + (t1_3-t0_3))*1000 + (t1_4-t0_4);
+);
+dgs3dMeetQ3TestNew():=(
+  regional(A,B,C);
+  [A,B,C] = dsg3dGenerate3RandomQuadrics();
+  dgs3dMeetQ3TestErrors(dgs3dIntersects3Qnew(A,B,C),A,B,C)
+);
+dgs3dMeetQ3TestAlg(N,alg):=(
+  regional(A,B,C,t);
+  t0 = time();
+  append(dgs3dMeetQ3TestAlgWorstCase(apply(1..N,
+    [A,B,C] = dsg3dGenerate3RandomQuadrics();
+    dgs3dMeetQ3TestErrorValues(dgs3dMeetQ3TestErrors(alg.(A,B,C),A,B,C),A,B,C)
+  )),dt(t0,time()));
+);
+dgs3dMeetQ3TestAlgs(N):=(
+  print("e3q3: "+apply(dgs3dMeetQ3TestAlg(N,(A,B,C)=>dgs3de3q3(dgs3dQuadAsVec(A),dgs3dQuadAsVec(B),dgs3dQuadAsVec(C))),#_1));
+  print("raw e3q3: "+apply(dgs3dMeetQ3TestAlg(N,(A,B,C)=>dgs3de3q3Impl(dgs3dQuadAsVec(A),dgs3dQuadAsVec(B),dgs3dQuadAsVec(C))),#_1));
+  errs = dgs3dMeetQ3TestAlg(N,(A,B,C)=>dgs3dIntersects3Qnew(A,B,C));
+  print("new meetQ3: "+apply(errs,#_1));
+  [A,B,C] = errs_2_2;
+  sols = dgs3dIntersects3Qnew(A,B,C,debug->true);
+  print(sols);
+  print(dgs3dMeetQ3TestErrors(sols,A,B,C));
 );
 ////////
 
