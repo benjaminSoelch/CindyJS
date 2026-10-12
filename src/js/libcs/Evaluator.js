@@ -56,6 +56,10 @@ function evaluate(a) {
             Json._helper.self = evaluate(a.obj.obj);
         }
         const lambda = evaluate(a.obj);
+        if (lambda.ctype !== "lambda") {
+            printStackTrace("left operand of .() has to be a lambda-function");
+            return nada;
+        }
         callStack.push({ oper: `<lambda((${lambda.params.map((v) => v.name).join(",")}),...)>` });
         const result = eval_helper.evalLambda(lambda, a.args, a.modifs);
         Json._helper.self = oldobject;
