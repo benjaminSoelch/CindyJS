@@ -1929,14 +1929,14 @@ dgs3dMeetQuadricConic(q,c,size->cglNada,visible->true,color->cglNada,alpha->cglN
 dgs3dMeetBiQuadricPlane(b,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dMeetQQPImpl("meetQQP",[b,p],size->size,visible->visible,color->color,alpha->alpha)
 );
-dgs3dIntersects3Q(q1,q2,q3):=(
+dgs3dIntersect3Q(q1,q2,q3):=(
   dgs3de3q3(dgs3dQuadAsVec(q1),dgs3dQuadAsVec(q2),dgs3dQuadAsVec(q3));
 );
 dgs3d.alg.meetBQ = (b,q) => (
-  dgs3dIntersects3Q(b_1,b_2,q)
+  dgs3dIntersect3Q(b_1,b_2,q)
 );
 dgs3d.alg.meet3Q = (q1,q2,q3) => (
-  dgs3dIntersects3Q(q1,q2,q3)
+  dgs3dIntersect3Q(q1,q2,q3)
 );
 
 dgs3dMeet3QImpl(alg,parents,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
@@ -2047,7 +2047,7 @@ dgs3dDegeneratePencilBasisDetPoly(A,B,detA,detB):=([
   detB
 ]);
 dgs3dComputeDegeneratePencilBasis(A,B):=(
-  regional(detA,detB,l1,l2);
+  regional(detA,detB,As);
   detA = det(A);
   detB = det(B);
   if(|detA|>|detB|,[A,B,detA,detB]=[B,A,detB,detA]);
@@ -2055,17 +2055,19 @@ dgs3dComputeDegeneratePencilBasis(A,B):=(
     if(detB == 0,
       [A,B]
     , // TODO: what happens in the case where the l^1 coefficient also is zero
+      // TODO: choose 3rd root that minimizes similarity with known degenerate solutions
       [A,A+dgs3dCubicRoot(dgs3dDegeneratePencilBasisDetPoly(A,B,detA,detB)_(2..5))*B]
     )
   ,
-    [l1,l2] = dgs3dQuarticRoots(dgs3dDegeneratePencilBasisDetPoly(A,B,detA,detB));
-    [A+l1*B,A+l2*B]
+    As = apply(dgs3dQuarticRoots(dgs3dDegeneratePencilBasisDetPoly(A,B,detA,detB)),l,A+l*B);
+    min(pairs(As),(dgs3dComputeQuadricSimilarity(#_1,#_2),#))_2;
   )
 );
 dgs3dComputeR4Basis2(pqr):=(
   pqr = apply(pqr,#/|#|);
   sort([(0,0,0,1),(1,0,0,0),(0,1,0,0),(0,0,1,0)],v,max(pqr,|v*#|))_(1..2)
 );
+// TODO: find better definition of "distance" between quadrics
 dgs3dComputeQuadricSimilarity(q1,q2):=(
   |normalize(dgs3dQuadAsVec(q1))*normalize(dgs3dQuadAsVec(q2))|
 );
@@ -2110,13 +2112,16 @@ dgs3dMeet3QSortQuadrics(A,B,C):=(
     [A,B,C] = dgs3dPickMaxDistancePair(A,B,C);
   )));
 );
-dgs3dIntersects3Qnew(A,B,C,debug->false):=(
+dgs3dIntersect3Qnew(A,B,C,debug->false):=(
   [A,B,C] = dgs3dMeet3QSortQuadrics(A,B,C); // TODO: does sorting help?
+  if(debug,
+    print((A,B,C),exact->true);
+  );
   // TODO: check check all four degenerate elements in pencil through A,B
   //  a) if one/two decomposes into planes -> do intersection QQP/QPP with those planes
-  //  b) pick the cones with most distinct centers
   [A,B] = dgs3dComputeDegeneratePencilBasis(A,B);
   if(debug,
+    print((A,B,C),exact->true);
     print((rank(A),rank(B)));
     print((adjoint4(A),adjoint4(B)));
   );
@@ -2426,7 +2431,7 @@ dgs3de3q3Impl(q1,q2,q3):=(
 
 dsg3dGenerate3RandomQuadrics():=(
   apply(1..3,
-    dgs3dQuadAsMat(apply(1..10,random()))
+    dgs3dQuadAsMat(apply(1..10,randomNormal()))
   )
 );
 dgs3dMeetQ3TestErrors(pts,A,B,C):=(
@@ -2452,10 +2457,10 @@ dgs3dMeetQ3TestAlg(N,alg):=(
 dgs3dMeetQ3TestAlgs(N):=(
   print("e3q3: "+apply(dgs3dMeetQ3TestAlg(N,(A,B,C)=>dgs3de3q3(dgs3dQuadAsVec(A),dgs3dQuadAsVec(B),dgs3dQuadAsVec(C))),#_1*1e10));
   print("raw e3q3: "+apply(dgs3dMeetQ3TestAlg(N,(A,B,C)=>dgs3de3q3Impl(dgs3dQuadAsVec(A),dgs3dQuadAsVec(B),dgs3dQuadAsVec(C))),#_1*1e10));
-  errs = dgs3dMeetQ3TestAlg(N,(A,B,C)=>dgs3dIntersects3Qnew(A,B,C));
+  errs = dgs3dMeetQ3TestAlg(N,(A,B,C)=>dgs3dIntersect3Qnew(A,B,C));
   print("new meetQ3: "+apply(errs,#_1*1e10));
   [A,B,C] = errs_2_2;
-  sols = dgs3dIntersects3Qnew(A,B,C,debug->true);
+  sols = dgs3dIntersect3Qnew(A,B,C,debug->true);
   print(sols);
   print(dgs3dMeetQ3TestErrors(sols,A,B,C));
 );
