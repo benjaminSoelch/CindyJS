@@ -2066,24 +2066,60 @@ dgs3dComputeR4Basis2(pqr):=(
   pqr = apply(pqr,#/|#|);
   sort([(0,0,0,1),(1,0,0,0),(0,1,0,0),(0,0,1,0)],v,max(pqr,|v*#|))_(1..2)
 );
-dgs3dIntersects3Qnew(q1,q2,q3,debug->false):=(
-  regional(A,B,C);
-  [A,B] = dgs3dComputeDegeneratePencilBasis(q1,q2);
-  C = q3;
+dgs3dComputeQuadricSimilarity(q1,q2):=(
+  |normalize(dgs3dQuadAsVec(q1))*normalize(dgs3dQuadAsVec(q2))|
+);
+dgs3dPickMaxDistancePair(A,B,C):=(
+  regional(ab,ac,bc);
+  // TODO: avoid recomputation of normalized vector representation
+  ab = dgs3dComputeQuadricSimilarity(A,B);
+  ac = dgs3dComputeQuadricSimilarity(A,C);
+  bc = dgs3dComputeQuadricSimilarity(B,C);
+  if(ab<=ac,
+    if(ab<=bc,
+      [A,B,C]
+    , // ab < ac , ab > bc
+      [B,C,A]
+    )
+  , // ac < ab
+    if(ac<=bc,
+      [A,C,B]
+    , // ac < ab, ac > bc
+      [B,C,A]
+    )
+  )
+);
+dgs3dMeet3QSortQuadrics(A,B,C):=(
+  regional(detA,detB,detC);
+  // sort by increasing determinant (while avoiding recomputing det)
+  detA = |det(A)|;
+  detB = |det(B)|;
+  detC = |det(C)|;
+  if(detA>detB,[A,B,detA,detB]=[B,A,detB,detA]);
+  if(detA>detC,[A,C,detA,detC]=[C,A,detC,detA]);
+  if(detB>detC,[B,C,detB,detC]=[B,C,detB,detC]);
+  if(detC == 0, // detA == detB == detC == 0 -> pick A,B to be pair with maximum distance
+    [A,B,C] = dgs3dPickMaxDistancePair(A,B,C);
+  ,if(detB==0, // detA == B == 0 -> keep already degenerate A and B
+
+  ,if(detA==0, // set B to quadric less similar to A
+    if(dgs3dComputeQuadricSimilarity(A,B)>dgs3dComputeQuadricSimilarity(A,C),
+      [B,C] = [C,B];
+    );
+  , // all non-zero -> pick A,B to be pair with maximum distance
+    [A,B,C] = dgs3dPickMaxDistancePair(A,B,C);
+  )));
+);
+dgs3dIntersects3Qnew(A,B,C,debug->false):=(
+  [A,B,C] = dgs3dMeet3QSortQuadrics(A,B,C); // TODO: does sorting help?
+  // TODO: check check all four degenerate elements in pencil through A,B
+  //  a) if one/two decomposes into planes -> do intersection QQP/QPP with those planes
+  //  b) pick the cones with most distinct centers
+  [A,B] = dgs3dComputeDegeneratePencilBasis(A,B);
   if(debug,
     print((rank(A),rank(B)));
     print((adjoint4(A),adjoint4(B)));
   );
-  // TODO: handle case where one of the degenerate quadrics decomposes into two lines
-  // TODO: is 2-cones + quadric smarter / more stable (one cone y=g(x), one cone z = h(x), plug in quadric, solve)
-  // 1. find the two quadrics in pencil that are the least similar swap such that those are A,B
-  // 2. check all four degenerate elements in pencil through A,B
-  //  a) if one/two decomposes into planes -> do intersection QQP/QPP with those planes
-  //  b) pick the cones with most distinct centers
-  // 3. transform such that centers are at 0,1,0,0, and 0,0,1,0
-  // 4. solve conic equations to get y = g(x) z = h(x)
-  // 5. plug g,h in third quadric to get polynomial f(x) for x-coordinate
-  // 6. use y,z to get remaining coordinates
   dgs3dIntersectConeConeQuadric(A,B,C)
 );
 dgs3dComputeConeCenter(C):= (
@@ -2405,11 +2441,6 @@ dgs3dMeetQ3TestAlgWorstCase(errs):=(
 dt(t0,t1):=(
   (((t1_1-t0_1)*60 + (t1_2-t0_2))*60 + (t1_3-t0_3))*1000 + (t1_4-t0_4);
 );
-dgs3dMeetQ3TestNew():=(
-  regional(A,B,C);
-  [A,B,C] = dsg3dGenerate3RandomQuadrics();
-  dgs3dMeetQ3TestErrors(dgs3dIntersects3Qnew(A,B,C),A,B,C)
-);
 dgs3dMeetQ3TestAlg(N,alg):=(
   regional(A,B,C,t);
   t0 = time();
@@ -2419,10 +2450,10 @@ dgs3dMeetQ3TestAlg(N,alg):=(
   )),dt(t0,time()));
 );
 dgs3dMeetQ3TestAlgs(N):=(
-  print("e3q3: "+apply(dgs3dMeetQ3TestAlg(N,(A,B,C)=>dgs3de3q3(dgs3dQuadAsVec(A),dgs3dQuadAsVec(B),dgs3dQuadAsVec(C))),#_1));
-  print("raw e3q3: "+apply(dgs3dMeetQ3TestAlg(N,(A,B,C)=>dgs3de3q3Impl(dgs3dQuadAsVec(A),dgs3dQuadAsVec(B),dgs3dQuadAsVec(C))),#_1));
+  print("e3q3: "+apply(dgs3dMeetQ3TestAlg(N,(A,B,C)=>dgs3de3q3(dgs3dQuadAsVec(A),dgs3dQuadAsVec(B),dgs3dQuadAsVec(C))),#_1*1e10));
+  print("raw e3q3: "+apply(dgs3dMeetQ3TestAlg(N,(A,B,C)=>dgs3de3q3Impl(dgs3dQuadAsVec(A),dgs3dQuadAsVec(B),dgs3dQuadAsVec(C))),#_1*1e10));
   errs = dgs3dMeetQ3TestAlg(N,(A,B,C)=>dgs3dIntersects3Qnew(A,B,C));
-  print("new meetQ3: "+apply(errs,#_1));
+  print("new meetQ3: "+apply(errs,#_1*1e10));
   [A,B,C] = errs_2_2;
   sols = dgs3dIntersects3Qnew(A,B,C,debug->true);
   print(sols);
