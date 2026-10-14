@@ -1109,7 +1109,7 @@ dgs3dNewPlaneSet(alg,parents,childCount,visible->true,color->cglNada,alpha->cglN
 dgs3dUpdateColor(obj,visible->cglNada,color->cglNada,alpha->cglNada):=(
   obj:"color" = cglColor(cglValOrDefault(color,obj:"color"));
   obj:"alpha" = cglValOrDefault(alpha,obj:"alpha");
-  obj:"visible" = cglValOrDefault(alpha,obj:"visible");
+  obj:"visible" = cglValOrDefault(visible,obj:"visible");
   obj.redraw.(obj);
 );
 
