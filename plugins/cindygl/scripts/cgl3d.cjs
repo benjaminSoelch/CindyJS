@@ -153,6 +153,15 @@ cgl3d.getObjects = (objId) => (
     cgl3d.getObject.(objId)
   );
 );
+cgl3d.mapObjects = (objIds,f) => (
+  if(isList(objIds),
+    apply(objIds,
+      f.(cgl3d.getObject.(#))
+    )
+  ,
+    f.(cgl3d.getObject.(objIds))
+  );
+);
 cgl3d.removeObject = (id) => (
   if(isList(id),
     apply(id,self().removeObject.(#))
@@ -163,7 +172,7 @@ cgl3d.removeObject = (id) => (
 );
 delete3d(id) := cgl3d.removeObject.(id);
 cgl3d.setVisible = (id,val) => (
-  apply(self().getObjects.(id),cgl3dObjectSet(#,"visible",val));
+  self().mapObjects.(id,lambda(o,cgl3dObjectSet(o,"visible",val),val->val));
 );
 hide3d(id) := cgl3d.setVisible.(id,false);
 show3d(id) := cgl3d.setVisible.(id,true);
