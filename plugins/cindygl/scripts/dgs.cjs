@@ -2196,6 +2196,11 @@ dgs3dIntersectConeConeQuadric(A,B,Q):=(
   [a,b] = dgs3dSolveConicForY(dgs3dConicCoefficientVector(apply(XY_(1,2,4),#_(1,2,4))));
   [c,d] = dgs3dSolveConicForY(dgs3dConicCoefficientVector(apply(XZ_(1,3,4),#_(1,3,4))));
   // TODO are there relations between the roots (have four choices for y,z given x)
+  if(debug,
+    regional(p);
+    p = dsg3dComputeConeIntersectionPoly(dgs3dQuadricCoefficientVector(Q),a,b,c,d);
+    print((p,roots(p)),exact->true);
+  );
   apply(roots(dsg3dComputeConeIntersectionPoly(dgs3dQuadricCoefficientVector(Q),a,b,c,d)),x,
     T*dgs3dIntersect3ConesPickRoot(x,a,b,c,d,Q)
   );
