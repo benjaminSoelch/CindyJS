@@ -3567,7 +3567,7 @@ dgs3dFindPointDist = (pt,root,dir) => (
   regional(center,radius);
   center = cgl3dObjectGet(cgl3d.getObject.(pt:"drawId"),"center");
   radius = cgl3dObjectGet(cgl3d.getObject.(pt:"drawId"),"radius");
-  if(isReal(center)&isReal(radius),
+  if(isRealVec(center)&isReal(radius),
     cglEvalOrDiscard(cgl3d.compute.sphereDepths.(root,dir,center,radius)_1);
   ,
     cglUndefinedVal()
@@ -3578,7 +3578,7 @@ dgs3dFindLineDist = (ln,root,dir) => (
   center = cgl3dObjectGet(cgl3d.getObject.(ln:"drawId"),"center");
   orientation = cgl3dObjectGet(cgl3d.getObject.(ln:"drawId"),"orientation");
   radius = cgl3dObjectGet(cgl3d.getObject.(ln:"drawId"),"radius");
-  if(isReal(center)&isReal(orientation)&isReal(radius),
+  if(isRealVec(center)&isRealVec(orientation)&isReal(radius),
     cglEvalOrDiscard(cgl3d.compute.cappedCylinderDepths.(root,dir,center,orientation,radius)_1);
   ,
     cglUndefinedVal()
@@ -3590,7 +3590,7 @@ dgs3dFindPlaneDist = (pl,root,dir) => (
   n = v_(1..3);
   s = v_4;
   // n*(r+l*d)+s = 0 ->  l = -(s+n*r)/(n*d)
-  if(n*dir == 0 % !isReal(v),cglUndefinedVal(), // avoid warning for div by 0
+  if(n*dir == 0 % !isRealVec(v),cglUndefinedVal(), // avoid warning for div by 0
     l = -(s+n*root)/(n*dir);
     cglEvalOrDiscard(
       [l0,l1] = cgl3d.cutoff.screenSphere.expr.(root,dir);
