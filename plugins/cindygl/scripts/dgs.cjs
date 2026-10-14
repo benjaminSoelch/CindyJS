@@ -170,8 +170,11 @@ dgs3dPrepareRecompute(obj):=(
     )
   );
 );
+dgs3dNeedParentRecompute(obj):=(
+  max(obj.parents,#.needsRecompute);
+);
 dgs3dShouldRecompute(obj):=(
-  if(obj.needsRecompute,!max(obj.parents,#.needsRecompute),false);
+  if(obj.needsRecompute,!dgs3dNeedParentRecompute(obj),false);
 );
 dgs3dRecomputeNonDetChild(obj,child):=(
   // for set `childrenDeterministic` is false, otherwise parent is deterministic if all children are deterministic
@@ -211,15 +214,17 @@ dgs3dTryRecomputeNonDetChildren(obj):=(
 dgs3dRecomputeDetChildren(obj):=(
   forall(obj:"children",child,
     child = dgs3dObjById(child);
-    if(dgs3dShouldRecompute(child),
-      child.needsRecompute = false;
-      if(child.childrenDeterministic,
-        child.move.(child);
+    if(!dgs3dNeedParentRecompute(child),
+      if(child.needsRecompute,
+        child.needsRecompute = false;
+        if(child.childrenDeterministic,
+          child.move.(child);
+        );
       );
-    );
-    if(child.checkDetChildren,
-      child.checkDetChildren = false;
-      dgs3dRecomputeDetChildren(child);
+      if(child.checkDetChildren,
+        child.checkDetChildren = false;
+        dgs3dRecomputeDetChildren(child);
+      );
     );
   );
 );
