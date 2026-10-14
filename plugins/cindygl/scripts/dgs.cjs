@@ -953,7 +953,7 @@ dgs3dFindObjectsByIncidences(type,incidences):=(
   )
 );
 // type: string, parents: [obj3d] -> obj3d
-dgs3dNewObject(type,alg,parents,onInit->lambda(self,),
+dgs3dNewObject(type,alg,parents,onInit->lambda(self,),label->cglNada,
   onMove->cglNada,visible->true,color->cglNada,alpha->cglNada,incidences->[],tangencies->[],reuse->false):=(
   regional(obj,objId,algName,recompute,prevObjs);
   if(reuse,
@@ -967,6 +967,7 @@ dgs3dNewObject(type,alg,parents,onInit->lambda(self,),
     [algName,recompute] = dgs3dGetAlg(alg);
     obj = {
       "type":type, "algorithm": algName, "id": objId, "drawId": -1,
+      "label": if(isUndefined(label),type+"."+objId,label),
       "parents": parents, "children": [],
       "childrenDeterministic": !dgs3dIsSetType(type),
       "visible": cglValOrDefault(visible,true),
@@ -1013,46 +1014,46 @@ dgs3dOnInitCurve(size,isCircle):=(
     obj.isCircle = isCircle;
   ,size->cglValOrDefault(size,cgl3d.defaults.cylinderSize),isCircle->isCircle)
 );
-dgs3dNewNumber(value):=(
-  dgs3dNewObject("number","freeNumber",[],onInit->dsg3dSetCoordsOnInit(value));
+dgs3dNewNumber(value,label->cglNada):=(
+  dgs3dNewObject("number","freeNumber",[],label->label,onInit->dsg3dSetCoordsOnInit(value));
 );
-dgs3dNewPoint(alg,parents,size->cglNada,visible->true,color->cglNada,alpha->cglNada,incidences->[],reuse->false):=(
-  dgs3dNewObject("point",alg,parents,
+dgs3dNewPoint(alg,parents,size->cglNada,visible->true,color->cglNada,alpha->cglNada,incidences->[],reuse->false,label->cglNada):=(
+  dgs3dNewObject("point",alg,parents,label->label,
     onInit->dsg3dSetSizeOnInit(cglValOrDefault(size,cgl3d.defaults.sphereSize)),
     visible->visible,color->color,alpha->alpha,incidences->incidences,reuse->reuse);
 );
-dgs3dNewLine(alg,parents,size->cglNada,visible->true,color->cglNada,alpha->cglNada,incidences->[],tangencies->[],reuse->false):=(
-  dgs3dNewObject("line",alg,parents,
+dgs3dNewLine(alg,parents,size->cglNada,visible->true,color->cglNada,alpha->cglNada,incidences->[],tangencies->[],reuse->false,label->cglNada):=(
+  dgs3dNewObject("line",alg,parents,label->label,
     onInit->dsg3dSetSizeOnInit(cglValOrDefault(size,cgl3d.defaults.cylinderSize)),
     visible->visible,color->color,alpha->alpha,incidences->incidences,tangencies->tangencies,reuse->reuse);
 );
-dgs3dNewConic(alg,parents,size->cglNada,visible->true,color->cglNada,alpha->cglNada,isCircle->false,incidences->[],tangencies->[],reuse->false):=(
-  dgs3dNewObject("conic",alg,parents,
+dgs3dNewConic(alg,parents,size->cglNada,visible->true,color->cglNada,alpha->cglNada,isCircle->false,incidences->[],tangencies->[],reuse->false,label->cglNada):=(
+  dgs3dNewObject("conic",alg,parents,label->label,
     onInit->dgs3dOnInitCurve(size,isCircle),
     visible->visible,color->color,alpha->alpha,incidences->incidences,tangencies->tangencies,reuse->reuse);
 );
-dgs3dNewBiQuadric(alg,parents,size->cglNada,visible->true,color->cglNada,alpha->cglNada,isCircle->false,incidences->[],tangencies->[],reuse->false):=(
-  dgs3dNewObject("biquadric",alg,parents,
+dgs3dNewBiQuadric(alg,parents,size->cglNada,visible->true,color->cglNada,alpha->cglNada,isCircle->false,incidences->[],tangencies->[],reuse->false,label->cglNada):=(
+  dgs3dNewObject("biquadric",alg,parents,label->label,
     onInit->dgs3dOnInitCurve(size,isCircle),
     visible->visible,color->color,alpha->alpha,incidences->incidences,tangencies->tangencies,reuse->reuse);
 );
-dgs3dNewPlane(alg,parents,visible->true,color->cglNada,alpha->cglNada,incidences->[],tangencies->[],reuse->false):=(
-  dgs3dNewObject("plane",alg,parents,
+dgs3dNewPlane(alg,parents,visible->true,color->cglNada,alpha->cglNada,incidences->[],tangencies->[],reuse->false,label->cglNada):=(
+  dgs3dNewObject("plane",alg,parents,label->label,
     visible->visible,color->color,alpha->alpha,incidences->incidences,tangencies->tangencies,reuse->reuse);
 );
-dgs3dNewQuadric(alg,parents,visible->true,color->cglNada,alpha->cglNada,isSphere->false,incidences->[],tangencies->[],reuse->false):=(
-  dgs3dNewObject("quadric",alg,parents,
+dgs3dNewQuadric(alg,parents,visible->true,color->cglNada,alpha->cglNada,isSphere->false,incidences->[],tangencies->[],reuse->false,label->cglNada):=(
+  dgs3dNewObject("quadric",alg,parents,label->label,
     onInit->lambda(obj,obj.isSphere = isSphere,isSphere->isSphere),
     visible->visible,color->color,alpha->alpha,incidences->incidences,tangencies->tangencies,reuse->reuse);
 );
-dgs3dNewTrafo(alg,parents,reuse->false):=(
-  dgs3dNewObject("transform",alg,parents,reuse->reuse);
+dgs3dNewTrafo(alg,parents,reuse->false,label->cglNada):=(
+  dgs3dNewObject("transform",alg,parents,label->label,reuse->reuse);
 );
-dgs3dNewMobiusTrafo(alg,parents,reuse->false):=(
-  dgs3dNewObject("mobiusTrafo",alg,parents,reuse->reuse);
+dgs3dNewMobiusTrafo(alg,parents,reuse->false,label->cglNada):=(
+  dgs3dNewObject("mobiusTrafo",alg,parents,label->label,reuse->reuse);
 );
-dgs3dNewSurface(alg,parents,visible->true,color->cglNada,alpha->cglNada,reuse->false):=(
-  dgs3dNewObject("surface",alg,parents,visible->visible,color->color,alpha->alpha,reuse->reuse);
+dgs3dNewSurface(alg,parents,visible->true,color->cglNada,alpha->cglNada,reuse->false,label->cglNada):=(
+  dgs3dNewObject("surface",alg,parents,visible->visible,color->color,alpha->alpha,label->label,reuse->reuse);
 );
 dgs3dMovePointPair = lambda(self,
   dgs3dTracePair(self,eval(self.recompute,apply(self.parents,#.coords)),(x,y)=>dgs3dProjDistanceSq(x,y));
@@ -1069,10 +1070,10 @@ dgs3dMoveLineSet   = lambda(self,
 dgs3dMovePlaneSet  = lambda(self,
   dgs3dTraceSet(self,eval(self.recompute,apply(self.parents,#.coords)),(x,y)=>dgs3dProjDistanceSq(x,y));
 );
-dgs3dNewPointSet(alg,parents,childCount,size->cglNada,visible->true,color->cglNada,alpha->cglNada,incidences->[],tangencies->[],reuse->false):=(
-  dgs3dNewObject("{point}",alg,parents,onInit->lambda(obj,
+dgs3dNewPointSet(alg,parents,childCount,size->cglNada,visible->true,color->cglNada,alpha->cglNada,incidences->[],tangencies->[],reuse->false,label->cglNada):=(
+  dgs3dNewObject("{point}",alg,parents,label->label,onInit->lambda(obj,
       obj.children = apply(1..childCount,
-        dgs3dNewObject("point","setElt",[obj],
+        dgs3dNewObject("point","setElt",[obj],label->obj.label+"."+#,
           onInit->dsg3dSetSizeOnInit(cglValOrDefault(size,cgl3d.defaults.sphereSize)),
           visible->visible,color->color,alpha->alpha,incidences->incidences,tangencies->tangencies);
       )
@@ -1080,10 +1081,10 @@ dgs3dNewPointSet(alg,parents,childCount,size->cglNada,visible->true,color->cglNa
     onMove->if(childCount == 2,dgs3dMovePointPair,dgs3dMovePointSet),
     visible->visible,color->color,alpha->alpha,reuse->reuse);
 );
-dgs3dNewLineSet(alg,parents,childCount,size->cglNada,visible->true,color->cglNada,alpha->cglNada,incidences->[],tangencies->[],reuse->false):=(
-  dgs3dNewObject("{line}",alg,parents,onInit->lambda(obj,
+dgs3dNewLineSet(alg,parents,childCount,size->cglNada,visible->true,color->cglNada,alpha->cglNada,incidences->[],tangencies->[],reuse->false,label->cglNada):=(
+  dgs3dNewObject("{line}",alg,parents,label->label,onInit->lambda(obj,
       obj.children = apply(1..childCount,
-        dgs3dNewObject("line","setElt",[obj],
+        dgs3dNewObject("line","setElt",[obj],label->obj.label+"."+#,
           onInit->dsg3dSetSizeOnInit(cglValOrDefault(size,cgl3d.defaults.cylinderSize)),
           visible->visible,color->color,alpha->alpha,incidences->incidences,tangencies->tangencies);
       )
@@ -1091,10 +1092,10 @@ dgs3dNewLineSet(alg,parents,childCount,size->cglNada,visible->true,color->cglNad
     onMove->if(childCount == 2,dgs3dMoveLinePair,dgs3dMoveLineSet),
     visible->visible,color->color,alpha->alpha,reuse->reuse);
 );
-dgs3dNewPlaneSet(alg,parents,childCount,visible->true,color->cglNada,alpha->cglNada,incidences->[],tangencies->[],reuse->false):=(
-  dgs3dNewObject("{plane}",alg,parents,onInit->lambda(obj,
+dgs3dNewPlaneSet(alg,parents,childCount,visible->true,color->cglNada,alpha->cglNada,incidences->[],tangencies->[],reuse->false,label->cglNada):=(
+  dgs3dNewObject("{plane}",alg,parents,label->label,onInit->lambda(obj,
       obj.children = apply(1..childCount,
-        dgs3dNewObject("plane","setElt",[obj],
+        dgs3dNewObject("plane","setElt",[obj],label->obj.label+"."+#,
           visible->visible,color->color,alpha->alpha,incidences->incidences,tangencies->tangencies);
       )
     ,childCount->childCount,incidences->incidences,tangencies->tangencies),
@@ -1303,14 +1304,14 @@ point3d(p,
 );
 dgs3dFreePoint(p,
   size->cgl3d.defaults:"sphereSize",pinned->false,visible->true,
-  color->cglNada,alpha->cglNada
+  color->cglNada,alpha->cglNada,label->cglNada
 ):=(
   dgs3dInitMovable(
     dgs3dNewObject("point","freePoint",[],
     onInit->dsg3dSetSizeAndCoordsOnInit(
       cglValOrDefault(size,cgl3d.defaults.sphereSize),
       dgs3dRP3Normalize(dgs3dPoint4(p))
-    ),visible->visible,color->color,alpha->alpha)
+    ),visible->visible,color->color,alpha->alpha,label->label)
   ,pinned)
 );
 randomPoint3d(size->cglNada,pinned->false,visible->true,color->cglNada,alpha->cglNada):=(
@@ -1339,35 +1340,35 @@ randomPoint3dOn(obj,size->cglNada,pinned->false,visible->true,color->cglNada,alp
 line3d(l,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dFreeLine(l,size->size,visible->visible,color->color,alpha->alpha);
 );
-dgs3dFreeLine(l,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+dgs3dFreeLine(l,size->cglNada,visible->true,color->cglNada,alpha->cglNada,label->cglNada):=(
   dgs3dNewObject("line","freeLine",[],
     onInit->dsg3dSetSizeAndCoordsOnInit(
       cglValOrDefault(size,cgl3d.defaults.cylinderSize),
       dgs3dRP3Normalize(l)
-    ),visible->visible,color->color,alpha->alpha);
+    ),visible->visible,color->color,alpha->alpha,label->label);
 );
 
 // p: vec4 = (x,y,z,w) , visible: bool = should object be drawn
 plane3d(p,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dFreePlane(p,visible->visible,color->color,alpha->alpha);
 );
-dgs3dFreePlane(p,visible->true,color->cglNada,alpha->cglNada):=(
+dgs3dFreePlane(p,visible->true,color->cglNada,alpha->cglNada,label->cglNada):=(
   dgs3dNewObject("plane","freePlane",[],
     onInit->dsg3dSetCoordsOnInit(dgs3dRP3Normalize(p)),
-    visible->visible,color->color,alpha->alpha);
+    visible->visible,color->color,alpha->alpha,label->label);
 );
 // p: mat4, visible: bool = should object be drawn
 quadric3d(M,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dFreeQuadric(M,visible->visible,color->color,alpha->alpha);
 );
-dgs3dFreeQuadric(M,visible->true,color->cglNada,alpha->cglNada):=(
+dgs3dFreeQuadric(M,visible->true,color->cglNada,alpha->cglNada,label->cglNada):=(
   dgs3dNewObject("quadric","freeQuadric",[],
     onInit->dsg3dSetCoordsOnInit(dgs3dRP3Normalize(M+transpose(M))),
-    visible->visible,color->color,alpha->alpha);
+    visible->visible,color->color,alpha->alpha,label->label);
 );
-randomQuadric3d(visible->true,color->cglNada,alpha->cglNada):=(
+randomQuadric3d(visible->true,color->cglNada,alpha->cglNada,label->cglNada):=(
   quadric3d(apply(1..4,apply(1..4,randomNormal(),randomNormal(),randomNormal())),
-    visible->visible,color->color,alpha->alpha
+    visible->visible,color->color,alpha->alpha,label->label
   );
 );
 randomQuadricBy9P(size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
@@ -1378,8 +1379,8 @@ randomQuadricBy9P(size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
 transformation3d(M):=(
   dgs3dFreeTransformation(M)
 );
-dgs3dFreeTransformation(M):=(
-  dgs3dNewObject("transform","freeTransform",[],onInit->dsg3dSetCoordsOnInit(M));
+dgs3dFreeTransformation(M,label->cglNada):=(
+  dgs3dNewObject("transform","freeTransform",[],onInit->dsg3dSetCoordsOnInit(M),label->label);
 );
 
 // helpers for initial point for pointOn... operations
@@ -1531,7 +1532,7 @@ dgs3dFindPointOnBiQuadric(b,P0):=(
 pointOnLine3d(l,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
   dgs3dPointOnLine(l,p0,size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
 );
-dgs3dPointOnLine(l,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
+dgs3dPointOnLine(l,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada,label->cglNada):=(
   dgs3dInitMovable(dgs3dNewObject("point","onLine",[l],
     onInit->dsg3dSetSizeAndCoordsOnInit(
       cglValOrDefault(size,cgl3d.defaults.sphereSize),
@@ -1539,7 +1540,7 @@ dgs3dPointOnLine(l,p0,size->cglNada,visible->true,pinned->false,color->cglNada,a
     ),onMove->lambda(self,
       self.coords = dgs3dProjectPointToLine(self.coords,((self.parents)_1).coords);
       DGS3DmOVEoK
-    ),visible->visible,color->color,alpha->alpha,incidences->[l])
+    ),visible->visible,color->color,alpha->alpha,incidences->[l],label->label)
   ,pinned);
 );
 pointOnLine3d(l,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
@@ -1552,7 +1553,7 @@ dgs3dPointOnLine(l,size->cglNada,visible->true,pinned->false,color->cglNada,alph
 pointOnPlane3d(s,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
   dgs3dPointOnPlane(s,p0,size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
 );
-dgs3dPointOnPlane(s,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
+dgs3dPointOnPlane(s,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada,label->cglNada):=(
   dgs3dInitMovable(dgs3dNewObject("point","onPlane",[s],
     onInit->dsg3dSetSizeAndCoordsOnInit(
       cglValOrDefault(size,cgl3d.defaults.sphereSize),
@@ -1560,7 +1561,7 @@ dgs3dPointOnPlane(s,p0,size->cglNada,visible->true,pinned->false,color->cglNada,
     ),onMove->lambda(self,
       self.coords = dgs3dProjectPointToPlane(self.coords,((self.parents)_1).coords);
       DGS3DmOVEoK
-    ),visible->visible,color->color,alpha->alpha,incidences->[s])
+    ),visible->visible,color->color,alpha->alpha,incidences->[s],label->label)
   ,pinned)
 );
 pointOnPlane3d(s,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
@@ -1579,7 +1580,7 @@ dgs3dSetIfDefined(self,coords):=(
     DGS3DmOVEoK
   )
 );
-dgs3dPointOnQuadric(q,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
+dgs3dPointOnQuadric(q,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada,label->cglNada):=(
   dgs3dInitMovable(dgs3dNewObject("point","onQuadric",[q],
     onInit->dsg3dSetSizeAndCoordsOnInit(
       cglValOrDefault(size,cgl3d.defaults.sphereSize),
@@ -1588,7 +1589,7 @@ dgs3dPointOnQuadric(q,p0,size->cglNada,visible->true,pinned->false,color->cglNad
       dgs3dSetIfDefined(self,
         dgs3dTryProjectPointToQuadric(self.coords,((self.parents)_1).coords,unique->true)
       )
-    ),visible->visible,color->color,alpha->alpha,incidences->[q])
+    ),visible->visible,color->color,alpha->alpha,incidences->[q],label->label)
   ,pinned)
 );
 pointOnQuadric3d(q,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
@@ -1601,7 +1602,7 @@ dgs3dPointOnQuadric(q,size->cglNada,visible->true,pinned->false,color->cglNada,a
 pointOnConic3d(q,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
   dgs3dPointOnConic(q,p0,size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
 );
-dgs3dPointOnConic(q,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
+dgs3dPointOnConic(q,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada,label->cglNada):=(
   dgs3dInitMovable(dgs3dNewObject("point","onConic",[q],
     onInit->dsg3dSetSizeAndCoordsOnInit(
       cglValOrDefault(size,cgl3d.defaults.sphereSize),
@@ -1610,7 +1611,7 @@ dgs3dPointOnConic(q,p0,size->cglNada,visible->true,pinned->false,color->cglNada,
       dgs3dSetIfDefined(self,
         dgs3dTryProjectPointToConic(self.coords,((self.parents)_1).coords,unique->true)
       )
-    ),visible->visible,color->color,alpha->alpha,incidences->[q])
+    ),visible->visible,color->color,alpha->alpha,incidences->[q],label->label)
   ,pinned)
 );
 pointOnConic3d(c,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
@@ -1623,7 +1624,7 @@ dgs3dPointOnConic(c,size->cglNada,visible->true,pinned->false,color->cglNada,alp
 pointOnBiQuadric3d(q,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
   dgs3dPointOnBiQuadric(q,p0,size->size,visible->visible,pinned->pinned,color->color,alpha->alpha);
 );
-dgs3dPointOnBiQuadric(q,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
+dgs3dPointOnBiQuadric(q,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada,label->cglNada):=(
   dgs3dInitMovable(dgs3dNewObject("point","onBiQuadric",[q],
     onInit->dsg3dSetSizeAndCoordsOnInit(
       cglValOrDefault(size,cgl3d.defaults.sphereSize),
@@ -1632,7 +1633,7 @@ dgs3dPointOnBiQuadric(q,p0,size->cglNada,visible->true,pinned->false,color->cglN
       dgs3dSetIfDefined(self,
         dgs3dTryProjectPointToBiQuadric(self.coords,((self.parents)_1).coords,unique->true)
       );
-    ),visible->visible,color->color,alpha->alpha,incidences->[q])
+    ),visible->visible,color->color,alpha->alpha,incidences->[q],label->label)
   ,pinned);
 );
 pointOnBiQuadric3d(q,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada):=(
