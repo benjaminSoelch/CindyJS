@@ -1151,7 +1151,24 @@ Cgl3dLayeredSceneRenderer.prototype.renderOpaque = function(objects) {
     gl.depthMask(false); // keep depth-buffer unchanged (holds depth of clostest opaque pixel)
     // move rendered data to opaque,layer and layers[0]
     this.layers[0] = this.swapRenderLayer(this.layers[0]);
+    this.opaqueOnly = true;
 };
+Cgl3dLayeredSceneRenderer.prototype.finishRenderLayer = function(){
+    const layerCount = this.layers.length;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.mergeBuffer);
+    gl.disable(gl.DEPTH_TEST); // no depth-testing during texture sorting
+    gl.disable(gl.CULL_FACE); // don't cull faces while sorting layers
+    // ensure all four drawBuffers are linked to framebuffer
+    gl.drawBuffers([gl.COLOR_ATTACHMENT0,gl.COLOR_ATTACHMENT1,gl.COLOR_ATTACHMENT2,gl.COLOR_ATTACHMENT3]);
+    for(let i=0;i<layerCount-1;i++){
+        sortLayers(this.layers[i],this.renderLayer,false); // move closer pixel to left texture
+        this.layers[i]=this.swapTmpLayer(0,this.layers[i]);
+        this.renderLayer=this.swapTmpLayer(1,this.renderLayer);
+    }
+    gl.drawBuffers([gl.COLOR_ATTACHMENT0,gl.COLOR_ATTACHMENT1]);// removed unused drawBuffers
+    sortLayers(this.layers[layerCount-1],this.renderLayer,true); // merge textures depending on relative depth
+    this.layers[layerCount-1]=this.swapTmpLayer(0,this.layers[layerCount-1]);
+}
 /**@param {Array<CindyJS.anyval>} objects */
 Cgl3dLayeredSceneRenderer.prototype.renderTranslucent = function(objects) {
     const layerCount = this.layers.length;
@@ -1183,6 +1200,7 @@ Cgl3dLayeredSceneRenderer.prototype.renderTranslucent = function(objects) {
             if(!obj3d) return; // skip non-objects
             if(!obj3d.visible)
                 return;// skip invisible objects
+            this.opaqueOnly = false;
             CindyGL.currentBounds = obj3d.boundingBox;
             CindyGL.currentModifiers = obj3d.plotModifiers;
             CindyGL.currentVModifiers = obj3d.boundingBox['vModifiers'];
@@ -1195,27 +1213,15 @@ Cgl3dLayeredSceneRenderer.prototype.renderTranslucent = function(objects) {
             gl.clearBufferfv(gl.COLOR, 1, [1, 0, 0, 0]); // clear depth-texture to 1
             Renderer.prevShader = null; // clear cached shader data
             obj3d.renderer.render3d(this.iw, this.ih,obj3d.boundingBox,obj3d.plotModifiers,null, this.renderBuffer, this.canvaswrapper != null);
-            gl.bindFramebuffer(gl.FRAMEBUFFER, this.mergeBuffer);
-            gl.disable(gl.DEPTH_TEST); // no depth-testing during texture sorting
-            gl.disable(gl.CULL_FACE); // don't cull faces while sorting layers
-            // ensure all four drawBuffers are linked to framebuffer
-            gl.drawBuffers([gl.COLOR_ATTACHMENT0,gl.COLOR_ATTACHMENT1,gl.COLOR_ATTACHMENT2,gl.COLOR_ATTACHMENT3]);
-            for(let i=0;i<layerCount-1;i++){
-                sortLayers(this.layers[i],this.renderLayer,false); // move closer pixel to left texture
-                this.layers[i]=this.swapTmpLayer(0,this.layers[i]);
-                this.renderLayer=this.swapTmpLayer(1,this.renderLayer);
-            }
-            gl.drawBuffers([gl.COLOR_ATTACHMENT0,gl.COLOR_ATTACHMENT1]);// removed unused drawBuffers
-            sortLayers(this.layers[layerCount-1],this.renderLayer,true); // merge textures depending on relative depth
-            this.layers[layerCount-1]=this.swapTmpLayer(0,this.layers[layerCount-1]);
-            if(obj3d.renderer.opaque){
-                this.wrongOpacity.add(obj3d);
-            }
+            this.finishRenderLayer();
         });
     }
 };
 Cgl3dLayeredSceneRenderer.prototype.finishRender = function() {
     const layerCount = this.layers.length;
+    if(layerCount > 1 && this.opaqueOnly) {
+        this.finishRenderLayer();
+    }
     if(this.canvaswrapper!=null) {
         this.canvaswrapper.bindOutputFramebuffer(); //render to texture stored in canvaswrapper
         this.canvaswrapper.generation = ++this.canvaswrapper.canvas.generation;
