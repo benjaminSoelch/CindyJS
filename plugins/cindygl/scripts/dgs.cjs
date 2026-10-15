@@ -2069,9 +2069,15 @@ dgs3dComputeDegeneratePencilBasis(A,B):=(
     min(pairs(As),(dgs3dComputeQuadricSimilarity(#_1,#_2),#))_2;
   )
 );
-dgs3dComputeR4Basis2(pqr):=(
-  pqr = apply(pqr,#/|#|);
-  sort([(0,0,0,1),(1,0,0,0),(0,1,0,0),(0,0,1,0)],v,max(pqr,|v*#|))_(1..2)
+dgs3dComputeR4Basis2(pq):=(
+  regional(p,q,vw);
+  pq = apply(pq,#/|#|);
+  vw = sort([(0,0,0,1),(1,0,0,0),(0,1,0,0),(0,0,1,0)],v,max(pq,|v*#|))_(1..2);
+  [p,q] = pq;
+  q = normalize(q - (q*conjugate(p))*p);
+  [p,q] = apply(vw,#-(#*conjugate(p))*p-(#*conjugate(q))*q);
+  p = normalize(p);
+  (p,pq_1,pq_2,normalize(q-(q*conjugate(p))*p))
 );
 // TODO: find better definition of "distance" between quadrics
 dgs3dComputeQuadricSimilarity(q1,q2):=(
@@ -2186,16 +2192,15 @@ dgs3dIntersect3ConesPickRoot(x,a,b,c,d,Q):=(
   min(pts,(|#*Q*#|,#))_2
 );
 dgs3dIntersectConeConeQuadric(A,B,Q):=(
-  regional(centers,T,XY,XZ,v1,v4,a,b,c,d);
+  regional(centers,T,XY,XZ,a,b,c,d);
   centers = apply([A,B],dgs3dRP3Normalize(dgs3dComputeConeCenter(#)));
   // TODO handle case where the centers coincide
   // TODO: special handling for case where centers are close
   // obtain transformation such that each cone uses only two variables
-  [v1,v4] = dgs3dComputeR4Basis2(centers);
-  T = transpose([v1,centers_1,centers_2,v4]);
+  T = transpose(dgs3dComputeR4Basis2(centers));
   [XZ,XY,Q] = apply([A,B,Q],transpose(T)*#*T);
   if(debug,
-    print("det T: "+det(T)+" T: "+centers);
+    print("det T: "+det(T)+" T: "+transpose(T));
     print([XZ,XY]);
   );
   // cone-centers are all at infinity -> all intersections are finite
