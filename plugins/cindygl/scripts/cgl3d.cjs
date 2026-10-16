@@ -2306,16 +2306,33 @@ curve3d(curveExpr,from,to,color->cgl3d.defaults.cylinderColor,colors->cglNada,te
       alpha->alpha,light->light,plotModifiers->plotModifiers
     );
   ,
-    connect3d(apply(0..samples,k,
+    // TODO: update texture-offset for sub-ranges
+    flatten(apply(cgl3dDefinedSubranges(apply(0..samples,k,
       t = k/samples;
       curveExpr.(t*to+(1-t)*from);
-    ),
+    )),connect3d(#,
       color->color,colors->colors,texture->texture,
       colorBack->colorBack,colorsBack->colorsBack,textureBack->textureBack,
       closed->closed,renderBack->renderBack,caps->caps,joints->joints,size->size,
       alpha->alpha,light->light,plotModifiers->plotModifiers
+    )));
+  );
+);
+cgl3dDefinedSubranges(arr):=(
+  regional(index);
+  index = 0;
+  res = [];
+  while(index < length(arr),
+    index = index+1;
+    if(isUndefined(arr_index),
+      if(index>1,
+        res = append(res,arr_(1..(index-1)));
+      );
+      arr = arr_((index+1)..length(arr));
+      index = 0;
     );
   );
+  append(res,arr);
 );
 
 torus3d(center,orientation,radius1,radius2,color->cgl3d.defaults.torusColor,texture->cglNada,
