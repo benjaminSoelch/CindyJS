@@ -166,8 +166,8 @@ cgl3d.removeObject = (id) => (
   if(isList(id),
     apply(id,self().removeObject.(#))
   ,
-    delete(self().objects.opaque:id);
-    delete(self().objects.translucent:id);
+    delete(self().objects.opaque,text(id));
+    delete(self().objects.translucent,text(id));
   );
 );
 delete3d(id) := cgl3d.removeObject.(id);
