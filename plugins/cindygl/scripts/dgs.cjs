@@ -1249,6 +1249,23 @@ dgs3dRenderBiQuadric = (self) => (
       cgl3d.setVisible.(self:"drawId",false);
   ));
 );
+dgs3dRenderBiQuadricCurves = (self) => (
+  regional(M,exprs,data);
+  M = self:"coords";
+  if(self:"visible" == true & dgs3dIsRealBiQuadric(M), // treat undefined as falsy
+    M = re(M); // isReal allows small imaginary parts
+    if(self:"drawId"!=-1,
+      cgl3d.removeObject.(self:"drawId")
+    );
+    // TODO: curve start/end depend on transformation
+    // TODO: split curve at roots of b&d (avoid gaps due to missing points)
+    self:"drawId" = flatten(apply(dgs3dBiQuadricAsCurves(M_1,M_2),
+      curve3d(#,-dgs3dCutoffRadius,dgs3dCutoffRadius,samples->128,size->self:"size",alpha->self:"alpha",color->self:"color",plotModifiers->data)
+    ));
+  ,if(self:"drawId"!=-1,
+      cgl3d.setVisible.(self:"drawId",false);
+  ));
+);
 dgs3dRenderSurface = (self) => (
   if(self:"visible" == true, // treat undefined as falsy
     if(self:"drawId"==-1,
@@ -2178,6 +2195,9 @@ dsg3dComputeConeIntersectionPoly(coefficients,a,b,c,d):=(
 );
 dsg3dPSqrtEval(a,b,x):=(
   dgs3dPeval(a,x)+sqrt(dgs3dPeval(b,x))
+);
+dsg3dPSqrtEvalM(a,b,x):=(
+  dgs3dPeval(a,x)-sqrt(dgs3dPeval(b,x))
 );
 // pick correct signs for roots
 // TODO? is there a better way than checking all four choices?
@@ -3163,6 +3183,26 @@ dgs3dDistanceQuadricPlane(conicQuadric,conicPlane,samplePoint):=(
   //P = dgs3dSimpleConicProjectionStep(conicQuadric,conicPlane,planePoint,P);
   v = (P / P_4 - samplePoint / samplePoint_4);
   v*v
+);
+dgs3dCheckCurvePoint(v):=(
+  if(isRealVec(v) & |v| < dgs3dCutoffRadius,re(v),cglNada)
+);
+dgs3dBiQuadricAsCurves(A,B):=(
+  regional(centers,T,XY,XZ);
+  [A,B] = dgs3dComputeDegeneratePencilBasis(A,B);
+  // TODO? handle case where one of the quadrics decomposes into lines
+  centers = apply([A,B],dgs3dRP3Normalize(dgs3dComputeConeCenter(#)));
+  // TODO? handle case where the centers coincide
+  T = transpose(dgs3dComputeR4Basis2(centers));
+  [XZ,XY] = apply([A,B],transpose(T)*#*T);
+  [a,b] = dgs3dSolveConicForY(dgs3dConicCoefficientVector(apply(XY_(1,2,4),#_(1,2,4))));
+  [c,d] = dgs3dSolveConicForY(dgs3dConicCoefficientVector(apply(XZ_(1,3,4),#_(1,3,4))));
+  (
+    lambda(t,dgs3dCheckCurvePoint(dgs3ddehom4(T*(t,dsg3dPSqrtEval(a,b,t),dsg3dPSqrtEval(c,d,t),1))_(1..3)),a->a,b->b,c->c,d->d,T->T),
+    lambda(t,dgs3dCheckCurvePoint(dgs3ddehom4(T*(t,dsg3dPSqrtEval(a,b,t),dsg3dPSqrtEvalM(c,d,t),1))_(1..3)),a->a,b->b,c->c,d->d,T->T),
+    lambda(t,dgs3dCheckCurvePoint(dgs3ddehom4(T*(t,dsg3dPSqrtEvalM(a,b,t),dsg3dPSqrtEval(c,d,t),1))_(1..3)),a->a,b->b,c->c,d->d,T->T),
+    lambda(t,dgs3dCheckCurvePoint(dgs3ddehom4(T*(t,dsg3dPSqrtEvalM(a,b,t),dsg3dPSqrtEvalM(c,d,t),1))_(1..3)),a->a,b->b,c->c,d->d,T->T)
+  )
 );
 // TODO? try porting iterative projection approach from dgs3dTryProjectPointToBiQuadric to shader
 // estimate squared-distance to intersection curve of quadric and quadric
