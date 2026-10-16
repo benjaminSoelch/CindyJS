@@ -1114,6 +1114,7 @@ dgs3dUpdateColor(obj,visible->cglNada,color->cglNada,alpha->cglNada):=(
 );
 
 isRealVec(v):=(min(v,isReal(#)));
+isRealMat(M):=(min(M,isRealVec(#)));
 dgs3dIsFiniteRealPoint(p):=(
   // all entries real + normal vector non-zero
   isRealVec(p)&p_4!=0
@@ -1249,19 +1250,46 @@ dgs3dRenderBiQuadric = (self) => (
       cgl3d.setVisible.(self:"drawId",false);
   ));
 );
+dgs3dSlitIntervalAtQuadraticRoots(interval,quadratic):=(
+  regional(a,b,c,D,r1,r2,l,r);
+  (c,b,a) = quadratic;
+  b = 0.5*b; // solution equation is more convenient in form ax^2 + 2bx + c
+  D = b*b - a*c;
+  if(!isReal(D),[],if(re(D)<0 % a~=0,[interval],
+    r1 = (-b-sqrt(D))/a;
+    r2 = (-b+sqrt(D))/a;
+    if(re(a)>0,// (..r1 v r2..)^ (a..b)
+      (a,b) = interval;
+      if(r1<a,
+        if(r2<a,[(a,b)],if(r2<b,[(r2,b)],[]))
+      ,
+        if(r1<b,if(r2<b,[(a,r1),(r2,b)],[(a,r1)]),[(a,b)])
+      )
+    , // a<0 r2..r1 ^ (a..b)
+      l = max(r2,interval_1);
+      r = min(r1,interval_2);
+      if(l<r,[(l,r)],[])
+    );
+  ));
+);
 dgs3dRenderBiQuadricCurves = (self) => (
-  regional(M,exprs,data);
+  regional(M,curves,b,d);
   M = self:"coords";
   if(self:"visible" == true & dgs3dIsRealBiQuadric(M), // treat undefined as falsy
     M = re(M); // isReal allows small imaginary parts
     if(self:"drawId"!=-1,
       cgl3d.removeObject.(self:"drawId")
     );
-    // TODO: curve start/end depend on transformation
-    // TODO: split curve at roots of b&d (avoid gaps due to missing points)
-    self:"drawId" = flatten(apply(dgs3dBiQuadricAsCurves(M_1,M_2),
-      curve3d(#,-dgs3dCutoffRadius,dgs3dCutoffRadius,samples->128,size->self:"size",alpha->self:"alpha",color->self:"color",plotModifiers->data)
-    ));
+    (curves, (b,d)) = dgs3dBiQuadricAsCurves(M_1,M_2);
+    // TODO: double-check code
+    intervals = dgs3dSlitIntervalAtQuadraticRoots((-dgs3dCutoffRadius,dgs3dCutoffRadius),b);
+    intervals = flatten(apply(intervals,dgs3dSlitIntervalAtQuadraticRoots(#,d)));
+    // TODO: does curve start/end depend on transformation?
+    self:"drawId" = flatten(apply(curves,curve,
+      apply(intervals,
+        curve3d(curve,#_1,#_2,samples->128,size->self:"size",alpha->self:"alpha",color->self:"color")
+      );
+    ),levels->2);
   ,if(self:"drawId"!=-1,
       cgl3d.setVisible.(self:"drawId",false);
   ));
@@ -2069,7 +2097,7 @@ dgs3dDegeneratePencilBasisDetPoly(A,B,detA,detB):=([
   +A_2_2*B_1_1*B_3_3*B_4_4-A_2_1*B_1_2*B_3_3*B_4_4-A_1_2*B_2_1*B_3_3*B_4_4+A_1_1*B_2_2*B_3_3*B_4_4,
   detB
 ]);
-dgs3dComputeDegeneratePencilBasis(A,B):=(
+dgs3dComputeDegeneratePencilBasis(A,B,preferReal->false):=(
   regional(detA,detB,As);
   detA = det(A);
   detB = det(B);
@@ -2083,7 +2111,11 @@ dgs3dComputeDegeneratePencilBasis(A,B):=(
     )
   ,
     As = apply(dgs3dQuarticRoots(dgs3dDegeneratePencilBasisDetPoly(A,B,detA,detB)),l,A+l*B);
-    min(pairs(As),(dgs3dComputeQuadricSimilarity(#_1,#_2),#))_2;
+    if(preferReal,
+      min(pairs(As),(!(isRealMat(#_1)&isRealMat(#_2)),dgs3dComputeQuadricSimilarity(#_1,#_2),#))_3;
+    ,
+      min(pairs(As),(dgs3dComputeQuadricSimilarity(#_1,#_2),#))_2;
+    )
   )
 );
 dgs3dComputeR4Basis2(pq):=(
@@ -2194,9 +2226,11 @@ dsg3dComputeConeIntersectionPoly(coefficients,a,b,c,d):=(
   dgs3dPsub(dgs3dPmul(d,dsg3dPsq(g2)),dsg3dPsq(g1))
 );
 dsg3dPSqrtEval(a,b,x):=(
+  if(dgs3dPeval(b,x)<0,print(("+",b,x)));
   dgs3dPeval(a,x)+sqrt(dgs3dPeval(b,x))
 );
 dsg3dPSqrtEvalM(a,b,x):=(
+  if(dgs3dPeval(b,x)<0,print(("-",b,x)));
   dgs3dPeval(a,x)-sqrt(dgs3dPeval(b,x))
 );
 // pick correct signs for roots
@@ -3189,7 +3223,7 @@ dgs3dCheckCurvePoint(v):=(
 );
 dgs3dBiQuadricAsCurves(A,B):=(
   regional(centers,T,XY,XZ);
-  [A,B] = dgs3dComputeDegeneratePencilBasis(A,B);
+  [A,B] = dgs3dComputeDegeneratePencilBasis(A,B,preferReal->true);
   // TODO? handle case where one of the quadrics decomposes into lines
   centers = apply([A,B],dgs3dRP3Normalize(dgs3dComputeConeCenter(#)));
   // TODO? handle case where the centers coincide
@@ -3197,12 +3231,13 @@ dgs3dBiQuadricAsCurves(A,B):=(
   [XZ,XY] = apply([A,B],transpose(T)*#*T);
   [a,b] = dgs3dSolveConicForY(dgs3dConicCoefficientVector(apply(XY_(1,2,4),#_(1,2,4))));
   [c,d] = dgs3dSolveConicForY(dgs3dConicCoefficientVector(apply(XZ_(1,3,4),#_(1,3,4))));
-  (
+  print((a,b,c,d));
+  ((
     lambda(t,dgs3dCheckCurvePoint(dgs3ddehom4(T*(t,dsg3dPSqrtEval(a,b,t),dsg3dPSqrtEval(c,d,t),1))_(1..3)),a->a,b->b,c->c,d->d,T->T),
     lambda(t,dgs3dCheckCurvePoint(dgs3ddehom4(T*(t,dsg3dPSqrtEval(a,b,t),dsg3dPSqrtEvalM(c,d,t),1))_(1..3)),a->a,b->b,c->c,d->d,T->T),
     lambda(t,dgs3dCheckCurvePoint(dgs3ddehom4(T*(t,dsg3dPSqrtEvalM(a,b,t),dsg3dPSqrtEval(c,d,t),1))_(1..3)),a->a,b->b,c->c,d->d,T->T),
     lambda(t,dgs3dCheckCurvePoint(dgs3ddehom4(T*(t,dsg3dPSqrtEvalM(a,b,t),dsg3dPSqrtEvalM(c,d,t),1))_(1..3)),a->a,b->b,c->c,d->d,T->T)
-  )
+  ),(b,d))
 );
 // TODO? try porting iterative projection approach from dgs3dTryProjectPointToBiQuadric to shader
 // estimate squared-distance to intersection curve of quadric and quadric
