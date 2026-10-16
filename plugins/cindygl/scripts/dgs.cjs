@@ -2472,8 +2472,7 @@ dgs3dMeetQ3TestAlg(N,alg):=(
 );
 dgs3dMeetQ3TestAlgs(N):=(
   print("e3q3: "+apply(dgs3dMeetQ3TestAlg(N,(A,B,C)=>dgs3de3q3(dgs3dQuadAsVec(A),dgs3dQuadAsVec(B),dgs3dQuadAsVec(C))),#_1*1e10));
-  print("raw e3q3: "+apply(dgs3dMeetQ3TestAlg(N,(A,B,C)=>dgs3de3q3Impl(dgs3dQuadAsVec(A),dgs3dQuadAsVec(B),dgs3dQuadAsVec(C))),#_1*1e10));
-  errs = dgs3dMeetQ3TestAlg(N,(A,B,C)=>dgs3dIntersect3Qnew(A,B,C));
+  errs = dgs3dMeetQ3TestAlg(N*2,(A,B,C)=>dgs3dIntersect3Qnew(A,B,C));
   print("new meetQ3: "+apply(errs,#_1*1e10));
   [A,B,C] = errs_2_2;
   sols = dgs3dIntersect3Qnew(A,B,C,debug->true);
