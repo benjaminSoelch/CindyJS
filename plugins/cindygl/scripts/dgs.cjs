@@ -2226,13 +2226,18 @@ dsg3dComputeConeIntersectionPoly(coefficients,a,b,c,d):=(
   dgs3dPsub(dgs3dPmul(d,dsg3dPsq(g2)),dsg3dPsq(g1))
 );
 dsg3dPSqrtEval(a,b,x):=(
-  if(dgs3dPeval(b,x)<0,print(("+",b,x)));
   dgs3dPeval(a,x)+sqrt(dgs3dPeval(b,x))
 );
 dsg3dPSqrtEvalM(a,b,x):=(
-  if(dgs3dPeval(b,x)<0,print(("-",b,x)));
   dgs3dPeval(a,x)-sqrt(dgs3dPeval(b,x))
 );
+dgs3dIntersect3ConesImproveRoot(P,q):=(
+  regional(p,Q);
+  p = q*P;
+  Q = dgs3d.alg.meetPL.(p,dgs3d.alg.orthogonalLine.(p,P));
+  (Q, dgs3dProjDistanceSq(P,Q))
+);
+DGS3DmEET3QrOOTcANDIDATEtHREASHOLD = 1e-5;
 // pick correct signs for roots
 // TODO? is there a better way than checking all four choices?
 dgs3dIntersect3ConesPickRoot(x,a,b,c,d,Q):=(
@@ -2241,12 +2246,19 @@ dgs3dIntersect3ConesPickRoot(x,a,b,c,d,Q):=(
   b = sqrt(dgs3dPeval(b,x));
   c = dgs3dPeval(c,x);
   d = sqrt(dgs3dPeval(d,x));
-  pts = [(x,a+b,c+d,1),(x,a+b,c-d,1),(x,a-b,c+d,1),(x,a-b,c-d,1)];
-  // TODO handle multi-roots with more than one solutions for given x (currently the same point is choose in all cases)
-  min(pts,(|#*Q*#|,#))_2
+  pts = apply([(x,a+b,c+d,1),(x,a+b,c-d,1),(x,a-b,c+d,1),(x,a-b,c-d,1)],
+    dgs3dIntersect3ConesImproveRoot(#,Q) // TODO? use x of improved root to recompute y,z
+  );
+  pts = sort(apply(pts,((|#_1*Q*#_1|,#_2,#_1))));
+  if(pts_1_2 >= DGS3DmEET3QrOOTcANDIDATEtHREASHOLD,
+    [pts_1_3] // no candiate -> pick best possible solution
+  ,
+    pts = select(pts,#_2 < DGS3DmEET3QrOOTcANDIDATEtHREASHOLD); // potential multi root
+    if(length(pts)==1,[pts_1_3],pts)
+  )
 );
 dgs3dIntersectConeConeQuadric(A,B,Q):=(
-  regional(centers,T,XY,XZ,a,b,c,d);
+  regional(centers,T,XY,XZ,a,b,c,d,multiRoots,sols,candidates,rootCount,x1,x2);
   centers = apply([A,B],dgs3dRP3Normalize(dgs3dComputeConeCenter(#)));
   // TODO handle case where the centers coincide
   // TODO: special handling for case where centers are close
@@ -2257,6 +2269,7 @@ dgs3dIntersectConeConeQuadric(A,B,Q):=(
     print("det T: "+det(T)+" T: "+transpose(T));
     print([XZ,XY]);
   );
+  // TODO? permute variables if beneficial
   // cone-centers are all at infinity -> all intersections are finite
   [a,b] = dgs3dSolveConicForY(dgs3dConicCoefficientVector(apply(XY_(1,2,4),#_(1,2,4))));
   [c,d] = dgs3dSolveConicForY(dgs3dConicCoefficientVector(apply(XZ_(1,3,4),#_(1,3,4))));
@@ -2266,9 +2279,32 @@ dgs3dIntersectConeConeQuadric(A,B,Q):=(
     p = dsg3dComputeConeIntersectionPoly(dgs3dQuadricCoefficientVector(Q),a,b,c,d);
     print((p,roots(p)),exact->true);
   );
-  apply(roots(dsg3dComputeConeIntersectionPoly(dgs3dQuadricCoefficientVector(Q),a,b,c,d)),x,
-    T*dgs3dIntersect3ConesPickRoot(x,a,b,c,d,Q)
+  sols = [];
+  multiRoots = select(apply(roots(dsg3dComputeConeIntersectionPoly(dgs3dQuadricCoefficientVector(Q),a,b,c,d)),
+    (#,dgs3dIntersect3ConesPickRoot(#,a,b,c,d,Q))
+  ),if(length(#_2)>1,true,sols = append(sols,#_2_1);false));
+  if(debug,
+    print(multiRoots);
   );
+  apply(1..length(multiRoots),index,
+    if(!isUndefined(multiRoots_index),
+      candidates = (multiRoots_index)_2;
+      x1 = candidates_1_3_1/candidates_1_3_4;
+      rootCount = 1;
+      forall((index+1)..length(multiRoots),
+        if(!isUndefined(multiRoots_#),
+          x2 = (multiRoots_#)_2_1_3_1/(multiRoots_#)_2_1_3_4;
+          if(|x1-x2|<min(|multiRoots_index_1-x1|,|multiRoots_#_1-x2|),
+            rootCount = rootCount + 1;
+            multiRoots_# = cglNada;
+          );
+        );
+      );
+      // TODO? retry pick-root with median of multi-root candidates
+      sols = concat(sols,apply(candidates_(1..rootCount),#_3))
+    )
+  );
+  apply(sols,T*#)
 );
 
 ///////////
