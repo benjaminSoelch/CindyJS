@@ -2182,7 +2182,7 @@ dgs3dIntersect3Qnew(A,B,C,debug->false):=(
   //  a) if one/two decomposes into planes -> do intersection QQP/QPP with those planes
   [A,B] = dgs3dComputeDegeneratePencilBasis(A,B);
   if(debug,
-    print((A,B,C),exact->true);
+    print((A,B,C));
     print((rank(A),rank(B)));
     print((adjoint4(A),adjoint4(B)));
   );
@@ -2277,7 +2277,7 @@ dgs3dIntersectConeConeQuadric(A,B,Q):=(
   if(debug,
     regional(p);
     p = dsg3dComputeConeIntersectionPoly(dgs3dQuadricCoefficientVector(Q),a,b,c,d);
-    print((p,roots(p)),exact->true);
+    print((p,roots(p)));
   );
   sols = [];
   multiRoots = select(apply(roots(dsg3dComputeConeIntersectionPoly(dgs3dQuadricCoefficientVector(Q),a,b,c,d)),
@@ -2560,8 +2560,23 @@ dgs3dMeetQ3TestAlg(N,alg):=(
     dgs3dMeetQ3TestErrorValues(dgs3dMeetQ3TestErrors(alg.(A,B,C),A,B,C),A,B,C)
   )),dt(t0,time()));
 );
+dgs3dMeetQ3TestNewAlgWorstCase():=(
+  regional(A,B,C,N,worst,err);
+  N = 0;
+  worst = 0;
+  while(true,
+   [A,B,C] = dsg3dGenerate3RandomQuadrics();
+    errs = dgs3dMeetQ3TestErrors(dgs3dIntersect3Qnew(A,B,C),A,B,C);
+    if(max(errs)>worst,
+      worst = max(errs);
+      print((N,worst,errs));
+      print((A,B,C),exact->true)
+    );
+    N= N+1;
+  );
+);
 dgs3dMeetQ3TestAlgs(N):=(
-  print("e3q3: "+apply(dgs3dMeetQ3TestAlg(N,(A,B,C)=>dgs3de3q3(dgs3dQuadAsVec(A),dgs3dQuadAsVec(B),dgs3dQuadAsVec(C))),#_1*1e10));
+  //print("e3q3: "+apply(dgs3dMeetQ3TestAlg(N,(A,B,C)=>dgs3de3q3(dgs3dQuadAsVec(A),dgs3dQuadAsVec(B),dgs3dQuadAsVec(C))),#_1*1e10));
   errs = dgs3dMeetQ3TestAlg(N*2,(A,B,C)=>dgs3dIntersect3Qnew(A,B,C));
   print("new meetQ3: "+apply(errs,#_1*1e10));
   [A,B,C] = errs_2_2;
