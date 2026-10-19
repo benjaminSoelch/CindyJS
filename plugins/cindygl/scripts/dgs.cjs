@@ -2381,26 +2381,29 @@ dgs3de3q3checkError(res,q1,q2,q3):=(
     max((q1,q2,q3),q,max(res,v,abs(v*dgs3dQuadAsMat(q)*v))) > 1e-7
   );
 );
+randomVec4():=(apply(1..4,randomNormal()));
+randomOrthMatrix4():=(
+  regional(v1,v2,v3,v4);
+  v1 = normalize(randomVec4());
+  v2 = randomVec4();
+  v2 = normalize(v2-(v2*v1)*v1);
+  v3 = randomVec4();
+  v3 = normalize(v3-(v3*v1)*v1-(v3*v2)*v2);
+  v4 = randomVec4();
+  v4 = normalize(v4-(v4*v1)*v1-(v4*v2)*v2-(v4*v3)*v3);
+  (v1,v2,v3,v4)
+);
 // quadric intersection algo from paper: Efficient Intersection of Three Quadrics and Applications in Computer Vision
 dgs3de3q3(q1,q2,q3):=(
-  regional(res,retryCount,D,trafo,trafoT);
+  regional(res,retryCount,trafo,trafoT);
   res = dgs3de3q3Impl(q1,q2,q3);
-  retryCount = 100; // retry at most 100 times
+  retryCount = 10; // retry at most 10 times
   // retry if error is too large
   // TODO! figure out if wrong solutions are problems with implementation or numerics of algorithm
   // TODO? remember "least-bad" solution so far
   while(retryCount > 0 & dgs3de3q3checkError(res,q1,q2,q3),
     // handling of singular cases inspired by: https://github.com/PoseLib/PoseLib
-    D = 0;
-    while(abs(D) < 1e-5 % abs(D) > 1e5, // find random trafo with reasonably small
-      trafo = (
-        (random(),random(),random(),random()),
-        (random(),random(),random(),random()),
-        (random(),random(),random(),random()),
-        (random(),random(),random(),random())
-      );
-      D = det(trafo);
-    );
+    trafo = randomOrthMatrix4();
     trafoT = transpose(trafo);
     res = dgs3de3q3Impl(
       dgs3dQuadAsVec(trafoT*dgs3dQuadAsMat(q1)*trafo),
@@ -2576,7 +2579,7 @@ dgs3dMeetQ3TestNewAlgWorstCase():=(
   );
 );
 dgs3dMeetQ3TestAlgs(N):=(
-  //print("e3q3: "+apply(dgs3dMeetQ3TestAlg(N,(A,B,C)=>dgs3de3q3(dgs3dQuadAsVec(A),dgs3dQuadAsVec(B),dgs3dQuadAsVec(C))),#_1*1e10));
+  print("e3q3: "+apply(dgs3dMeetQ3TestAlg(N,(A,B,C)=>dgs3de3q3(dgs3dQuadAsVec(A),dgs3dQuadAsVec(B),dgs3dQuadAsVec(C))),#_1*1e10));
   errs = dgs3dMeetQ3TestAlg(N*2,(A,B,C)=>dgs3dIntersect3Qnew(A,B,C));
   print("new meetQ3: "+apply(errs,#_1*1e10));
   [A,B,C] = errs_2_2;
