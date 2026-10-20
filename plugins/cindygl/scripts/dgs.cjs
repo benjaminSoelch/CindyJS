@@ -2374,11 +2374,11 @@ dgs3ddehom4(v):=(
   ))))
 );
 
-dgs3de3q3checkError(res,q1,q2,q3):=(
+dgs3de3q3computeError(res,q1,q2,q3):=(
   if(isUndefined(res),
-    true
+    1e400
   ,
-    max((q1,q2,q3),q,max(res,v,abs(v*dgs3dQuadAsMat(q)*v))) > 1e-7
+    max((q1,q2,q3),q,max(res,v,abs(v*dgs3dQuadAsMat(q)*v)))
   );
 );
 randomVec4():=(apply(1..4,randomNormal()));
@@ -2395,28 +2395,30 @@ randomOrthMatrix4():=(
 );
 // quadric intersection algo from paper: Efficient Intersection of Three Quadrics and Applications in Computer Vision
 dgs3de3q3(q1,q2,q3):=(
-  regional(res,retryCount,trafo,trafoT);
+  regional(res,retryCount,trafo,trafoT,err,bestRes);
   res = dgs3de3q3Impl(q1,q2,q3);
+  err = 1e400;
+  minErr = 1e400;
   retryCount = 10; // retry at most 10 times
   // retry if error is too large
-  // TODO! figure out if wrong solutions are problems with implementation or numerics of algorithm
-  // TODO? remember "least-bad" solution so far
-  while(retryCount > 0 & dgs3de3q3checkError(res,q1,q2,q3),
-    // handling of singular cases inspired by: https://github.com/PoseLib/PoseLib
+  while(retryCount > 0 & (
+    err = dgs3de3q3computeError(res,q1,q2,q3);
+    if(err < minErr,minErr = err; bestRes=res);
+    err > 1e-7
+  ),
     trafo = randomOrthMatrix4();
     trafoT = transpose(trafo);
-    res = dgs3de3q3Impl(
+    res = apply(dgs3de3q3Impl(
       dgs3dQuadAsVec(trafoT*dgs3dQuadAsMat(q1)*trafo),
       dgs3dQuadAsVec(trafoT*dgs3dQuadAsMat(q2)*trafo),
       dgs3dQuadAsVec(trafoT*dgs3dQuadAsMat(q3)*trafo)
-    );
-    if(!isUndefined(res),
-      res = apply(res,p,trafo*p);
-      err = max((q1,q2,q3),q,Q = dgs3dQuadAsMat(q);max(res,v,abs(v*Q*v)));
-    );
+    ),p,trafo*p);
     retryCount = retryCount - 1;
   );
-  apply(res,v,dgs3dRP3Normalize(v))
+  apply(bestRes,v,dgs3dRP3Normalize(v))
+);
+dgs3de3q3DetCloserTo1(det1,det2):=(
+  (det1+1/det1) > (det2+1/det2) 
 );
 dgs3de3q3Impl(q1,q2,q3):=(
   regional(undef,Axy,Axz,Axw,Ayz,Ayw,Azw,D,varChoice,D1,A,M0,A1,M1,s11,s12,s13,s21,s22,s23,s31,s32,s33,M,D,roots,isError,solutions,Mr,ker,v);
@@ -2428,113 +2430,112 @@ dgs3de3q3Impl(q1,q2,q3):=(
   Ayz = ((-q1_5,-q1_8,-q1_6),(-q2_5,-q2_8,-q2_6),(-q3_5,-q3_8,-q3_6));
   Ayw = ((-q1_5,-q1_10,-q1_7),(-q2_5,-q2_10,-q2_7),(-q3_5,-q3_10,-q3_7));
   Azw = ((-q1_8,-q1_10,-q1_9),(-q2_8,-q2_10,-q2_9),(-q3_8,-q3_10,-q3_9));
-  D = det(Ayz);
+  D = abs(det(Ayz));
   varChoice = 0;
-  D1 = det(Axy);
-  if(abs(D1)>abs(D), D = D1;  varChoice = 1);
-  D1 = det(Axz);
-  if(abs(D1)>abs(D), D = D1;  varChoice = 2);
-  D1 = det(Axw);
-  if(abs(D1)>abs(D), D = D1;  varChoice = 3);
-  D1 = det(Ayw);
-  if(abs(D1)>abs(D), D = D1;  varChoice = 4);
-  D1 = det(Azw);
-  if(abs(D1)>abs(D), D = D1;  varChoice = 5);
-  if(abs(D) > 1e-8,
-    if(varChoice == 1,
-      // zz yz xz zw yy xy yw xx xw ww
-      q1 = (q1_8,q1_6,q1_3,q1_9,q1_5,q1_2,q1_7,q1_1,q1_4,q1_10);
-      q2 = (q2_8,q2_6,q2_3,q2_9,q2_5,q2_2,q2_7,q2_1,q2_4,q2_10);
-      q3 = (q3_8,q3_6,q3_3,q3_9,q3_5,q3_2,q3_7,q3_1,q3_4,q3_10);
+  // x^2y+y > xy^2+x
+  D1 = abs(det(Axy));
+  if(dgs3de3q3DetCloserTo1(D1,D), D = D1;  varChoice = 1);
+  D1 = abs(det(Axz));
+  if(dgs3de3q3DetCloserTo1(D1,D), D = D1;  varChoice = 2);
+  D1 = abs(det(Axw));
+  if(dgs3de3q3DetCloserTo1(D1,D), D = D1;  varChoice = 3);
+  D1 = abs(det(Ayw));
+  if(dgs3de3q3DetCloserTo1(D1,D), D = D1;  varChoice = 4);
+  D1 = abs(det(Azw));
+  if(dgs3de3q3DetCloserTo1(D1,D), D = D1;  varChoice = 5);
+  if(varChoice == 1,
+    // zz yz xz zw yy xy yw xx xw ww
+    q1 = (q1_8,q1_6,q1_3,q1_9,q1_5,q1_2,q1_7,q1_1,q1_4,q1_10);
+    q2 = (q2_8,q2_6,q2_3,q2_9,q2_5,q2_2,q2_7,q2_1,q2_4,q2_10);
+    q3 = (q3_8,q3_6,q3_3,q3_9,q3_5,q3_2,q3_7,q3_1,q3_4,q3_10);
+  ,if(varChoice == 2, // xz: swap x,y
+    // yy xy yz yw xx xz xw zz zw ww
+    q1 = (q1_5,q1_2,q1_6,q1_7,q1_1,q1_3,q1_4,q1_8,q1_9,q1_10);
+    q2 = (q2_5,q2_2,q2_6,q2_7,q2_1,q2_3,q2_4,q2_8,q2_9,q2_10);
+    q3 = (q3_5,q3_2,q3_6,q3_7,q3_1,q3_3,q3_4,q3_8,q3_9,q3_10);
+  ,if( varChoice == 3, // xw: swap x,y ; swap z,w
+    // yy xy yw yz xx xw xz ww zw zz
+    q1 = (q1_5,q1_2,q1_7,q1_6,q1_1,q1_4,q1_3,q1_10,q1_9,q1_8);
+    q2 = (q2_5,q2_2,q2_7,q2_6,q2_1,q2_4,q2_3,q2_10,q2_9,q2_8);
+    q3 = (q3_5,q3_2,q3_7,q3_6,q3_1,q3_4,q3_3,q3_10,q3_9,q3_8);
+  ,if( varChoice == 4, // yw: swap z,w
+    // xx xy xw xz yy yw yz ww zw zz
+    q1 = (q1_1,q1_2,q1_4,q1_3,q1_5,q1_7,q1_6,q1_10,q1_9,q1_8);
+    q2 = (q2_1,q2_2,q2_4,q2_3,q2_5,q2_7,q2_6,q2_10,q2_9,q2_8);
+    q3 = (q3_1,q3_2,q3_4,q3_3,q3_5,q3_7,q3_6,q3_10,q3_9,q3_8);
+  ,if(varChoice == 5, // zw: swap y,w
+    // xx xw xz xy ww zw yw zz yz yy
+    q1 = (q1_1,q1_4,q1_3,q1_2,q1_10,q1_9,q1_7,q1_8,q1_6,q1_5);
+    q2 = (q2_1,q2_4,q2_3,q2_2,q2_10,q2_9,q2_7,q2_8,q2_6,q2_5);
+    q3 = (q3_1,q3_4,q3_3,q3_2,q3_10,q3_9,q3_7,q3_8,q3_6,q3_5);
+  )))));
+  // TODO? does the choice of x/w matter
+  //  0  1  2  3  4  5  6  7  8  9
+  // xx xy xz xw yy yz yw zz zw ww
+  A = ((-q1_5,-q1_8,-q1_6),(-q2_5,-q2_8,-q2_6),(-q3_5,-q3_8,-q3_6));
+  // 1. find polynomial matrix
+  M0 = (
+    ((q1_7,q1_2),(q1_9,q1_3),(q1_10,q1_4,q1_1)),
+    ((q2_7,q2_2),(q2_9,q2_3),(q2_10,q2_4,q2_1)),
+    ((q3_7,q3_2),(q3_9,q3_3),(q3_10,q3_4,q3_1))
+  );
+  A1 = inverse(A);
+  M1 = dgs3dmmulp(A1,M0);
+  s11=dgs3dPsub(dgs3dPadd(dgs3dPsub(dgs3dPmul(dgs3dPsub(M1_1_1,M1_3_2),M1_3_1),dgs3dPmul(M1_1_1,M1_3_1)),dgs3dPmul(M1_1_2,M1_2_1)),M1_3_3);
+  s12=dgs3dPadd(dgs3dPadd(dgs3dPsub(dgs3dPmul(dgs3dPsub(M1_1_1,M1_3_2),M1_3_2),dgs3dPmul(M1_1_2,M1_3_1)),dgs3dPmul(M1_1_2,M1_2_2)),M1_1_3);
+  s13=dgs3dPadd(dgs3dPsub(dgs3dPmul(dgs3dPsub(M1_1_1,M1_3_2),M1_3_3),dgs3dPmul(M1_1_3,M1_3_1)),dgs3dPmul(M1_1_2,M1_2_3));
+  s21=dgs3dPsub(dgs3dPadd(dgs3dPsub(dgs3dPmul(dgs3dPsub(M1_3_1,M1_2_2),M1_3_1),dgs3dPmul(M1_1_1,M1_2_1)),dgs3dPmul(M1_2_1,M1_3_2)),M1_2_3);
+  s22=dgs3dPadd(dgs3dPadd(dgs3dPsub(dgs3dPmul(dgs3dPsub(M1_3_1,M1_2_2),M1_3_2),dgs3dPmul(M1_1_2,M1_2_1)),dgs3dPmul(M1_2_2,M1_3_2)),M1_3_3);
+  s23=dgs3dPadd(dgs3dPsub(dgs3dPmul(dgs3dPsub(M1_3_1,M1_2_2),M1_3_3),dgs3dPmul(M1_1_3,M1_2_1)),dgs3dPmul(M1_2_3,M1_3_2));
+  s31=(dgs3dPadd(dgs3dPadd(dgs3dPadd(dgs3dPmul(dgs3dPsub(dgs3dPmul(M1_3_1,M1_3_1),dgs3dPmul(M1_1_1,M1_2_1)),M1_1_1),
+    dgs3dPmul(dgs3dPsub(dgs3dPsub(dgs3dPadd(dgs3dPmul(M1_3_2,M1_3_1),dgs3dPmul(M1_3_1,M1_3_2)),dgs3dPmul(M1_1_2,M1_2_1)),
+    dgs3dPmul(M1_1_1,M1_2_2)),M1_3_1)),dgs3dPmul(dgs3dPsub(dgs3dPmul(M1_3_2,M1_3_2),dgs3dPmul(M1_1_2,M1_2_2)),M1_2_1)),
+    dgs3dPsub(dgs3dPsub(dgs3dPadd(dgs3dPmul(M1_3_1,M1_3_3),dgs3dPmul(M1_3_1,M1_3_3)),dgs3dPmul(M1_1_3,M1_2_1)),dgs3dPmul(M1_1_1,M1_2_3))));
+  s32=(dgs3dPadd(dgs3dPadd(dgs3dPadd(dgs3dPmul(dgs3dPsub(dgs3dPmul(M1_3_1,M1_3_1),dgs3dPmul(M1_1_1,M1_2_1)),M1_1_2),
+    dgs3dPmul(dgs3dPsub(dgs3dPsub(dgs3dPadd(dgs3dPmul(M1_3_2,M1_3_1),dgs3dPmul(M1_3_1,M1_3_2)),dgs3dPmul(M1_1_2,M1_2_1)),
+    dgs3dPmul(M1_1_1,M1_2_2)),M1_3_2)),dgs3dPmul(dgs3dPsub(dgs3dPmul(M1_3_2,M1_3_2),dgs3dPmul(M1_1_2,M1_2_2)),M1_2_2)),
+    dgs3dPsub(dgs3dPsub(dgs3dPadd(dgs3dPmul(M1_3_2,M1_3_3),dgs3dPmul(M1_3_2,M1_3_3)),dgs3dPmul(M1_1_3,M1_2_2)),dgs3dPmul(M1_1_2,M1_2_3))));
+  s33=(dgs3dPsub(dgs3dPadd(dgs3dPadd(dgs3dPadd(dgs3dPmul(dgs3dPsub(dgs3dPmul(M1_3_1,M1_3_1),dgs3dPmul(M1_1_1,M1_2_1)),M1_1_3),
+    dgs3dPmul(dgs3dPsub(dgs3dPsub(dgs3dPadd(dgs3dPmul(M1_3_2,M1_3_1),dgs3dPmul(M1_3_1,M1_3_2)),dgs3dPmul(M1_1_2,M1_2_1)),dgs3dPmul(M1_1_1,M1_2_2)),M1_3_3)),
+    dgs3dPmul(dgs3dPsub(dgs3dPmul(M1_3_2,M1_3_2),dgs3dPmul(M1_1_2,M1_2_2)),M1_2_3)),dgs3dPmul(M1_3_3,M1_3_3)),dgs3dPmul(M1_1_3,M1_2_3)));
+  M = ((s11,s12,s13),(s21,s22,s23),(s31,s32,s33));
+  // 2. compute determinant of M
+  D = dgs3dPsub(dgs3dPadd(dgs3dPadd(dgs3dPsub(dgs3dPsub(
+      dgs3dPmul(M_1_1,dgs3dPmul(M_2_2,M_3_3)),dgs3dPmul(M_1_1,dgs3dPmul(M_2_3,M_3_2))),
+      dgs3dPmul(M_1_2,dgs3dPmul(M_2_1,M_3_3))),dgs3dPmul(M_1_2,dgs3dPmul(M_2_3,M_3_1))),
+      dgs3dPmul(M_1_3,dgs3dPmul(M_2_1,M_3_2))),dgs3dPmul(M_1_3,dgs3dPmul(M_2_2,M_3_1))
+    );
+  // 3. find roots
+  roots = roots(D);
+  isError = false;
+  // 4. solve for other coordinates
+  solutions = apply(roots,r,
+    Mr = dgs3dPevalm(M,r);
+    ker = transpose(kernel(Mr)); // is using kernel stable enough
+    if(length(ker)!=1,
+      isError = true;
+      [r,0,0,1] // dummy value
+    ,
+      v = ker_1;
+      if(abs(v_3) <= (1e-10 * (abs(v_1)+abs(v_2))),isError = true);
+      [r*v_3,v_1,v_2,v_3]
+    )
+  );
+  if(isError,undef,
+    // undo coordinate-permutation on solutions
+    if(varChoice == 0,
+      solutions
+    ,if(varChoice == 1, // xy: swap x,z
+      solutions = apply(solutions,s,[s_3,s_2,s_1,s_4])
     ,if(varChoice == 2, // xz: swap x,y
-      // yy xy yz yw xx xz xw zz zw ww
-      q1 = (q1_5,q1_2,q1_6,q1_7,q1_1,q1_3,q1_4,q1_8,q1_9,q1_10);
-      q2 = (q2_5,q2_2,q2_6,q2_7,q2_1,q2_3,q2_4,q2_8,q2_9,q2_10);
-      q3 = (q3_5,q3_2,q3_6,q3_7,q3_1,q3_3,q3_4,q3_8,q3_9,q3_10);
-    ,if( varChoice == 3, // xw: swap x,y ; swap z,w
-      // yy xy yw yz xx xw xz ww zw zz
-      q1 = (q1_5,q1_2,q1_7,q1_6,q1_1,q1_4,q1_3,q1_10,q1_9,q1_8);
-      q2 = (q2_5,q2_2,q2_7,q2_6,q2_1,q2_4,q2_3,q2_10,q2_9,q2_8);
-      q3 = (q3_5,q3_2,q3_7,q3_6,q3_1,q3_4,q3_3,q3_10,q3_9,q3_8);
-    ,if( varChoice == 4, // yw: swap z,w
-      // xx xy xw xz yy yw yz ww zw zz
-      q1 = (q1_1,q1_2,q1_4,q1_3,q1_5,q1_7,q1_6,q1_10,q1_9,q1_8);
-      q2 = (q2_1,q2_2,q2_4,q2_3,q2_5,q2_7,q2_6,q2_10,q2_9,q2_8);
-      q3 = (q3_1,q3_2,q3_4,q3_3,q3_5,q3_7,q3_6,q3_10,q3_9,q3_8);
+      solutions = apply(solutions,s,[s_2,s_1,s_3,s_4])
+    ,if(varChoice == 3, // xw: swap x,y ; swap z,w
+      solutions = apply(solutions,s,[s_2,s_1,s_4,s_3])
+    ,if(varChoice == 4, // yw: swap z,w
+      solutions = apply(solutions,s,[s_1,s_2,s_4,s_3])
     ,if(varChoice == 5, // zw: swap y,w
-      // xx xw xz xy ww zw yw zz yz yy
-      q1 = (q1_1,q1_4,q1_3,q1_2,q1_10,q1_9,q1_7,q1_8,q1_6,q1_5);
-      q2 = (q2_1,q2_4,q2_3,q2_2,q2_10,q2_9,q2_7,q2_8,q2_6,q2_5);
-      q3 = (q3_1,q3_4,q3_3,q3_2,q3_10,q3_9,q3_7,q3_8,q3_6,q3_5);
-    )))));
-    // TODO? does the choice of x/w matter
-    //  0  1  2  3  4  5  6  7  8  9
-    // xx xy xz xw yy yz yw zz zw ww
-    A = ((-q1_5,-q1_8,-q1_6),(-q2_5,-q2_8,-q2_6),(-q3_5,-q3_8,-q3_6));
-    // 1. find polynomial matrix
-    M0 = (
-      ((q1_7,q1_2),(q1_9,q1_3),(q1_10,q1_4,q1_1)),
-      ((q2_7,q2_2),(q2_9,q2_3),(q2_10,q2_4,q2_1)),
-      ((q3_7,q3_2),(q3_9,q3_3),(q3_10,q3_4,q3_1))
-    );
-    A1 = inverse(A);
-    M1 = dgs3dmmulp(A1,M0);
-    s11=dgs3dPsub(dgs3dPadd(dgs3dPsub(dgs3dPmul(dgs3dPsub(M1_1_1,M1_3_2),M1_3_1),dgs3dPmul(M1_1_1,M1_3_1)),dgs3dPmul(M1_1_2,M1_2_1)),M1_3_3);
-    s12=dgs3dPadd(dgs3dPadd(dgs3dPsub(dgs3dPmul(dgs3dPsub(M1_1_1,M1_3_2),M1_3_2),dgs3dPmul(M1_1_2,M1_3_1)),dgs3dPmul(M1_1_2,M1_2_2)),M1_1_3);
-    s13=dgs3dPadd(dgs3dPsub(dgs3dPmul(dgs3dPsub(M1_1_1,M1_3_2),M1_3_3),dgs3dPmul(M1_1_3,M1_3_1)),dgs3dPmul(M1_1_2,M1_2_3));
-    s21=dgs3dPsub(dgs3dPadd(dgs3dPsub(dgs3dPmul(dgs3dPsub(M1_3_1,M1_2_2),M1_3_1),dgs3dPmul(M1_1_1,M1_2_1)),dgs3dPmul(M1_2_1,M1_3_2)),M1_2_3);
-    s22=dgs3dPadd(dgs3dPadd(dgs3dPsub(dgs3dPmul(dgs3dPsub(M1_3_1,M1_2_2),M1_3_2),dgs3dPmul(M1_1_2,M1_2_1)),dgs3dPmul(M1_2_2,M1_3_2)),M1_3_3);
-    s23=dgs3dPadd(dgs3dPsub(dgs3dPmul(dgs3dPsub(M1_3_1,M1_2_2),M1_3_3),dgs3dPmul(M1_1_3,M1_2_1)),dgs3dPmul(M1_2_3,M1_3_2));
-    s31=(dgs3dPadd(dgs3dPadd(dgs3dPadd(dgs3dPmul(dgs3dPsub(dgs3dPmul(M1_3_1,M1_3_1),dgs3dPmul(M1_1_1,M1_2_1)),M1_1_1),
-      dgs3dPmul(dgs3dPsub(dgs3dPsub(dgs3dPadd(dgs3dPmul(M1_3_2,M1_3_1),dgs3dPmul(M1_3_1,M1_3_2)),dgs3dPmul(M1_1_2,M1_2_1)),
-      dgs3dPmul(M1_1_1,M1_2_2)),M1_3_1)),dgs3dPmul(dgs3dPsub(dgs3dPmul(M1_3_2,M1_3_2),dgs3dPmul(M1_1_2,M1_2_2)),M1_2_1)),
-      dgs3dPsub(dgs3dPsub(dgs3dPadd(dgs3dPmul(M1_3_1,M1_3_3),dgs3dPmul(M1_3_1,M1_3_3)),dgs3dPmul(M1_1_3,M1_2_1)),dgs3dPmul(M1_1_1,M1_2_3))));
-    s32=(dgs3dPadd(dgs3dPadd(dgs3dPadd(dgs3dPmul(dgs3dPsub(dgs3dPmul(M1_3_1,M1_3_1),dgs3dPmul(M1_1_1,M1_2_1)),M1_1_2),
-      dgs3dPmul(dgs3dPsub(dgs3dPsub(dgs3dPadd(dgs3dPmul(M1_3_2,M1_3_1),dgs3dPmul(M1_3_1,M1_3_2)),dgs3dPmul(M1_1_2,M1_2_1)),
-      dgs3dPmul(M1_1_1,M1_2_2)),M1_3_2)),dgs3dPmul(dgs3dPsub(dgs3dPmul(M1_3_2,M1_3_2),dgs3dPmul(M1_1_2,M1_2_2)),M1_2_2)),
-      dgs3dPsub(dgs3dPsub(dgs3dPadd(dgs3dPmul(M1_3_2,M1_3_3),dgs3dPmul(M1_3_2,M1_3_3)),dgs3dPmul(M1_1_3,M1_2_2)),dgs3dPmul(M1_1_2,M1_2_3))));
-    s33=(dgs3dPsub(dgs3dPadd(dgs3dPadd(dgs3dPadd(dgs3dPmul(dgs3dPsub(dgs3dPmul(M1_3_1,M1_3_1),dgs3dPmul(M1_1_1,M1_2_1)),M1_1_3),
-      dgs3dPmul(dgs3dPsub(dgs3dPsub(dgs3dPadd(dgs3dPmul(M1_3_2,M1_3_1),dgs3dPmul(M1_3_1,M1_3_2)),dgs3dPmul(M1_1_2,M1_2_1)),dgs3dPmul(M1_1_1,M1_2_2)),M1_3_3)),
-      dgs3dPmul(dgs3dPsub(dgs3dPmul(M1_3_2,M1_3_2),dgs3dPmul(M1_1_2,M1_2_2)),M1_2_3)),dgs3dPmul(M1_3_3,M1_3_3)),dgs3dPmul(M1_1_3,M1_2_3)));
-    M = ((s11,s12,s13),(s21,s22,s23),(s31,s32,s33));
-    // 2. compute determinant of M
-    D = dgs3dPsub(dgs3dPadd(dgs3dPadd(dgs3dPsub(dgs3dPsub(
-        dgs3dPmul(M_1_1,dgs3dPmul(M_2_2,M_3_3)),dgs3dPmul(M_1_1,dgs3dPmul(M_2_3,M_3_2))),
-        dgs3dPmul(M_1_2,dgs3dPmul(M_2_1,M_3_3))),dgs3dPmul(M_1_2,dgs3dPmul(M_2_3,M_3_1))),
-        dgs3dPmul(M_1_3,dgs3dPmul(M_2_1,M_3_2))),dgs3dPmul(M_1_3,dgs3dPmul(M_2_2,M_3_1))
-      );
-    // 3. find roots
-    roots = roots(D);
-    isError = false;
-    // 4. solve for other coordinates
-    solutions = apply(roots,r,
-      Mr = dgs3dPevalm(M,r);
-      ker = transpose(kernel(Mr)); // is using kernel stable enough
-      if(length(ker)!=1,
-        isError = true;
-        [r,0,0,1] // dummy value
-      ,
-        v = ker_1;
-        if(abs(v_3) <= (1e-10 * (abs(v_1)+abs(v_2))),isError = true);
-        [r*v_3,v_1,v_2,v_3]
-      )
-    );
-    if(isError,undef,
-      // undo coordinate-permutation on solutions
-      if(varChoice == 0,
-        solutions
-      ,if(varChoice == 1, // xy: swap x,z
-        solutions = apply(solutions,s,[s_3,s_2,s_1,s_4])
-      ,if(varChoice == 2, // xz: swap x,y
-        solutions = apply(solutions,s,[s_2,s_1,s_3,s_4])
-      ,if(varChoice == 3, // xw: swap x,y ; swap z,w
-        solutions = apply(solutions,s,[s_2,s_1,s_4,s_3])
-      ,if(varChoice == 4, // yw: swap z,w
-        solutions = apply(solutions,s,[s_1,s_2,s_4,s_3])
-      ,if(varChoice == 5, // zw: swap y,w
-        solutions = apply(solutions,s,[s_1,s_4,s_3,s_2])
-      ))))));
-    );
+      solutions = apply(solutions,s,[s_1,s_4,s_3,s_2])
+    ))))));
   );
 );
 
