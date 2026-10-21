@@ -1145,7 +1145,7 @@ dgs3dClipPointSphere = (p) => (
 );
 dgs3dClipPointCube = (p) => (
   p = dgs3ddehom4(p)_(1..3);
-  max(p,abs(#)>dgs3dCutoffRadius/sqrt(3))
+  max(p,abs(#)>dgs3dCutoffRadius)
 );
 dgs3dClipPoint = dgs3dClipPointSphere;
 dgs3dClipLineSphere = (l) => (
@@ -1153,7 +1153,7 @@ dgs3dClipLineSphere = (l) => (
 );
 dgs3dClipLineCube = (l) => (
   regional(s,P,Q);
-  s = dgs3dCutoffRadius/sqrt(3);
+  s = dgs3dCutoffRadius;
   (P,Q) = apply(dgs3dIntersectQuadricLine(((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,-3*s*s)),l),
     dgs3ddehom4(#)
   );
@@ -1179,7 +1179,7 @@ dgs3dClipSurfaceSphere = (rayStart,direction) => (
 );
 dgs3dClipSurfaceCube = (rayStart,direction) => (
   regional(s);
-  s = dgs3dCutoffRadius/sqrt(3);
+  s = dgs3dCutoffRadius;
   cgl3d.compute.cuboidDepths.(rayStart,direction,(0,0,0),[s,0,0],[0,s,0],[0,0,s])
 );
 dgs3dClipSurface = dgs3dClipSurfaceSphere;
