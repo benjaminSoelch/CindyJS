@@ -1155,17 +1155,17 @@ dgs3dClipLineCube = (l) => (
   regional(s,P,Q);
   s = dgs3dCutoffRadius;
   (P,Q) = apply(dgs3dIntersectQuadricLine(((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,-3*s*s)),l),
-    dgs3ddehom4(#)
+    dgs3ddehom4(#)_(1..3)
   );
   if(isRealVec(P),// real solution
     forall(1..3,index,
       if(P_index>Q_index,(P,Q)=(Q,P)); // ensure P_i <= Q_i
       if(P_index < -s % Q_index > s, // segment extends beyond cube
         (P,Q) = if(P_index ~= Q_index, // line parallel to side -> no solution
-          ((1,i,0,0),(1,-i,0,0))
+          ((1,i,0),(1,-i,0))
         ,
-          apply(apply((-s-P_index,s-P_index)/(Q_index-P_index),max(0,min(#,1))),l,
-            (1-l)*P+l*Q
+          apply(apply((-s-P_index,s-P_index)/(Q_index-P_index),max(0,min(#,1))),t,
+            (1-t)*P+t*Q
           )
         );
       );
@@ -1202,19 +1202,17 @@ dgs3dRenderPoint = (self) => (
 );
 // TODO? line segments: use definition-points instead of sphere intersections if they are closer to center of clipping sphere
 dgs3dRenderLine = (self) => (
-  regional(l,PQ,P,Q);
+  regional(l,P,Q);
   l = self:"coords";
   if(self:"visible" == true & dgs3dIsFiniteRealLine(l), // treat undefined as falsy
     l = re(l); // isReal allows small imaginary parts
     // compute intersections of line with clipping sphere
-    PQ = dgs3dClipLine.(l);
-    if(isRealVec(PQ_1),// real solution
+    (P,Q) = dgs3dClipLine.(l);
+    if(isRealVec(P),// real solution
       if(self:"drawId"==-1,
-        self:"drawId" = draw3d((PQ_1_(1..3))/PQ_1_4,(PQ_2_(1..3))/PQ_2_4,size->self:"size",color->self:"color",alpha->self:"alpha")
+        self:"drawId" = draw3d(P,Q,size->self:"size",color->self:"color",alpha->self:"alpha")
       ,
         cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["cglColor","cglAlpha"],[self:"color",self:"alpha"]);
-        P = (PQ_1_(1..3))/PQ_1_4;
-        Q = (PQ_2_(1..3))/PQ_2_4;
         cgl3dObjectSet(cgl3d.getObjects.(self:"drawId"),"center",(P+Q)/2);
         cgl3dObjectSet(cgl3d.getObjects.(self:"drawId"),"orientation",(Q-P)/2);
         cgl3d.setVisible.(self:"drawId",true);
