@@ -1444,7 +1444,6 @@ cgl3d.bounds.sphere = (center,radius) => {"type":"sphere","center":center,"radiu
 cgl3d.bounds.cylinder = (center,orientation,radius) => {"type":"cylinder","center":center,"orientation":orientation,"radius":radius};
 cgl3d.bounds.cuboid = (center,v1,v2,v3) => {"type":"cuboid","center":center,"v1":v1,"v2":v2,"v3":v3};
 
-// bug TODO bounding box computation is broken (lower bound always returns 0?)
 // get intersections of view-ray with cuboid given by center point and (scaled) directions of the three axes
 cgl3d.compute.cuboidDepths = (rayStart,direction,center,up,left,front) => (
   regional(relCenter,l1,l2,l1t,l2t,d1,d2,d);
@@ -1457,7 +1456,6 @@ cgl3d.compute.cuboidDepths = (rayStart,direction,center,up,left,front) => (
   l2t = d2/d;
   l1 = min(l1t,l2t);
   l2 = max(l1t,l2t);
-  l1 = max(l1,0);
  // + left, - left
   d1 = left*(relCenter-left);
   d2 = left*(relCenter+left);
@@ -1479,6 +1477,7 @@ cgl3d.compute.cuboidDepths = (rayStart,direction,center,up,left,front) => (
 );
 
 cgl3d.cutoff = {};
+cgl3d.cutoff.expr = (expr,modifs->{}) => {"expr": expr,"bounds": cgl3d.bounds.unbounded,"modifs":modifs};
 cgl3d.cutoff.screenSphere = {"expr": lambda((rayStart,direction),
   regional(viewRect,x0,y0,x1,y1);
   viewRect = cglViewRect(); // [x0,y0,x1,y1]

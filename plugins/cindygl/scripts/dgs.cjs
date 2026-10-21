@@ -484,7 +484,7 @@ dgs3dEpsilon444(a,b,c):=(
     - a_1*b_2*c_3 + a_1*b_3*c_2 + a_2*b_1*c_3 - a_2*b_3*c_1 - a_3*b_1*c_2 + a_3*b_2*c_1
   )
 );
-dsg3dSplitRank1Quadric(M):=(
+dgs3dSplitRank1Quadric(M):=(
   regional(r,c);
   [r,c] = max(M,v,r,max(v,x,c,(|x|,r,c)))_(2,3);
   (dgs3dRP3Normalize(M_r),dgs3dRP3Normalize(apply(M,#_c)));
@@ -496,7 +496,7 @@ dgs3dConicCoefficientVector(M):=(
   (M_1_1,M_1_2+M_2_1,M_1_3+M_1_3,M_2_2,M_2_3+M_3_2,M_3_3)
 );
 // M = P^T Q + Q^T P: given point P find Q
-dsg3dSplitDegenerateQuadric1known(M,knownPoint):=(
+dgs3dSplitDegenerateQuadric1known(M,knownPoint):=(
   // use least squares: Ax = b -> A^T A x = A^T b
   // where b is coefficient vector of M, x is point P and A represents the equation M = P^T Q + Q^T
   regional(a,b,c,d,AT);
@@ -518,7 +518,7 @@ dgs3dIntersectQuadricDualLineMatrix(Q,mL):=(
     regional(v); v = mL_(#_1)_(#_2);(|v|,v,#)
   )_(2,3);
   a = sqrt(-det(apply(M_minorIndices,r,r_minorIndices)))/lineEntry;
-  dsg3dSplitRank1Quadric(M+a*mL)
+  dgs3dSplitRank1Quadric(M+a*mL)
 );
 // l: vec6 (point-like), Q: mat4 => vec4 x 2
 dgs3dIntersectQuadricDualLine(Q,L):=(
@@ -530,12 +530,12 @@ dgs3dIntersectQuadricLine(Q,l):=(
 dgs3dIntersectQuadricLine1known(Q,l,knownIntersection):=(
   regional(mL);
   mL = dgs3dDualLineMatrix(l);
-  dsg3dSplitDegenerateQuadric1known(mL*Q*mL,knownIntersection)
+  dgs3dSplitDegenerateQuadric1known(mL*Q*mL,knownIntersection)
 );
 dgs3dIntersectQuadricDualLine1known(Q,l,knownIntersection):=(
   regional(mL);
   mL = dgs3dLineMatrix(l);
-  dsg3dSplitDegenerateQuadric1known(mL*Q*mL,knownIntersection)
+  dgs3dSplitDegenerateQuadric1known(mL*Q*mL,knownIntersection)
 );
 dgs3dRP3Normalize(p):=(
   regional(m,v);
@@ -999,13 +999,13 @@ dgs3dNewObject(type,alg,parents,onInit->lambda(self,),label->cglNada,
     obj
   );
 );
-dsg3dSetCoordsOnInit(coords):=(
+dgs3dSetCoordsOnInit(coords):=(
   lambda(obj,obj.coords=coords,coords->coords)
 );
-dsg3dSetSizeOnInit(size):=(
+dgs3dSetSizeOnInit(size):=(
   lambda(obj,obj.size=size,size->size)
 );
-dsg3dSetSizeAndCoordsOnInit(size,coords):=(
+dgs3dSetSizeAndCoordsOnInit(size,coords):=(
   lambda(obj,obj.size=size;obj.coords=coords,coords->coords,size->size)
 );
 dgs3dOnInitCurve(size,isCircle):=(
@@ -1015,16 +1015,16 @@ dgs3dOnInitCurve(size,isCircle):=(
   ,size->cglValOrDefault(size,cgl3d.defaults.cylinderSize),isCircle->isCircle)
 );
 dgs3dNewNumber(value,label->cglNada):=(
-  dgs3dNewObject("number","freeNumber",[],label->label,onInit->dsg3dSetCoordsOnInit(value));
+  dgs3dNewObject("number","freeNumber",[],label->label,onInit->dgs3dSetCoordsOnInit(value));
 );
 dgs3dNewPoint(alg,parents,size->cglNada,visible->true,color->cglNada,alpha->cglNada,incidences->[],reuse->false,label->cglNada):=(
   dgs3dNewObject("point",alg,parents,label->label,
-    onInit->dsg3dSetSizeOnInit(cglValOrDefault(size,cgl3d.defaults.sphereSize)),
+    onInit->dgs3dSetSizeOnInit(cglValOrDefault(size,cgl3d.defaults.sphereSize)),
     visible->visible,color->color,alpha->alpha,incidences->incidences,reuse->reuse);
 );
 dgs3dNewLine(alg,parents,size->cglNada,visible->true,color->cglNada,alpha->cglNada,incidences->[],tangencies->[],reuse->false,label->cglNada):=(
   dgs3dNewObject("line",alg,parents,label->label,
-    onInit->dsg3dSetSizeOnInit(cglValOrDefault(size,cgl3d.defaults.cylinderSize)),
+    onInit->dgs3dSetSizeOnInit(cglValOrDefault(size,cgl3d.defaults.cylinderSize)),
     visible->visible,color->color,alpha->alpha,incidences->incidences,tangencies->tangencies,reuse->reuse);
 );
 dgs3dNewConic(alg,parents,size->cglNada,visible->true,color->cglNada,alpha->cglNada,isCircle->false,incidences->[],tangencies->[],reuse->false,label->cglNada):=(
@@ -1074,7 +1074,7 @@ dgs3dNewPointSet(alg,parents,childCount,size->cglNada,visible->true,color->cglNa
   dgs3dNewObject("{point}",alg,parents,label->label,onInit->lambda(obj,
       obj.children = apply(1..childCount,
         dgs3dNewObject("point","setElt",[obj],label->obj.label+"."+#,
-          onInit->dsg3dSetSizeOnInit(cglValOrDefault(size,cgl3d.defaults.sphereSize)),
+          onInit->dgs3dSetSizeOnInit(cglValOrDefault(size,cgl3d.defaults.sphereSize)),
           visible->visible,color->color,alpha->alpha,incidences->incidences,tangencies->tangencies);
       )
     ,childCount->childCount,incidences->incidences,tangencies->tangencies),
@@ -1085,7 +1085,7 @@ dgs3dNewLineSet(alg,parents,childCount,size->cglNada,visible->true,color->cglNad
   dgs3dNewObject("{line}",alg,parents,label->label,onInit->lambda(obj,
       obj.children = apply(1..childCount,
         dgs3dNewObject("line","setElt",[obj],label->obj.label+"."+#,
-          onInit->dsg3dSetSizeOnInit(cglValOrDefault(size,cgl3d.defaults.cylinderSize)),
+          onInit->dgs3dSetSizeOnInit(cglValOrDefault(size,cgl3d.defaults.cylinderSize)),
           visible->visible,color->color,alpha->alpha,incidences->incidences,tangencies->tangencies);
       )
     ,childCount->childCount,incidences->incidences,tangencies->tangencies),
@@ -1138,12 +1138,54 @@ dgs3dIsRealBiQuadric(q):=(
   dgs3dIsRealQuadric(q_1) & dgs3dIsRealQuadric(q_2)
 );
 // TODO: only update bounds when object changed
-// TODO? use custom cutoff-region instead of default
+dgs3dClipPointSphere = (p) => (
+  p = dgs3ddehom4(p)_(1..3);
+  p*p > dgs3dCutoffRadius * dgs3dCutoffRadius;
+);
+dgs3dClipPointCube = (p) => (
+  p = dgs3ddehom4(p)_(1..3);
+  max(p,abs(#)>dgs3dCutoffRadius/sqrt(3))
+);
+dgs3dClipPoint = dgs3dClipPointSphere;
+dgs3dClipLineSphere = (l) => (
+  dgs3dIntersectQuadricLine(((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,-dgs3dCutoffRadius*dgs3dCutoffRadius)),l)
+);
+dgs3dClipLineCube = (l) => (
+  regional(s,P,Q);
+  s = dgs3dCutoffRadius/sqrt(3);
+  (P,Q) = apply(dgs3dIntersectQuadricLine(((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,-3*s*s)),l),
+    dgs3ddehom4(#)
+  );
+  if(isRealVec(P),// real solution
+    forall(1..3,index,
+      if(P_index>Q_index,(P,Q)=(Q,P)); // ensure P_i <= Q_i
+      if(P_index < -s % Q_index > s, // segment extends beyond cube
+        (P,Q) = if(P_index ~= Q_index, // line parallel to side -> no solution
+          ((1,i,0,0),(1,-i,0,0))
+        ,
+          apply(apply((-s-P_index,s-P_index)/(Q_index-P_index),max(0,min(#,1))),l,
+            (1-l)*P+l*Q
+          )
+        );
+      );
+    );
+  );
+  (P,Q)
+);
+dgs3dClipLine = dgs3dClipLineSphere;
+dgs3dClipSurfaceSphere = (rayStart,direction) => (
+  cgl3d.compute.sphereDepths.(rayStart,direction,(0,0,0),dgs3dCutoffRadius)
+);
+dgs3dClipSurfaceCube = (rayStart,direction) => (
+  regional(s);
+  s = dgs3dCutoffRadius/sqrt(3);
+  cgl3d.compute.cuboidDepths.(rayStart,direction,(0,0,0),[s,0,0],[0,s,0],[0,0,s])
+);
+dgs3dClipSurface = dgs3dClipSurfaceSphere;
 dgs3dRenderPoint = (self) => (
   regional(p,ptColor);
   p = self:"coords";
-  // TODO? only render points within drawing region
-  if(self:"visible" == true & dgs3dIsFiniteRealPoint(p), // treat undefined as falsy
+  if(self:"visible" == true & dgs3dIsFiniteRealPoint(p) & !dgs3dClipPoint.(p), // treat undefined as falsy
     p = re(p); // isReal allows small imaginary parts
     ptColor = if(self == dgs3dMouseState:"target",dgs3dFocusColor,self:"color");
     if(self:"drawId"==-1,
@@ -1164,7 +1206,7 @@ dgs3dRenderLine = (self) => (
   if(self:"visible" == true & dgs3dIsFiniteRealLine(l), // treat undefined as falsy
     l = re(l); // isReal allows small imaginary parts
     // compute intersections of line with clipping sphere
-    PQ = dgs3dIntersectQuadricLine(((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,-dgs3dCutoffRadius*dgs3dCutoffRadius)),l);
+    PQ = dgs3dClipLine.(l);
     if(isRealVec(PQ_1),// real solution
       if(self:"drawId"==-1,
         self:"drawId" = draw3d((PQ_1_(1..3))/PQ_1_4,(PQ_2_(1..3))/PQ_2_4,size->self:"size",color->self:"color",alpha->self:"alpha")
@@ -1190,9 +1232,9 @@ dgs3dRenderPlane = (self) => (
   if(self:"visible" == true & dgs3dIsFiniteRealPlane(n), // treat undefined as falsy
     n = re(n); // isReal allows small imaginary parts
     if(self:"drawId"==-1,
-      self:"drawId" = surface3d((x,y,z)=>(x,y,z,1)*n,plotModifiers->{"n":n},color->self:"color",alpha->self:"alpha");
+      self:"drawId" = surface3d((x,y,z)=>(x,y,z,1)*n,plotModifiers->{"n":n},color->self:"color",alpha->self:"alpha",cutoffRegion->cgl3d.cutoff.expr.(dgs3dClipSurface));
     ,
-      cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["n","cglColor","cglAlpha"],[n,self:"color",self:"alpha"]);
+      cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["n","cglColor","cglAlpha","cglCutoffRegion"],[n,self:"color",self:"alpha",dgs3dClipSurface]);
       cgl3d.setVisible.(self:"drawId",true);
     );
   ,if(self:"drawId"!=-1,
@@ -1206,9 +1248,9 @@ dgs3dRenderQuadric = (self) => (
   if(self:"visible" == true & dgs3dIsRealQuadric(M), // treat undefined as falsy
     M = re(M); // isReal allows small imaginary parts
     if(self:"drawId"==-1,
-      self:"drawId" = surface3d((x,y,z)=>(x,y,z,1)*M*(x,y,z,1),plotModifiers->{"M":M},alpha->self:"alpha",color->self:"color");
+      self:"drawId" = surface3d((x,y,z)=>(x,y,z,1)*M*(x,y,z,1),plotModifiers->{"M":M},alpha->self:"alpha",color->self:"color",cutoffRegion->cgl3d.cutoff.expr.(dgs3dClipSurface));
     ,
-      cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["M","cglColor","cglAlpha"],[M,self:"color",self:"alpha"]);
+      cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["M","cglColor","cglAlpha","cglCutoffRegion"],[M,self:"color",self:"alpha",dgs3dClipSurface]);
       cgl3d.setVisible.(self:"drawId",true);
     );
   ,if(self:"drawId"!=-1,
@@ -1223,9 +1265,9 @@ dgs3dRenderConic = (self) => (
     if(self:"drawId"==-1,
       self:"drawId" = surface3d((x,y,z)=>dgs3dDistanceQuadricPlane(Q,p,(x,y,z,1))-r*r,degree->8,
         plotModifiers->{"Q":M_1,"p":M_2,"r":self:"size"},
-        alpha->self:"alpha",color->self:"color");
+        alpha->self:"alpha",color->self:"color",cutoffRegion->cgl3d.cutoff.expr.(dgs3dClipSurface));
     ,
-      cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["Q","p","r","cglColor","cglAlpha"],[M_1,M_2,self:"size",self:"color",self:"alpha"]);
+      cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["Q","p","r","cglColor","cglAlpha","cglCutoffRegion"],[M_1,M_2,self:"size",self:"color",self:"alpha",dgs3dClipSurface]);
       cgl3d.setVisible.(self:"drawId",true);
     );
   ,if(self:"drawId"!=-1,
@@ -1240,10 +1282,10 @@ dgs3dRenderBiQuadric = (self) => (
     if(self:"drawId"==-1,
       self:"drawId" = surface3d((x,y,z)=>dgs3dDistanceQuadricQuadric(Q1,Q2,(x,y,z,1))-(r*r),degree->8,
         plotModifiers->{"Q1":M_1,"Q2":M_2,"r":self:"size"},
-        alpha->self:"alpha",color->self:"color");
+        alpha->self:"alpha",color->self:"color",cutoffRegion->cgl3d.cutoff.expr.(dgs3dClipSurface));
     ,
-      cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["Q1","Q2","r","cglColor","cglAlpha"],
-        [M_1,M_2,self:"size",self:"color",self:"alpha"]);
+      cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["Q1","Q2","r","cglColor","cglAlpha","cglCutoffRegion"],
+        [M_1,M_2,self:"size",self:"color",self:"alpha",dgs3dClipSurface]);
       cgl3d.setVisible.(self:"drawId",true);
     );
   ,if(self:"drawId"!=-1,
@@ -1299,10 +1341,10 @@ dgs3dRenderSurface = (self) => (
     if(self:"drawId"==-1,
       self:"drawId" = surface3d(pos3d=>f.(pos3d,data),degree->8,// TODO make degree a parameter/modifier
         plotModifiers->{"f":self:"coords"_1,"data":self:"coords"_2},
-        alpha->self:"alpha",color->self:"color");
+        alpha->self:"alpha",color->self:"color",cutoffRegion->cgl3d.cutoff.expr.(dgs3dClipSurface));
     ,
-      cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["f","data","cglColor","cglAlpha"],
-        [self:"coords"_1,self:"coords"_2,self:"color",self:"alpha"]);
+      cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["f","data","cglColor","cglAlpha","cglCutoffRegion"],
+        [self:"coords"_1,self:"coords"_2,self:"color",self:"alpha",dgs3dClipSurface]);
       cgl3d.setVisible.(self:"drawId",true);
     );
   ,if(self:"drawId"!=-1,
@@ -1353,7 +1395,7 @@ dgs3dFreePoint(p,
 ):=(
   dgs3dInitMovable(
     dgs3dNewObject("point","freePoint",[],
-    onInit->dsg3dSetSizeAndCoordsOnInit(
+    onInit->dgs3dSetSizeAndCoordsOnInit(
       cglValOrDefault(size,cgl3d.defaults.sphereSize),
       dgs3dRP3Normalize(dgs3dPoint4(p))
     ),visible->visible,color->color,alpha->alpha,label->label)
@@ -1387,7 +1429,7 @@ line3d(l,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
 );
 dgs3dFreeLine(l,size->cglNada,visible->true,color->cglNada,alpha->cglNada,label->cglNada):=(
   dgs3dNewObject("line","freeLine",[],
-    onInit->dsg3dSetSizeAndCoordsOnInit(
+    onInit->dgs3dSetSizeAndCoordsOnInit(
       cglValOrDefault(size,cgl3d.defaults.cylinderSize),
       dgs3dRP3Normalize(l)
     ),visible->visible,color->color,alpha->alpha,label->label);
@@ -1399,7 +1441,7 @@ plane3d(p,visible->true,color->cglNada,alpha->cglNada):=(
 );
 dgs3dFreePlane(p,visible->true,color->cglNada,alpha->cglNada,label->cglNada):=(
   dgs3dNewObject("plane","freePlane",[],
-    onInit->dsg3dSetCoordsOnInit(dgs3dRP3Normalize(p)),
+    onInit->dgs3dSetCoordsOnInit(dgs3dRP3Normalize(p)),
     visible->visible,color->color,alpha->alpha,label->label);
 );
 // p: mat4, visible: bool = should object be drawn
@@ -1408,7 +1450,7 @@ quadric3d(M,visible->true,color->cglNada,alpha->cglNada):=(
 );
 dgs3dFreeQuadric(M,visible->true,color->cglNada,alpha->cglNada,label->cglNada):=(
   dgs3dNewObject("quadric","freeQuadric",[],
-    onInit->dsg3dSetCoordsOnInit(dgs3dRP3Normalize(M+transpose(M))),
+    onInit->dgs3dSetCoordsOnInit(dgs3dRP3Normalize(M+transpose(M))),
     visible->visible,color->color,alpha->alpha,label->label);
 );
 randomQuadric3d(visible->true,color->cglNada,alpha->cglNada,label->cglNada):=(
@@ -1425,7 +1467,7 @@ transformation3d(M):=(
   dgs3dFreeTransformation(M)
 );
 dgs3dFreeTransformation(M,label->cglNada):=(
-  dgs3dNewObject("transform","freeTransform",[],onInit->dsg3dSetCoordsOnInit(M),label->label);
+  dgs3dNewObject("transform","freeTransform",[],onInit->dgs3dSetCoordsOnInit(M),label->label);
 );
 
 // helpers for initial point for pointOn... operations
@@ -1579,7 +1621,7 @@ pointOnLine3d(l,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alph
 );
 dgs3dPointOnLine(l,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada,label->cglNada):=(
   dgs3dInitMovable(dgs3dNewObject("point","onLine",[l],
-    onInit->dsg3dSetSizeAndCoordsOnInit(
+    onInit->dgs3dSetSizeAndCoordsOnInit(
       cglValOrDefault(size,cgl3d.defaults.sphereSize),
       dgs3dFindPointOnLine(l,dgs3dPoint4(p0))
     ),onMove->lambda(self,
@@ -1600,7 +1642,7 @@ pointOnPlane3d(s,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alp
 );
 dgs3dPointOnPlane(s,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada,label->cglNada):=(
   dgs3dInitMovable(dgs3dNewObject("point","onPlane",[s],
-    onInit->dsg3dSetSizeAndCoordsOnInit(
+    onInit->dgs3dSetSizeAndCoordsOnInit(
       cglValOrDefault(size,cgl3d.defaults.sphereSize),
       dgs3dFindPointOnPlane(s,dgs3dPoint4(p0))
     ),onMove->lambda(self,
@@ -1627,7 +1669,7 @@ dgs3dSetIfDefined(self,coords):=(
 );
 dgs3dPointOnQuadric(q,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada,label->cglNada):=(
   dgs3dInitMovable(dgs3dNewObject("point","onQuadric",[q],
-    onInit->dsg3dSetSizeAndCoordsOnInit(
+    onInit->dgs3dSetSizeAndCoordsOnInit(
       cglValOrDefault(size,cgl3d.defaults.sphereSize),
       dgs3dFindPointOnQuadric(q,dgs3dPoint4(p0))
     ),onMove->lambda(self,
@@ -1649,7 +1691,7 @@ pointOnConic3d(q,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alp
 );
 dgs3dPointOnConic(q,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada,label->cglNada):=(
   dgs3dInitMovable(dgs3dNewObject("point","onConic",[q],
-    onInit->dsg3dSetSizeAndCoordsOnInit(
+    onInit->dgs3dSetSizeAndCoordsOnInit(
       cglValOrDefault(size,cgl3d.defaults.sphereSize),
       dgs3dFindPointOnConic(q,dgs3dPoint4(p0))
     ),onMove->lambda(self,
@@ -1671,7 +1713,7 @@ pointOnBiQuadric3d(q,p0,size->cglNada,visible->true,pinned->false,color->cglNada
 );
 dgs3dPointOnBiQuadric(q,p0,size->cglNada,visible->true,pinned->false,color->cglNada,alpha->cglNada,label->cglNada):=(
   dgs3dInitMovable(dgs3dNewObject("point","onBiQuadric",[q],
-    onInit->dsg3dSetSizeAndCoordsOnInit(
+    onInit->dgs3dSetSizeAndCoordsOnInit(
       cglValOrDefault(size,cgl3d.defaults.sphereSize),
       dgs3dFindPointOnBiQuadric(q,dgs3dPoint4(p0))
     ),onMove-> lambda(self,
@@ -2211,24 +2253,24 @@ dgs3dSolveConicForY(coefficientVector):=(
 // given the conic C(y,z) coefficientVector*(x^2,x*y,x*z,x,y^2,y*z,y,z^2,z,1) = 0
 // and equations y = g(x) = a(x) + sqrt(b(x))  ; z = h(x) = c(x) + sqrt(d(x))
 // return a polynomial p(x) satisfying p(x) = 0 iff C(g(x),h(x)) = 0
-dsg3dComputeConeIntersectionPoly(coefficients,a,b,c,d):=(
+dgs3dComputeConeIntersectionPoly(coefficients,a,b,c,d):=(
   regional(f1,f2,f3,f4,g1,g2);
   // TODO? directly compute polynomial coefficients instead of going through Padd/Pmul functions
   // find f1,f2,f3,f4 s.t. C(g(x),h(x)) = f1 + f2 sqrt(b) + f3 sqrt(d) + f4 sqrt(b) sqrt(d)
-  f1 = dgs3dPadd(dgs3dPadd(dgs3dPadd(coefficients_5 * dgs3dPadd(dsg3dPsq(a),b),coefficients_6 *dgs3dPmul(a,c)),
-      dgs3dPadd(dgs3dPmul([coefficients_7,coefficients_2],a),coefficients_8*dgs3dPadd(dsg3dPsq(c),d))),dgs3dPadd(dgs3dPmul([coefficients_9,coefficients_3],c),[coefficients_10,coefficients_4,coefficients_1]));
+  f1 = dgs3dPadd(dgs3dPadd(dgs3dPadd(coefficients_5 * dgs3dPadd(dgs3dPsq(a),b),coefficients_6 *dgs3dPmul(a,c)),
+      dgs3dPadd(dgs3dPmul([coefficients_7,coefficients_2],a),coefficients_8*dgs3dPadd(dgs3dPsq(c),d))),dgs3dPadd(dgs3dPmul([coefficients_9,coefficients_3],c),[coefficients_10,coefficients_4,coefficients_1]));
   f2 = dgs3dPadd(dgs3dPadd(2*coefficients_5*a,coefficients_6*c),[coefficients_7,coefficients_2]);
   f3 = dgs3dPadd(dgs3dPadd(coefficients_6*a,2*coefficients_8*c),[coefficients_9,coefficients_3]);
   f4 = coefficients_6;
   // f1 + f2 sqrt(b) + f3 sqrt(d) + f4 sqrt(b) sqrt(d) = 0 -> b (f2 + f4 sqrt(d))^2 = (-f1 -f3 sqrt(d))^2 -> g1 + g2 sqrt(d) = 0
-  g1 = dgs3dPsub(dgs3dPadd(dgs3dPmul(b,dsg3dPsq(f2)),f4*f4 *dgs3dPmul(b,d)),dgs3dPadd(dsg3dPsq(f1),dgs3dPmul(d,dsg3dPsq(f3))));
+  g1 = dgs3dPsub(dgs3dPadd(dgs3dPmul(b,dgs3dPsq(f2)),f4*f4 *dgs3dPmul(b,d)),dgs3dPadd(dgs3dPsq(f1),dgs3dPmul(d,dgs3dPsq(f3))));
   g2 = dgs3dPsub(2*f4*dgs3dPmul(b,f2),2*dgs3dPmul(f1,f3));
-  dgs3dPsub(dgs3dPmul(d,dsg3dPsq(g2)),dsg3dPsq(g1))
+  dgs3dPsub(dgs3dPmul(d,dgs3dPsq(g2)),dgs3dPsq(g1))
 );
-dsg3dPSqrtEval(a,b,x):=(
+dgs3dPSqrtEval(a,b,x):=(
   dgs3dPeval(a,x)+sqrt(dgs3dPeval(b,x))
 );
-dsg3dPSqrtEvalM(a,b,x):=(
+dgs3dPSqrtEvalM(a,b,x):=(
   dgs3dPeval(a,x)-sqrt(dgs3dPeval(b,x))
 );
 dgs3dIntersect3ConesImproveRoot(P,q):=(
@@ -2276,11 +2318,11 @@ dgs3dIntersectConeConeQuadric(A,B,Q):=(
   // TODO are there relations between the roots (have four choices for y,z given x)
   if(debug,
     regional(p);
-    p = dsg3dComputeConeIntersectionPoly(dgs3dQuadricCoefficientVector(Q),a,b,c,d);
+    p = dgs3dComputeConeIntersectionPoly(dgs3dQuadricCoefficientVector(Q),a,b,c,d);
     print((p,roots(p)));
   );
   sols = [];
-  multiRoots = select(apply(roots(dsg3dComputeConeIntersectionPoly(dgs3dQuadricCoefficientVector(Q),a,b,c,d)),
+  multiRoots = select(apply(roots(dgs3dComputeConeIntersectionPoly(dgs3dQuadricCoefficientVector(Q),a,b,c,d)),
     (#,dgs3dIntersect3ConesPickRoot(#,a,b,c,d,Q))
   ),if(length(#_2)>1,true,sols = append(sols,#_2_1);false));
   if(debug,
@@ -2325,7 +2367,7 @@ dgs3dPmul(a,b):=(
     a*b
   )
 );
-dsg3dPsq(a):=(dgs3dPmul(a,a));
+dgs3dPsq(a):=(dgs3dPmul(a,a));
 dgs3dPadd(a,b):=(
   dgs3dPnormalize(apply(1..(max(length(a),length(b))),i,if(i <= length(a),a_i,0)+if(i <= length(b),b_i,0)))
 );
@@ -2539,7 +2581,7 @@ dgs3de3q3Impl(q1,q2,q3):=(
   );
 );
 
-dsg3dGenerate3RandomQuadrics():=(
+dgs3dGenerate3RandomQuadrics():=(
   apply(1..3,
     dgs3dQuadAsMat(apply(1..10,randomNormal()))
   )
@@ -2560,7 +2602,7 @@ dgs3dMeetQ3TestAlg(N,alg):=(
   regional(A,B,C,t);
   t0 = time();
   append(dgs3dMeetQ3TestAlgWorstCase(apply(1..N,
-    [A,B,C] = dsg3dGenerate3RandomQuadrics();
+    [A,B,C] = dgs3dGenerate3RandomQuadrics();
     dgs3dMeetQ3TestErrorValues(dgs3dMeetQ3TestErrors(alg.(A,B,C),A,B,C),A,B,C)
   )),dt(t0,time()));
 );
@@ -2569,7 +2611,7 @@ dgs3dMeetQ3TestNewAlgWorstCase():=(
   N = 0;
   worst = 0;
   while(true,
-   [A,B,C] = dsg3dGenerate3RandomQuadrics();
+   [A,B,C] = dgs3dGenerate3RandomQuadrics();
     errs = dgs3dMeetQ3TestErrors(dgs3dIntersect3Qnew(A,B,C),A,B,C);
     if(max(errs)>worst,
       worst = max(errs);
@@ -3288,10 +3330,10 @@ dgs3dBiQuadricAsCurves(A,B):=(
   [c,d] = dgs3dSolveConicForY(dgs3dConicCoefficientVector(apply(XZ_(1,3,4),#_(1,3,4))));
   print((a,b,c,d));
   ((
-    lambda(t,dgs3dCheckCurvePoint(dgs3ddehom4(T*(t,dsg3dPSqrtEval(a,b,t),dsg3dPSqrtEval(c,d,t),1))_(1..3)),a->a,b->b,c->c,d->d,T->T),
-    lambda(t,dgs3dCheckCurvePoint(dgs3ddehom4(T*(t,dsg3dPSqrtEval(a,b,t),dsg3dPSqrtEvalM(c,d,t),1))_(1..3)),a->a,b->b,c->c,d->d,T->T),
-    lambda(t,dgs3dCheckCurvePoint(dgs3ddehom4(T*(t,dsg3dPSqrtEvalM(a,b,t),dsg3dPSqrtEval(c,d,t),1))_(1..3)),a->a,b->b,c->c,d->d,T->T),
-    lambda(t,dgs3dCheckCurvePoint(dgs3ddehom4(T*(t,dsg3dPSqrtEvalM(a,b,t),dsg3dPSqrtEvalM(c,d,t),1))_(1..3)),a->a,b->b,c->c,d->d,T->T)
+    lambda(t,dgs3dCheckCurvePoint(dgs3ddehom4(T*(t,dgs3dPSqrtEval(a,b,t),dgs3dPSqrtEval(c,d,t),1))_(1..3)),a->a,b->b,c->c,d->d,T->T),
+    lambda(t,dgs3dCheckCurvePoint(dgs3ddehom4(T*(t,dgs3dPSqrtEval(a,b,t),dgs3dPSqrtEvalM(c,d,t),1))_(1..3)),a->a,b->b,c->c,d->d,T->T),
+    lambda(t,dgs3dCheckCurvePoint(dgs3ddehom4(T*(t,dgs3dPSqrtEvalM(a,b,t),dgs3dPSqrtEval(c,d,t),1))_(1..3)),a->a,b->b,c->c,d->d,T->T),
+    lambda(t,dgs3dCheckCurvePoint(dgs3ddehom4(T*(t,dgs3dPSqrtEvalM(a,b,t),dgs3dPSqrtEvalM(c,d,t),1))_(1..3)),a->a,b->b,c->c,d->d,T->T)
   ),(b,d))
 );
 // TODO? try porting iterative projection approach from dgs3dTryProjectPointToBiQuadric to shader
@@ -3512,8 +3554,11 @@ dgs3dSpherePencileBase(S1,S2):=(
   );
   (S,(plane_1_4+plane_4_1,plane_2_4+plane_4_2,plane_3_4+plane_4_3,plane_4_4));
 );
+dgs3dFind2PointsOnLine(l):=(
+  transpose(kernel(dgs3dLineMatrix(l)))
+);
 dgs3dFind2PlanesThroughLine(l):=(
-  transpose(kernel(dgs3dLineMatrix(dgs3dDualLine(l))))
+  transpose(kernel(dgs3dDualLineMatrix(l)))
 );
 dgs3d.alg.mobiusTransformLn = (T,l) => (
   regional(p1,p2);
