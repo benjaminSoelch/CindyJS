@@ -2021,8 +2021,34 @@ dgs3dMeetQuadricConic(q,c,size->cglNada,visible->true,color->cglNada,alpha->cglN
 dgs3dMeetBiQuadricPlane(b,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dMeetQQPImpl("meetQQP",[b,p],size->size,visible->visible,color->color,alpha->alpha)
 );
-dgs3dIntersect3Q(q1,q2,q3):=(
-  dgs3de3q3(dgs3dQuadAsVec(q1),dgs3dQuadAsVec(q2),dgs3dQuadAsVec(q3));
+dgs3dTrySplitDegenerateQuadric(q):=(
+  regional(K,T,b);
+  K = transpose(kernel(q));
+  if(length(K)<2,cglNada,
+    T = dgs3dComputeR4Basis2(K_(1..2))_(1,4,2,3);
+    b = T*q*transpose(T); // b has form (A 0;0 0) with A in C^(2x2)
+    x = sqrt(b_1_2*b_2_1-b_1_1*b_2_2);
+    apply(if(|b_1_1|>=|b_2_2|,
+      [(b_1_1,b_1_2+x,0,0),(b_1_1,b_2_1-x,0,0)]
+    ,
+      [(b_1_2+x,b_2_2,0,0),(b_2_1-x,b_2_2,0,0)]
+    ),T*#);
+  );
+);
+dgs3dDegenerateIntersect3Q(pq,A,B):=(
+  dgs3dComputeIntersectionsQQP(A,B,pq_1)++dgs3dComputeIntersectionsQQP(A,B,pq_2)
+);
+dgs3dIntersect3Q(q1,q2,q3) := (
+  regional(pq);
+  if(!isUndefined(pq = dgs3dTrySplitDegenerateQuadric(q1)),
+    dgs3dDegenerateIntersect3Q(pq,q2,q3)
+  ,if(!isUndefined(pq = dgs3dTrySplitDegenerateQuadric(q2)),
+    dgs3dDegenerateIntersect3Q(pq,q1,q3)
+  ,if(!isUndefined(pq = dgs3dTrySplitDegenerateQuadric(q3)),
+    dgs3dDegenerateIntersect3Q(pq,q1,q2)
+  ,
+    dgs3de3q3(dgs3dQuadAsVec(q1),dgs3dQuadAsVec(q2),dgs3dQuadAsVec(q3));
+  )))
 );
 dgs3d.alg.meetBQ = (b,q) => (
   dgs3dIntersect3Q(b_1,b_2,q)
@@ -2459,7 +2485,7 @@ dgs3de3q3(q1,q2,q3):=(
   apply(bestRes,v,dgs3dRP3Normalize(v))
 );
 dgs3de3q3DetCloserTo1(det1,det2):=(
-  (det1+1/det1) > (det2+1/det2) 
+  (det1*det1*det2+det2) > (det1*det2*det2+det1) 
 );
 dgs3de3q3Impl(q1,q2,q3):=(
   regional(undef,Axy,Axz,Axw,Ayz,Ayw,Azw,D,varChoice,D1,A,M0,A1,M1,s11,s12,s13,s21,s22,s23,s31,s32,s33,M,D,roots,isError,solutions,Mr,ker,v);
