@@ -2473,6 +2473,8 @@ dgs3de3q3(q1,q2,q3):=(
     if(err < minErr,minErr = err; bestRes=res);
     err > 1e-7
   ),
+    // TODO: how often is the error case hit?
+    // TODO: what is the best way to reduce retry-count
     trafo = randomOrthMatrix4();
     trafoT = transpose(trafo);
     res = apply(dgs3de3q3Impl(
