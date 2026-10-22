@@ -1141,7 +1141,7 @@ dgs3dIsRealBiQuadric(q):=(
 dgs3dClipPointNone = (p) => (false);
 dgs3dClipPointSphere = (p) => (
   p = dgs3ddehom4(p)_(1..3);
-  p*p > dgs3dCutoffRadius * dgs3dCutoffRadius;
+  |p*p| > dgs3dCutoffRadius * dgs3dCutoffRadius;
 );
 dgs3dClipPointCube = (p) => (
   p = dgs3ddehom4(p)_(1..3);
