@@ -2490,7 +2490,7 @@ dgs3de3q3DetCloserTo1(det1,det2):=(
   (det1*det1*det2+det2) > (det1*det2*det2+det1) 
 );
 dgs3de3q3Impl(q1,q2,q3):=(
-  regional(undef,Axy,Axz,Axw,Ayz,Ayw,Azw,D,varChoice,D1,A,M0,A1,M1,s11,s12,s13,s21,s22,s23,s31,s32,s33,M,D,roots,isError,solutions,Mr,ker,v);
+  regional(Axy,Axz,Axw,Ayz,Ayw,Azw,D,varChoice,D1,A,M0,A1,M1,s11,s12,s13,s21,s22,s23,s31,s32,s33,M,D,roots,isError,solutions,Mr,ker,v);
   // 1. preprocessing:
   // input: xx xy xz xw yy yz yw zz zw ww
   Axy = ((-q1_1,-q1_5,-q1_2),(-q2_1,-q2_5,-q2_2),(-q3_1,-q3_5,-q3_2));
@@ -2541,7 +2541,7 @@ dgs3de3q3Impl(q1,q2,q3):=(
   // TODO? does the choice of x/w matter
   //  0  1  2  3  4  5  6  7  8  9
   // xx xy xz xw yy yz yw zz zw ww
-  A = ((-q1_5,-q1_8,-q1_6),(-q2_5,-q2_8,-q2_6),(-q3_5,-q3_8,-q3_6));
+  A = -((q1_5,q1_8,q1_6),(q2_5,q2_8,q2_6),(q3_5,q3_8,q3_6));
   // 1. find polynomial matrix
   M0 = (
     ((q1_7,q1_2),(q1_9,q1_3),(q1_10,q1_4,q1_1)),
@@ -2590,7 +2590,7 @@ dgs3de3q3Impl(q1,q2,q3):=(
       [r*v_3,v_1,v_2,v_3]
     )
   );
-  if(isError,undef,
+  if(isError,cglNada,
     // undo coordinate-permutation on solutions
     if(varChoice == 0,
       solutions
