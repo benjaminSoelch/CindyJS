@@ -1313,28 +1313,6 @@ dgs3dSlitIntervalAtQuadraticRoots(interval,quadratic):=(
     );
   ));
 );
-dgs3dRenderBiQuadricCurves = (self) => (
-  regional(M,curves,b,d);
-  M = self:"coords";
-  if(self:"visible" == true & dgs3dIsRealBiQuadric(M), // treat undefined as falsy
-    M = re(M); // isReal allows small imaginary parts
-    if(self:"drawId"!=-1,
-      cgl3d.removeObject.(self:"drawId")
-    );
-    (curves, (b,d)) = dgs3dBiQuadricAsCurves(M_1,M_2);
-    // TODO: double-check code
-    intervals = dgs3dSlitIntervalAtQuadraticRoots((-dgs3dCutoffRadius,dgs3dCutoffRadius),b);
-    intervals = flatten(apply(intervals,dgs3dSlitIntervalAtQuadraticRoots(#,d)));
-    // TODO: does curve start/end depend on transformation?
-    self:"drawId" = flatten(apply(curves,curve,
-      apply(intervals,
-        curve3d(curve,#_1,#_2,samples->128,size->self:"size",alpha->self:"alpha",color->self:"color")
-      );
-    ),levels->2);
-  ,if(self:"drawId"!=-1,
-      cgl3d.setVisible.(self:"drawId",false);
-  ));
-);
 dgs3dRenderSurface = (self) => (
   if(self:"visible" == true, // treat undefined as falsy
     if(self:"drawId"==-1,
@@ -2023,11 +2001,21 @@ dgs3dMeetQuadricConic(q,c,size->cglNada,visible->true,color->cglNada,alpha->cglN
 dgs3dMeetBiQuadricPlane(b,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dMeetQQPImpl("meetQQP",[b,p],size->size,visible->visible,color->color,alpha->alpha)
 );
+dgs3dComputeR4Basis2(pq):=(
+  regional(p,q,vw);
+  pq = apply(pq,#/|#|);
+  vw = sort([(0,0,0,1),(1,0,0,0),(0,1,0,0),(0,0,1,0)],v,max(pq,|v*#|))_(1..2);
+  [p,q] = pq;
+  q = normalize(q - (q*conjugate(p))*p);
+  [p,q] = apply(vw,#-(#*conjugate(p))*p-(#*conjugate(q))*q);
+  p = normalize(p);
+  (p,normalize(q-(q*conjugate(p))*p),pq_1,pq_2)
+);
 dgs3dTrySplitDegenerateQuadric(q):=(
   regional(K,T,b);
   K = transpose(kernel(q));
   if(length(K)<2,cglNada,
-    T = dgs3dComputeR4Basis2(K_(1..2))_(1,4,2,3);
+    T = dgs3dComputeR4Basis2(K_(1..2));
     b = T*q*transpose(T); // b has form (A 0;0 0) with A in C^(2x2)
     x = sqrt(b_1_2*b_2_1-b_1_1*b_2_2);
     apply(if(|b_1_1|>=|b_2_2|,
@@ -2074,308 +2062,6 @@ dgs3dMeet3Q(q1,q2,q3,size->cglNada,visible->true,color->cglNada,alpha->cglNada):
 dgs3dMeetBiQuadricQuadric(b,q,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dMeet3QImpl("meetBQ",[b,q],size->size,visible->visible,color->color,alpha->alpha);
 );
-///////////
-// new algo for intersection of 3 quadrics
-///////////
-// det(A+l*B) as polynomial in l, detA and detB given to avoid recomputation
-dgs3dDegeneratePencilBasisDetPoly(A,B,detA,detB):=([
-  detA,
-  -A_2_4*A_3_3*A_4_2*B_1_1+A_2_3*A_3_4*A_4_2*B_1_1+A_2_4*A_3_2*A_4_3*B_1_1-A_2_2*A_3_4*A_4_3*B_1_1
-  -A_2_3*A_3_2*A_4_4*B_1_1+A_2_2*A_3_3*A_4_4*B_1_1+A_2_4*A_3_3*A_4_1*B_1_2-A_2_3*A_3_4*A_4_1*B_1_2
-  -A_2_4*A_3_1*A_4_3*B_1_2+A_2_1*A_3_4*A_4_3*B_1_2+A_2_3*A_3_1*A_4_4*B_1_2-A_2_1*A_3_3*A_4_4*B_1_2
-  -A_2_4*A_3_2*A_4_1*B_1_3+A_2_2*A_3_4*A_4_1*B_1_3+A_2_4*A_3_1*A_4_2*B_1_3-A_2_1*A_3_4*A_4_2*B_1_3
-  -A_2_2*A_3_1*A_4_4*B_1_3+A_2_1*A_3_2*A_4_4*B_1_3+A_2_3*A_3_2*A_4_1*B_1_4-A_2_2*A_3_3*A_4_1*B_1_4
-  -A_2_3*A_3_1*A_4_2*B_1_4+A_2_1*A_3_3*A_4_2*B_1_4+A_2_2*A_3_1*A_4_3*B_1_4-A_2_1*A_3_2*A_4_3*B_1_4
-  +A_1_4*A_3_3*A_4_2*B_2_1-A_1_3*A_3_4*A_4_2*B_2_1-A_1_4*A_3_2*A_4_3*B_2_1+A_1_2*A_3_4*A_4_3*B_2_1
-  +A_1_3*A_3_2*A_4_4*B_2_1-A_1_2*A_3_3*A_4_4*B_2_1-A_1_4*A_3_3*A_4_1*B_2_2+A_1_3*A_3_4*A_4_1*B_2_2
-  +A_1_4*A_3_1*A_4_3*B_2_2-A_1_1*A_3_4*A_4_3*B_2_2-A_1_3*A_3_1*A_4_4*B_2_2+A_1_1*A_3_3*A_4_4*B_2_2
-  +A_1_4*A_3_2*A_4_1*B_2_3-A_1_2*A_3_4*A_4_1*B_2_3-A_1_4*A_3_1*A_4_2*B_2_3+A_1_1*A_3_4*A_4_2*B_2_3
-  +A_1_2*A_3_1*A_4_4*B_2_3-A_1_1*A_3_2*A_4_4*B_2_3-A_1_3*A_3_2*A_4_1*B_2_4+A_1_2*A_3_3*A_4_1*B_2_4
-  +A_1_3*A_3_1*A_4_2*B_2_4-A_1_1*A_3_3*A_4_2*B_2_4-A_1_2*A_3_1*A_4_3*B_2_4+A_1_1*A_3_2*A_4_3*B_2_4
-  -A_1_4*A_2_3*A_4_2*B_3_1+A_1_3*A_2_4*A_4_2*B_3_1+A_1_4*A_2_2*A_4_3*B_3_1-A_1_2*A_2_4*A_4_3*B_3_1
-  -A_1_3*A_2_2*A_4_4*B_3_1+A_1_2*A_2_3*A_4_4*B_3_1+A_1_4*A_2_3*A_4_1*B_3_2-A_1_3*A_2_4*A_4_1*B_3_2
-  -A_1_4*A_2_1*A_4_3*B_3_2+A_1_1*A_2_4*A_4_3*B_3_2+A_1_3*A_2_1*A_4_4*B_3_2-A_1_1*A_2_3*A_4_4*B_3_2
-  -A_1_4*A_2_2*A_4_1*B_3_3+A_1_2*A_2_4*A_4_1*B_3_3+A_1_4*A_2_1*A_4_2*B_3_3-A_1_1*A_2_4*A_4_2*B_3_3
-  -A_1_2*A_2_1*A_4_4*B_3_3+A_1_1*A_2_2*A_4_4*B_3_3+A_1_3*A_2_2*A_4_1*B_3_4-A_1_2*A_2_3*A_4_1*B_3_4
-  -A_1_3*A_2_1*A_4_2*B_3_4+A_1_1*A_2_3*A_4_2*B_3_4+A_1_2*A_2_1*A_4_3*B_3_4-A_1_1*A_2_2*A_4_3*B_3_4
-  +A_1_4*A_2_3*A_3_2*B_4_1-A_1_3*A_2_4*A_3_2*B_4_1-A_1_4*A_2_2*A_3_3*B_4_1+A_1_2*A_2_4*A_3_3*B_4_1
-  +A_1_3*A_2_2*A_3_4*B_4_1-A_1_2*A_2_3*A_3_4*B_4_1-A_1_4*A_2_3*A_3_1*B_4_2+A_1_3*A_2_4*A_3_1*B_4_2
-  +A_1_4*A_2_1*A_3_3*B_4_2-A_1_1*A_2_4*A_3_3*B_4_2-A_1_3*A_2_1*A_3_4*B_4_2+A_1_1*A_2_3*A_3_4*B_4_2
-  +A_1_4*A_2_2*A_3_1*B_4_3-A_1_2*A_2_4*A_3_1*B_4_3-A_1_4*A_2_1*A_3_2*B_4_3+A_1_1*A_2_4*A_3_2*B_4_3
-  +A_1_2*A_2_1*A_3_4*B_4_3-A_1_1*A_2_2*A_3_4*B_4_3-A_1_3*A_2_2*A_3_1*B_4_4+A_1_2*A_2_3*A_3_1*B_4_4
-  +A_1_3*A_2_1*A_3_2*B_4_4-A_1_1*A_2_3*A_3_2*B_4_4-A_1_2*A_2_1*A_3_3*B_4_4+A_1_1*A_2_2*A_3_3*B_4_4,
-  A_3_4*A_4_3*B_1_2*B_2_1-A_3_3*A_4_4*B_1_2*B_2_1-A_3_4*A_4_2*B_1_3*B_2_1+A_3_2*A_4_4*B_1_3*B_2_1
-  +A_3_3*A_4_2*B_1_4*B_2_1-A_3_2*A_4_3*B_1_4*B_2_1-A_3_4*A_4_3*B_1_1*B_2_2+A_3_3*A_4_4*B_1_1*B_2_2
-  +A_3_4*A_4_1*B_1_3*B_2_2-A_3_1*A_4_4*B_1_3*B_2_2-A_3_3*A_4_1*B_1_4*B_2_2+A_3_1*A_4_3*B_1_4*B_2_2
-  +A_3_4*A_4_2*B_1_1*B_2_3-A_3_2*A_4_4*B_1_1*B_2_3-A_3_4*A_4_1*B_1_2*B_2_3+A_3_1*A_4_4*B_1_2*B_2_3
-  +A_3_2*A_4_1*B_1_4*B_2_3-A_3_1*A_4_2*B_1_4*B_2_3-A_3_3*A_4_2*B_1_1*B_2_4+A_3_2*A_4_3*B_1_1*B_2_4
-  +A_3_3*A_4_1*B_1_2*B_2_4-A_3_1*A_4_3*B_1_2*B_2_4-A_3_2*A_4_1*B_1_3*B_2_4+A_3_1*A_4_2*B_1_3*B_2_4
-  -A_2_4*A_4_3*B_1_2*B_3_1+A_2_3*A_4_4*B_1_2*B_3_1+A_2_4*A_4_2*B_1_3*B_3_1-A_2_2*A_4_4*B_1_3*B_3_1
-  -A_2_3*A_4_2*B_1_4*B_3_1+A_2_2*A_4_3*B_1_4*B_3_1+A_1_4*A_4_3*B_2_2*B_3_1-A_1_3*A_4_4*B_2_2*B_3_1
-  -A_1_4*A_4_2*B_2_3*B_3_1+A_1_2*A_4_4*B_2_3*B_3_1+A_1_3*A_4_2*B_2_4*B_3_1-A_1_2*A_4_3*B_2_4*B_3_1
-  +A_2_4*A_4_3*B_1_1*B_3_2-A_2_3*A_4_4*B_1_1*B_3_2-A_2_4*A_4_1*B_1_3*B_3_2+A_2_1*A_4_4*B_1_3*B_3_2
-  +A_2_3*A_4_1*B_1_4*B_3_2-A_2_1*A_4_3*B_1_4*B_3_2-A_1_4*A_4_3*B_2_1*B_3_2+A_1_3*A_4_4*B_2_1*B_3_2
-  +A_1_4*A_4_1*B_2_3*B_3_2-A_1_1*A_4_4*B_2_3*B_3_2-A_1_3*A_4_1*B_2_4*B_3_2+A_1_1*A_4_3*B_2_4*B_3_2
-  -A_2_4*A_4_2*B_1_1*B_3_3+A_2_2*A_4_4*B_1_1*B_3_3+A_2_4*A_4_1*B_1_2*B_3_3-A_2_1*A_4_4*B_1_2*B_3_3
-  -A_2_2*A_4_1*B_1_4*B_3_3+A_2_1*A_4_2*B_1_4*B_3_3+A_1_4*A_4_2*B_2_1*B_3_3-A_1_2*A_4_4*B_2_1*B_3_3
-  -A_1_4*A_4_1*B_2_2*B_3_3+A_1_1*A_4_4*B_2_2*B_3_3+A_1_2*A_4_1*B_2_4*B_3_3-A_1_1*A_4_2*B_2_4*B_3_3
-  +A_2_3*A_4_2*B_1_1*B_3_4-A_2_2*A_4_3*B_1_1*B_3_4-A_2_3*A_4_1*B_1_2*B_3_4+A_2_1*A_4_3*B_1_2*B_3_4
-  +A_2_2*A_4_1*B_1_3*B_3_4-A_2_1*A_4_2*B_1_3*B_3_4-A_1_3*A_4_2*B_2_1*B_3_4+A_1_2*A_4_3*B_2_1*B_3_4
-  +A_1_3*A_4_1*B_2_2*B_3_4-A_1_1*A_4_3*B_2_2*B_3_4-A_1_2*A_4_1*B_2_3*B_3_4+A_1_1*A_4_2*B_2_3*B_3_4
-  +A_2_4*A_3_3*B_1_2*B_4_1-A_2_3*A_3_4*B_1_2*B_4_1-A_2_4*A_3_2*B_1_3*B_4_1+A_2_2*A_3_4*B_1_3*B_4_1
-  +A_2_3*A_3_2*B_1_4*B_4_1-A_2_2*A_3_3*B_1_4*B_4_1-A_1_4*A_3_3*B_2_2*B_4_1+A_1_3*A_3_4*B_2_2*B_4_1
-  +A_1_4*A_3_2*B_2_3*B_4_1-A_1_2*A_3_4*B_2_3*B_4_1-A_1_3*A_3_2*B_2_4*B_4_1+A_1_2*A_3_3*B_2_4*B_4_1
-  +A_1_4*A_2_3*B_3_2*B_4_1-A_1_3*A_2_4*B_3_2*B_4_1-A_1_4*A_2_2*B_3_3*B_4_1+A_1_2*A_2_4*B_3_3*B_4_1
-  +A_1_3*A_2_2*B_3_4*B_4_1-A_1_2*A_2_3*B_3_4*B_4_1-A_2_4*A_3_3*B_1_1*B_4_2+A_2_3*A_3_4*B_1_1*B_4_2
-  +A_2_4*A_3_1*B_1_3*B_4_2-A_2_1*A_3_4*B_1_3*B_4_2-A_2_3*A_3_1*B_1_4*B_4_2+A_2_1*A_3_3*B_1_4*B_4_2
-  +A_1_4*A_3_3*B_2_1*B_4_2-A_1_3*A_3_4*B_2_1*B_4_2-A_1_4*A_3_1*B_2_3*B_4_2+A_1_1*A_3_4*B_2_3*B_4_2
-  +A_1_3*A_3_1*B_2_4*B_4_2-A_1_1*A_3_3*B_2_4*B_4_2-A_1_4*A_2_3*B_3_1*B_4_2+A_1_3*A_2_4*B_3_1*B_4_2
-  +A_1_4*A_2_1*B_3_3*B_4_2-A_1_1*A_2_4*B_3_3*B_4_2-A_1_3*A_2_1*B_3_4*B_4_2+A_1_1*A_2_3*B_3_4*B_4_2
-  +A_2_4*A_3_2*B_1_1*B_4_3-A_2_2*A_3_4*B_1_1*B_4_3-A_2_4*A_3_1*B_1_2*B_4_3+A_2_1*A_3_4*B_1_2*B_4_3
-  +A_2_2*A_3_1*B_1_4*B_4_3-A_2_1*A_3_2*B_1_4*B_4_3-A_1_4*A_3_2*B_2_1*B_4_3+A_1_2*A_3_4*B_2_1*B_4_3
-  +A_1_4*A_3_1*B_2_2*B_4_3-A_1_1*A_3_4*B_2_2*B_4_3-A_1_2*A_3_1*B_2_4*B_4_3+A_1_1*A_3_2*B_2_4*B_4_3
-  +A_1_4*A_2_2*B_3_1*B_4_3-A_1_2*A_2_4*B_3_1*B_4_3-A_1_4*A_2_1*B_3_2*B_4_3+A_1_1*A_2_4*B_3_2*B_4_3
-  +A_1_2*A_2_1*B_3_4*B_4_3-A_1_1*A_2_2*B_3_4*B_4_3-A_2_3*A_3_2*B_1_1*B_4_4+A_2_2*A_3_3*B_1_1*B_4_4
-  +A_2_3*A_3_1*B_1_2*B_4_4-A_2_1*A_3_3*B_1_2*B_4_4-A_2_2*A_3_1*B_1_3*B_4_4+A_2_1*A_3_2*B_1_3*B_4_4
-  +A_1_3*A_3_2*B_2_1*B_4_4-A_1_2*A_3_3*B_2_1*B_4_4-A_1_3*A_3_1*B_2_2*B_4_4+A_1_1*A_3_3*B_2_2*B_4_4
-  +A_1_2*A_3_1*B_2_3*B_4_4-A_1_1*A_3_2*B_2_3*B_4_4-A_1_3*A_2_2*B_3_1*B_4_4+A_1_2*A_2_3*B_3_1*B_4_4
-  +A_1_3*A_2_1*B_3_2*B_4_4-A_1_1*A_2_3*B_3_2*B_4_4-A_1_2*A_2_1*B_3_3*B_4_4+A_1_1*A_2_2*B_3_3*B_4_4,
-  -A_4_4*B_1_3*B_2_2*B_3_1+A_4_3*B_1_4*B_2_2*B_3_1+A_4_4*B_1_2*B_2_3*B_3_1-A_4_2*B_1_4*B_2_3*B_3_1
-  -A_4_3*B_1_2*B_2_4*B_3_1+A_4_2*B_1_3*B_2_4*B_3_1+A_4_4*B_1_3*B_2_1*B_3_2-A_4_3*B_1_4*B_2_1*B_3_2
-  -A_4_4*B_1_1*B_2_3*B_3_2+A_4_1*B_1_4*B_2_3*B_3_2+A_4_3*B_1_1*B_2_4*B_3_2-A_4_1*B_1_3*B_2_4*B_3_2
-  -A_4_4*B_1_2*B_2_1*B_3_3+A_4_2*B_1_4*B_2_1*B_3_3+A_4_4*B_1_1*B_2_2*B_3_3-A_4_1*B_1_4*B_2_2*B_3_3
-  -A_4_2*B_1_1*B_2_4*B_3_3+A_4_1*B_1_2*B_2_4*B_3_3+A_4_3*B_1_2*B_2_1*B_3_4-A_4_2*B_1_3*B_2_1*B_3_4
-  -A_4_3*B_1_1*B_2_2*B_3_4+A_4_1*B_1_3*B_2_2*B_3_4+A_4_2*B_1_1*B_2_3*B_3_4-A_4_1*B_1_2*B_2_3*B_3_4
-  +A_3_4*B_1_3*B_2_2*B_4_1-A_3_3*B_1_4*B_2_2*B_4_1-A_3_4*B_1_2*B_2_3*B_4_1+A_3_2*B_1_4*B_2_3*B_4_1
-  +A_3_3*B_1_2*B_2_4*B_4_1-A_3_2*B_1_3*B_2_4*B_4_1-A_2_4*B_1_3*B_3_2*B_4_1+A_2_3*B_1_4*B_3_2*B_4_1
-  +A_1_4*B_2_3*B_3_2*B_4_1-A_1_3*B_2_4*B_3_2*B_4_1+A_2_4*B_1_2*B_3_3*B_4_1-A_2_2*B_1_4*B_3_3*B_4_1
-  -A_1_4*B_2_2*B_3_3*B_4_1+A_1_2*B_2_4*B_3_3*B_4_1-A_2_3*B_1_2*B_3_4*B_4_1+A_2_2*B_1_3*B_3_4*B_4_1
-  +A_1_3*B_2_2*B_3_4*B_4_1-A_1_2*B_2_3*B_3_4*B_4_1-A_3_4*B_1_3*B_2_1*B_4_2+A_3_3*B_1_4*B_2_1*B_4_2
-  +A_3_4*B_1_1*B_2_3*B_4_2-A_3_1*B_1_4*B_2_3*B_4_2-A_3_3*B_1_1*B_2_4*B_4_2+A_3_1*B_1_3*B_2_4*B_4_2
-  +A_2_4*B_1_3*B_3_1*B_4_2-A_2_3*B_1_4*B_3_1*B_4_2-A_1_4*B_2_3*B_3_1*B_4_2+A_1_3*B_2_4*B_3_1*B_4_2
-  -A_2_4*B_1_1*B_3_3*B_4_2+A_2_1*B_1_4*B_3_3*B_4_2+A_1_4*B_2_1*B_3_3*B_4_2-A_1_1*B_2_4*B_3_3*B_4_2
-  +A_2_3*B_1_1*B_3_4*B_4_2-A_2_1*B_1_3*B_3_4*B_4_2-A_1_3*B_2_1*B_3_4*B_4_2+A_1_1*B_2_3*B_3_4*B_4_2
-  +A_3_4*B_1_2*B_2_1*B_4_3-A_3_2*B_1_4*B_2_1*B_4_3-A_3_4*B_1_1*B_2_2*B_4_3+A_3_1*B_1_4*B_2_2*B_4_3
-  +A_3_2*B_1_1*B_2_4*B_4_3-A_3_1*B_1_2*B_2_4*B_4_3-A_2_4*B_1_2*B_3_1*B_4_3+A_2_2*B_1_4*B_3_1*B_4_3
-  +A_1_4*B_2_2*B_3_1*B_4_3-A_1_2*B_2_4*B_3_1*B_4_3+A_2_4*B_1_1*B_3_2*B_4_3-A_2_1*B_1_4*B_3_2*B_4_3
-  -A_1_4*B_2_1*B_3_2*B_4_3+A_1_1*B_2_4*B_3_2*B_4_3-A_2_2*B_1_1*B_3_4*B_4_3+A_2_1*B_1_2*B_3_4*B_4_3
-  +A_1_2*B_2_1*B_3_4*B_4_3-A_1_1*B_2_2*B_3_4*B_4_3-A_3_3*B_1_2*B_2_1*B_4_4+A_3_2*B_1_3*B_2_1*B_4_4
-  +A_3_3*B_1_1*B_2_2*B_4_4-A_3_1*B_1_3*B_2_2*B_4_4-A_3_2*B_1_1*B_2_3*B_4_4+A_3_1*B_1_2*B_2_3*B_4_4
-  +A_2_3*B_1_2*B_3_1*B_4_4-A_2_2*B_1_3*B_3_1*B_4_4-A_1_3*B_2_2*B_3_1*B_4_4+A_1_2*B_2_3*B_3_1*B_4_4
-  -A_2_3*B_1_1*B_3_2*B_4_4+A_2_1*B_1_3*B_3_2*B_4_4+A_1_3*B_2_1*B_3_2*B_4_4-A_1_1*B_2_3*B_3_2*B_4_4
-  +A_2_2*B_1_1*B_3_3*B_4_4-A_2_1*B_1_2*B_3_3*B_4_4-A_1_2*B_2_1*B_3_3*B_4_4+A_1_1*B_2_2*B_3_3*B_4_4,
-  detB
-]);
-dgs3dComputeDegeneratePencilBasis(A,B,preferReal->false):=(
-  regional(detA,detB,As);
-  detA = det(A);
-  detB = det(B);
-  if(|detA|>|detB|,[A,B,detA,detB]=[B,A,detB,detA]);
-  if(detA == 0, // TODO! allow numeric error in zero-check
-    if(detB == 0,
-      [A,B]
-    , // TODO: what happens in the case where the l^1 coefficient also is zero
-      // TODO: choose 3rd root that minimizes similarity with known degenerate solutions
-      [A,A+dgs3dCubicRoot(dgs3dDegeneratePencilBasisDetPoly(A,B,detA,detB)_(2..5))*B]
-    )
-  ,
-    As = apply(dgs3dQuarticRoots(dgs3dDegeneratePencilBasisDetPoly(A,B,detA,detB)),l,A+l*B);
-    if(preferReal,
-      min(pairs(As),(!(isRealMat(#_1)&isRealMat(#_2)),dgs3dComputeQuadricSimilarity(#_1,#_2),#))_3;
-    ,
-      min(pairs(As),(dgs3dComputeQuadricSimilarity(#_1,#_2),#))_2;
-    )
-  )
-);
-dgs3dComputeR4Basis2(pq):=(
-  regional(p,q,vw);
-  pq = apply(pq,#/|#|);
-  vw = sort([(0,0,0,1),(1,0,0,0),(0,1,0,0),(0,0,1,0)],v,max(pq,|v*#|))_(1..2);
-  [p,q] = pq;
-  q = normalize(q - (q*conjugate(p))*p);
-  [p,q] = apply(vw,#-(#*conjugate(p))*p-(#*conjugate(q))*q);
-  p = normalize(p);
-  (p,pq_1,pq_2,normalize(q-(q*conjugate(p))*p))
-);
-// TODO: find better definition of "distance" between quadrics
-dgs3dComputeQuadricSimilarity(q1,q2):=(
-  |normalize(dgs3dQuadAsVec(q1))*normalize(dgs3dQuadAsVec(q2))|
-);
-dgs3dPickMaxDistancePair(A,B,C):=(
-  regional(ab,ac,bc);
-  // TODO: avoid recomputation of normalized vector representation
-  ab = dgs3dComputeQuadricSimilarity(A,B);
-  ac = dgs3dComputeQuadricSimilarity(A,C);
-  bc = dgs3dComputeQuadricSimilarity(B,C);
-  if(ab<=ac,
-    if(ab<=bc,
-      [A,B,C]
-    , // ab < ac , ab > bc
-      [B,C,A]
-    )
-  , // ac < ab
-    if(ac<=bc,
-      [A,C,B]
-    , // ac < ab, ac > bc
-      [B,C,A]
-    )
-  )
-);
-dgs3dMeet3QSortQuadrics(A,B,C):=(
-  regional(detA,detB,detC);
-  // sort by increasing determinant (while avoiding recomputing det)
-  detA = |det(A)|;
-  detB = |det(B)|;
-  detC = |det(C)|;
-  if(detA>detB,[A,B,detA,detB]=[B,A,detB,detA]);
-  if(detA>detC,[A,C,detA,detC]=[C,A,detC,detA]);
-  if(detB>detC,[B,C,detB,detC]=[B,C,detB,detC]);
-  if(detC == 0, // detA == detB == detC == 0 -> pick A,B to be pair with maximum distance
-    [A,B,C] = dgs3dPickMaxDistancePair(A,B,C);
-  ,if(detB==0, // detA == B == 0 -> keep already degenerate A and B
-
-  ,if(detA==0, // set B to quadric less similar to A
-    if(dgs3dComputeQuadricSimilarity(A,B)>dgs3dComputeQuadricSimilarity(A,C),
-      [B,C] = [C,B];
-    );
-  , // all non-zero -> pick A,B to be pair with maximum distance
-    [A,B,C] = dgs3dPickMaxDistancePair(A,B,C);
-  )));
-);
-dgs3dIntersect3Qnew(A,B,C,debug->false):=(
-  [A,B,C] = dgs3dMeet3QSortQuadrics(A,B,C); // TODO: does sorting help?
-  if(debug,
-    print((A,B,C),exact->true);
-  );
-  // TODO: check check all four degenerate elements in pencil through A,B
-  //  a) if one/two decomposes into planes -> do intersection QQP/QPP with those planes
-  [A,B] = dgs3dComputeDegeneratePencilBasis(A,B);
-  if(debug,
-    print((A,B,C));
-    print((rank(A),rank(B)));
-    print((adjoint4(A),adjoint4(B)));
-  );
-  dgs3dIntersectConeConeQuadric(A,B,C)
-);
-dgs3dComputeConeCenter(C):= (
-  // adjoint of cone matrix has rank 1
-  max(adjoint4(#),(|#|,#))_2 // using quadric-center algorithm fails when center-point is at infinity
-);
-// given the conic coefficientVector*(x^2,x*y,x,y^2,y,1) = 0
-// return polynomials p,q such that y = p(x) + sqrt(q(x))
-dgs3dSolveConicForY(coefficientVector):=(
-  regional(a,b,c,d,e,f);
-  [a,b,c,d,e,f] = coefficientVector;
-  if(4*d*d==0,
-    print((d*1e100,coefficientVector));
-  );
-  // a x^2 + b xy + c x + d y^2 + e y + f = d y^2 + (bx+e) y + (a x^2 + c x + f)
-  // y = -(bx+e)/2d + sqrt((bx+e)*(bx+e) - 4*d*(a x^2 + c x + f))/2d
-  // (bx+e)*(bx+e) + 4*d*(a x^2 + c x + f) =(b^2+4ad) x^2 + (2be+4cd) x + e^2 - 4df
-  [
-    -[e,b]/(2*d),
-    [e^2/d-4*f,2*b*e/d-4*c,b^2/d-4*a]/(4*d)
-  ]
-);
-// given the conic C(y,z) coefficientVector*(x^2,x*y,x*z,x,y^2,y*z,y,z^2,z,1) = 0
-// and equations y = g(x) = a(x) + sqrt(b(x))  ; z = h(x) = c(x) + sqrt(d(x))
-// return a polynomial p(x) satisfying p(x) = 0 iff C(g(x),h(x)) = 0
-dgs3dComputeConeIntersectionPoly(coefficients,a,b,c,d):=(
-  regional(f1,f2,f3,f4,g1,g2);
-  // TODO? directly compute polynomial coefficients instead of going through Padd/Pmul functions
-  // find f1,f2,f3,f4 s.t. C(g(x),h(x)) = f1 + f2 sqrt(b) + f3 sqrt(d) + f4 sqrt(b) sqrt(d)
-  f1 = dgs3dPadd(dgs3dPadd(dgs3dPadd(coefficients_5 * dgs3dPadd(dgs3dPsq(a),b),coefficients_6 *dgs3dPmul(a,c)),
-      dgs3dPadd(dgs3dPmul([coefficients_7,coefficients_2],a),coefficients_8*dgs3dPadd(dgs3dPsq(c),d))),dgs3dPadd(dgs3dPmul([coefficients_9,coefficients_3],c),[coefficients_10,coefficients_4,coefficients_1]));
-  f2 = dgs3dPadd(dgs3dPadd(2*coefficients_5*a,coefficients_6*c),[coefficients_7,coefficients_2]);
-  f3 = dgs3dPadd(dgs3dPadd(coefficients_6*a,2*coefficients_8*c),[coefficients_9,coefficients_3]);
-  f4 = coefficients_6;
-  // f1 + f2 sqrt(b) + f3 sqrt(d) + f4 sqrt(b) sqrt(d) = 0 -> b (f2 + f4 sqrt(d))^2 = (-f1 -f3 sqrt(d))^2 -> g1 + g2 sqrt(d) = 0
-  g1 = dgs3dPsub(dgs3dPadd(dgs3dPmul(b,dgs3dPsq(f2)),f4*f4 *dgs3dPmul(b,d)),dgs3dPadd(dgs3dPsq(f1),dgs3dPmul(d,dgs3dPsq(f3))));
-  g2 = dgs3dPsub(2*f4*dgs3dPmul(b,f2),2*dgs3dPmul(f1,f3));
-  dgs3dPsub(dgs3dPmul(d,dgs3dPsq(g2)),dgs3dPsq(g1))
-);
-dgs3dPSqrtEval(a,b,x):=(
-  dgs3dPeval(a,x)+sqrt(dgs3dPeval(b,x))
-);
-dgs3dPSqrtEvalM(a,b,x):=(
-  dgs3dPeval(a,x)-sqrt(dgs3dPeval(b,x))
-);
-dgs3dIntersect3ConesImproveRoot(P,q):=(
-  regional(p,Q);
-  p = q*P;
-  Q = dgs3d.alg.meetPL.(p,dgs3d.alg.orthogonalLine.(p,P));
-  (Q, dgs3dProjDistanceSq(P,Q))
-);
-DGS3DmEET3QrOOTcANDIDATEtHREASHOLD = 1e-5;
-// pick correct signs for roots
-// TODO? is there a better way than checking all four choices?
-dgs3dIntersect3ConesPickRoot(x,a,b,c,d,Q):=(
-  regional(pts);
-  a = dgs3dPeval(a,x);
-  b = sqrt(dgs3dPeval(b,x));
-  c = dgs3dPeval(c,x);
-  d = sqrt(dgs3dPeval(d,x));
-  pts = apply([(x,a+b,c+d,1),(x,a+b,c-d,1),(x,a-b,c+d,1),(x,a-b,c-d,1)],
-    dgs3dIntersect3ConesImproveRoot(#,Q) // TODO? use x of improved root to recompute y,z
-  );
-  pts = sort(apply(pts,((|#_1*Q*#_1|,#_2,#_1))));
-  if(pts_1_2 >= DGS3DmEET3QrOOTcANDIDATEtHREASHOLD,
-    [pts_1_3] // no candiate -> pick best possible solution
-  ,
-    pts = select(pts,#_2 < DGS3DmEET3QrOOTcANDIDATEtHREASHOLD); // potential multi root
-    if(length(pts)==1,[pts_1_3],pts)
-  )
-);
-dgs3dIntersectConeConeQuadric(A,B,Q):=(
-  regional(centers,T,XY,XZ,a,b,c,d,multiRoots,sols,candidates,rootCount,x1,x2);
-  centers = apply([A,B],dgs3dRP3Normalize(dgs3dComputeConeCenter(#)));
-  // TODO handle case where the centers coincide
-  // TODO: special handling for case where centers are close
-  // obtain transformation such that each cone uses only two variables
-  T = transpose(dgs3dComputeR4Basis2(centers));
-  [XZ,XY,Q] = apply([A,B,Q],transpose(T)*#*T);
-  if(debug,
-    print("det T: "+det(T)+" T: "+transpose(T));
-    print([XZ,XY]);
-  );
-  // TODO? permute variables if beneficial
-  // cone-centers are all at infinity -> all intersections are finite
-  [a,b] = dgs3dSolveConicForY(dgs3dConicCoefficientVector(apply(XY_(1,2,4),#_(1,2,4))));
-  [c,d] = dgs3dSolveConicForY(dgs3dConicCoefficientVector(apply(XZ_(1,3,4),#_(1,3,4))));
-  // TODO are there relations between the roots (have four choices for y,z given x)
-  if(debug,
-    regional(p);
-    p = dgs3dComputeConeIntersectionPoly(dgs3dQuadricCoefficientVector(Q),a,b,c,d);
-    print((p,roots(p)));
-  );
-  sols = [];
-  multiRoots = select(apply(roots(dgs3dComputeConeIntersectionPoly(dgs3dQuadricCoefficientVector(Q),a,b,c,d)),
-    (#,dgs3dIntersect3ConesPickRoot(#,a,b,c,d,Q))
-  ),if(length(#_2)>1,true,sols = append(sols,#_2_1);false));
-  if(debug,
-    print(multiRoots);
-  );
-  apply(1..length(multiRoots),index,
-    if(!isUndefined(multiRoots_index),
-      candidates = (multiRoots_index)_2;
-      x1 = candidates_1_3_1/candidates_1_3_4;
-      rootCount = 1;
-      forall((index+1)..length(multiRoots),
-        if(!isUndefined(multiRoots_#),
-          x2 = (multiRoots_#)_2_1_3_1/(multiRoots_#)_2_1_3_4;
-          if(|x1-x2|<min(|multiRoots_index_1-x1|,|multiRoots_#_1-x2|),
-            rootCount = rootCount + 1;
-            multiRoots_# = cglNada;
-          );
-        );
-      );
-      // TODO? retry pick-root with median of multi-root candidates
-      sols = concat(sols,apply(candidates_(1..rootCount),#_3))
-    )
-  );
-  apply(sols,T*#)
-);
-
 ///////////
 // E3Q3
 ///////////
@@ -2583,12 +2269,21 @@ dgs3de3q3Impl(q1,q2,q3):=(
   solutions = apply(roots,r,
     Mr = dgs3dPevalm(M,r);
     ker = transpose(kernel(Mr)); // is using kernel stable enough
-    if(length(ker)!=1,
-      isError = true;
+    if(length(ker)>1,
+      isError = true; // multi-root
       [r,0,0,1] // dummy value
     ,
-      v = ker_1;
-      if(abs(v_3) <= (1e-10 * (abs(v_1)+abs(v_2))),isError = true);
+      v = if(|ker_1|==0, // no kernel -> try finding eigenvector with smallest eigenvalue
+        // the CindyJS implementation of eig(.) complains about untested code for almost degenerate matrices
+        //  -> only use eig(.) when using kernel(.) fails
+        regional(eig,minIndex);
+        eig = eig(Mr);
+        minIndex = min(eig_1,v,index,(|v|,index))_2; // sort by magnitude instead of lex-order
+        transpose(eig_2)_minIndex;
+      ,
+        ker_1;
+      );
+      if(abs(v_3) <= (1e-10 * (abs(v_1)+abs(v_2))),isError = true); // infinite intersection
       [r*v_3,v_1,v_2,v_3]
     )
   );
@@ -3346,24 +3041,6 @@ dgs3dDistanceQuadricPlane(conicQuadric,conicPlane,samplePoint):=(
 );
 dgs3dCheckCurvePoint(v):=(
   if(isRealVec(v) & |v| < dgs3dCutoffRadius,re(v),cglNada)
-);
-dgs3dBiQuadricAsCurves(A,B):=(
-  regional(centers,T,XY,XZ);
-  [A,B] = dgs3dComputeDegeneratePencilBasis(A,B,preferReal->true);
-  // TODO? handle case where one of the quadrics decomposes into lines
-  centers = apply([A,B],dgs3dRP3Normalize(dgs3dComputeConeCenter(#)));
-  // TODO? handle case where the centers coincide
-  T = transpose(dgs3dComputeR4Basis2(centers));
-  [XZ,XY] = apply([A,B],transpose(T)*#*T);
-  [a,b] = dgs3dSolveConicForY(dgs3dConicCoefficientVector(apply(XY_(1,2,4),#_(1,2,4))));
-  [c,d] = dgs3dSolveConicForY(dgs3dConicCoefficientVector(apply(XZ_(1,3,4),#_(1,3,4))));
-  print((a,b,c,d));
-  ((
-    lambda(t,dgs3dCheckCurvePoint(dgs3ddehom4(T*(t,dgs3dPSqrtEval(a,b,t),dgs3dPSqrtEval(c,d,t),1))_(1..3)),a->a,b->b,c->c,d->d,T->T),
-    lambda(t,dgs3dCheckCurvePoint(dgs3ddehom4(T*(t,dgs3dPSqrtEval(a,b,t),dgs3dPSqrtEvalM(c,d,t),1))_(1..3)),a->a,b->b,c->c,d->d,T->T),
-    lambda(t,dgs3dCheckCurvePoint(dgs3ddehom4(T*(t,dgs3dPSqrtEvalM(a,b,t),dgs3dPSqrtEval(c,d,t),1))_(1..3)),a->a,b->b,c->c,d->d,T->T),
-    lambda(t,dgs3dCheckCurvePoint(dgs3ddehom4(T*(t,dgs3dPSqrtEvalM(a,b,t),dgs3dPSqrtEvalM(c,d,t),1))_(1..3)),a->a,b->b,c->c,d->d,T->T)
-  ),(b,d))
 );
 // estimate squared-distance to intersection curve of quadric and quadric
 dgs3dDistanceQuadricQuadric(Q1,Q2,P):=(
