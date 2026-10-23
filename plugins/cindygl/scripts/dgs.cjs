@@ -2027,7 +2027,7 @@ dgs3dTrySplitDegenerateQuadric(q):=(
       [(b_1_1,b_1_2+x,0,0),(b_1_1,b_2_1-x,0,0)]
     ,
       [(b_1_2+x,b_2_2,0,0),(b_2_1-x,b_2_2,0,0)]
-    ),T*#);
+    ),transpose(T)*#);
   );
 );
 dgs3dDegenerateIntersect3Q(pq,A,B):=(
