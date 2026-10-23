@@ -1435,6 +1435,11 @@ randomQuadric3d(visible->true,color->cglNada,alpha->cglNada,label->cglNada):=(
     visible->visible,color->color,alpha->alpha,label->label
   );
 );
+randomRank2Quadric3d(visible->true,color->cglNada,alpha->cglNada,label->cglNada):=(
+  quadric3d(dgs3d.alg.planesAsQuadric.(apply(1..4,randomNormal(),randomNormal(),randomNormal()),apply(1..4,randomNormal(),randomNormal(),randomNormal())),
+    visible->visible,color->color,alpha->alpha,label->label
+  );
+);
 randomQuadricBy9P(size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   pts = apply(1..9,randomPoint3d(size->size,visible->visible,color->color,alpha->alpha));
   quadricBy9P(pts);
