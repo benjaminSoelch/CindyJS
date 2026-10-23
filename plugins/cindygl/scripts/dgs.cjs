@@ -2164,6 +2164,7 @@ dgs3de3q3(q1,q2,q3):=(
   while(retryCount > 0 & (
     err = dgs3de3q3computeError(res,q1,q2,q3);
     if(err < minErr,minErr = err; bestRes=res);
+    // TODO? use projection to improve inaccurate solutions
     err > 1e-7
   ),
     // TODO: how often is the error case hit?
@@ -2316,7 +2317,7 @@ dgs3dGenerate3RandomQuadrics():=(
   )
 );
 dgs3dMeetQ3TestErrors(pts,A,B,C):=(
-  apply(flatten(apply(pts,p,(p*A*p,p*B*p,p*C*p))),|#|);
+  apply(flatten(apply(pts,p,(p*A*p,p*B*p,p*C*p))),|#|*1e10);
 );
 dgs3dMeetQ3TestErrorValues(errors,A,B,C):=(
   (sum(errors),max(errors),min(errors),(A,B,C))
@@ -2327,37 +2328,13 @@ dgs3dMeetQ3TestAlgWorstCase(errs):=(
 dt(t0,t1):=(
   (((t1_1-t0_1)*60 + (t1_2-t0_2))*60 + (t1_3-t0_3))*1000 + (t1_4-t0_4);
 );
-dgs3dMeetQ3TestAlg(N,alg):=(
+dgs3dMeetQ3TestAlg(N):=(
   regional(A,B,C,t);
   t0 = time();
   append(dgs3dMeetQ3TestAlgWorstCase(apply(1..N,
     [A,B,C] = dgs3dGenerate3RandomQuadrics();
-    dgs3dMeetQ3TestErrorValues(dgs3dMeetQ3TestErrors(alg.(A,B,C),A,B,C),A,B,C)
+    dgs3dMeetQ3TestErrorValues(dgs3dMeetQ3TestErrors(dgs3dIntersect3Q(A,B,C),A,B,C),A,B,C)
   )),dt(t0,time()));
-);
-dgs3dMeetQ3TestNewAlgWorstCase():=(
-  regional(A,B,C,N,worst,err);
-  N = 0;
-  worst = 0;
-  while(true,
-   [A,B,C] = dgs3dGenerate3RandomQuadrics();
-    errs = dgs3dMeetQ3TestErrors(dgs3dIntersect3Qnew(A,B,C),A,B,C);
-    if(max(errs)>worst,
-      worst = max(errs);
-      print((N,worst,errs));
-      print((A,B,C),exact->true)
-    );
-    N= N+1;
-  );
-);
-dgs3dMeetQ3TestAlgs(N):=(
-  print("e3q3: "+apply(dgs3dMeetQ3TestAlg(N,(A,B,C)=>dgs3de3q3(dgs3dQuadAsVec(A),dgs3dQuadAsVec(B),dgs3dQuadAsVec(C))),#_1*1e10));
-  errs = dgs3dMeetQ3TestAlg(N*2,(A,B,C)=>dgs3dIntersect3Qnew(A,B,C));
-  print("new meetQ3: "+apply(errs,#_1*1e10));
-  [A,B,C] = errs_2_2;
-  sols = dgs3dIntersect3Qnew(A,B,C,debug->true);
-  print(sols);
-  print(dgs3dMeetQ3TestErrors(sols,A,B,C));
 );
 ////////
 
