@@ -1279,7 +1279,7 @@ dgs3dRenderBiQuadric = (self) => (
   if(self:"visible" == true & dgs3dIsRealBiQuadric(M), // treat undefined as falsy
     M = re(M); // isReal allows small imaginary parts
     if(self:"drawId"==-1,
-      self:"drawId" = surface3d((x,y,z)=>dgs3dDistanceQuadricQuadric(Q1,Q2,(x,y,z,1))-(r*r),degree->8,
+      self:"drawId" = surface3d((x,y,z)=>dgs3dDistanceQuadricQuadric(Q1,Q2,(x,y,z))-(r*r),degree->8,
         plotModifiers->{"Q1":M_1,"Q2":M_2,"r":self:"size"},
         alpha->self:"alpha",color->self:"color",cutoffRegion->cgl3d.cutoff.expr.(dgs3dClipSurface));
     ,
@@ -1584,28 +1584,30 @@ dgs3dFindPointOnConic(c,P0):=(
 dgs3dPlaneWithNormalThroughPoint(n,P):=(
   (n_1*P_4,n_2*P_4,n_3*P_4,-P_(1..3)*n)
 );
-dgs3dBiQuadricProjectionStep(q1,q2,P,X,unique->false):=(
-  regional(p1,p2,n,p,PQRS);
-  p1 = q1*P; p2 = q2*P; // TODO: handle infinite planes
-  p = dgs3dPlaneWithNormalThroughPoint(cross(p1_(1..3),p2_(1..3)),P);
-  PQRS = apply(dgs3dComputeIntersectionsQQP(q1,q2,p),dgs3dRP3Normalize(#));
-  ABCD = select(PQRS,dgs3dIsFiniteRealPoint(#));
-  if(unique % length(ABCD)>0,
-    dgs3dSelectClosest(ABCD,P,unique->unique)
-  , // no real intersection -> pick closest real intersection of line-pairs through intersections
-    dgs3dSelectClosest(select(
-      [dgs3dComputeIntersectionLL(dgs3dEpsilon44(PQRS_1,PQRS_2),dgs3dEpsilon44(PQRS_3,PQRS_4)),
-      dgs3dComputeIntersectionLL(dgs3dEpsilon44(PQRS_1,PQRS_3),dgs3dEpsilon44(PQRS_2,PQRS_4)),
-      dgs3dComputeIntersectionLL(dgs3dEpsilon44(PQRS_1,PQRS_4),dgs3dEpsilon44(PQRS_2,PQRS_3))]
-    ,dgs3dIsFiniteRealPoint(#)),P,unique->unique);
-  )
+dgs3dBiQuadricProjectionStep(X,Q1,Q2):=(
+  regional(X4,g1,g2,v1,v2,a00,a01,a11,d,l1,l2);
+  X4 = (X_1,X_2,X_3,1);
+  p1 = Q1*X4;
+  p2 = Q2*X4;
+  v1 = X4*p1;
+  v2 = X4*p2;
+  g1 = 2*p1_(1..3);
+  g2 = 2*p2_(1..3);
+  a00 = g1*g1;
+  a01 = g1*g2;
+  a11 = g2*g2;
+  d = a00*a11-a01*a01;
+  l1 = (v1*a11 - v2*a01)/d;
+  l2 = (v2*a00 - v1*a01)/d;
+  X - l1*g1 - l2*g2;
 );
-dgs3dTryProjectPointToBiQuadric(P,b,unique->false):=(
+dgs3dTryProjectPointToBiQuadric(P,b):=(
   regional(q1,q2,X);
   [q1,q2] = b;
-  X = P;
-  forall(1..4,X = dgs3dBiQuadricProjectionStep(q1,q2,P,X));
-  dgs3dBiQuadricProjectionStep(q1,q2,P,X,unique->unique);
+  X = dgs3ddehom4(P)_(1..3);
+  // TODO? tracing
+  repeat(5,X = dgs3dBiQuadricProjectionStep(X,q1,q2));
+  (X_1,X_2,X_3,1)
 );
 dgs3dFindPointOnBiQuadric(b,P0):=(
   regional(P);
@@ -1717,7 +1719,7 @@ dgs3dPointOnBiQuadric(q,p0,size->cglNada,visible->true,pinned->false,color->cglN
       dgs3dFindPointOnBiQuadric(q,dgs3dPoint4(p0))
     ),onMove-> lambda(self,
       dgs3dSetIfDefined(self,
-        dgs3dTryProjectPointToBiQuadric(self.coords,((self.parents)_1).coords,unique->true)
+        dgs3dTryProjectPointToBiQuadric(self.coords,((self.parents)_1).coords)
       );
     ),visible->visible,color->color,alpha->alpha,incidences->[q],label->label)
   ,pinned);
@@ -3363,20 +3365,13 @@ dgs3dBiQuadricAsCurves(A,B):=(
     lambda(t,dgs3dCheckCurvePoint(dgs3ddehom4(T*(t,dgs3dPSqrtEvalM(a,b,t),dgs3dPSqrtEvalM(c,d,t),1))_(1..3)),a->a,b->b,c->c,d->d,T->T)
   ),(b,d))
 );
-// TODO? try porting iterative projection approach from dgs3dTryProjectPointToBiQuadric to shader
 // estimate squared-distance to intersection curve of quadric and quadric
-dgs3dDistanceQuadricQuadric(Q1,Q2,coords):=(
-  regional(pol1,pol2,l,v,plane,P);
-  // 1. get polar planes
-  pol1 = Q1*coords;
-  pol2 = Q2*coords;
-  // 2. compute distance to intersection line
-  l = dgs3dDualLine(dgs3dEpsilon44(pol1,pol2));
-  v = dgs3dEpsilon46((0,0,0,1),l);
-  plane = dgs3dPlaneWithNormalThroughPoint(v_(1..3),coords);
-  P = dgs3dEpsilon46(plane,l);
-  P = (P / P_4 - coords / coords_4);
-  0.25*(P*P)
+dgs3dDistanceQuadricQuadric(Q1,Q2,P):=(
+  // newton iteration to get more accurate approximation of intersection
+  X = dgs3dBiQuadricProjectionStep(P,Q1,Q2);
+  X = dgs3dBiQuadricProjectionStep(X,Q1,Q2);
+  X = dgs3dBiQuadricProjectionStep(X,Q1,Q2);
+  (P-X)*(P-X)
 );
 dgs3d.alg.meetQP = (q,p) => (
   regional(T);
