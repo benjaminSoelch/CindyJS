@@ -1149,7 +1149,9 @@ dgs3dClipPointCube = (p) => (
 );
 dgs3dClipPoint = dgs3dClipPointSphere;
 dgs3dClipLineSphere = (l) => (
-  dgs3dIntersectQuadricLine(((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,-dgs3dCutoffRadius*dgs3dCutoffRadius)),l)
+  apply(dgs3dIntersectQuadricLine(((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,-dgs3dCutoffRadius*dgs3dCutoffRadius)),l),
+    dgs3ddehom4(#)_(1..3)
+  )
 );
 dgs3dClipLineCube = (l) => (
   regional(s,P,Q);
