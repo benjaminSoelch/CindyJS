@@ -489,11 +489,11 @@ dgs3dSplitRank1Quadric(M):=(
   [r,c] = max(M,v,r,max(v,x,c,(|x|,r,c)))_(2,3);
   (dgs3dRP3Normalize(M_r),dgs3dRP3Normalize(apply(M,#_c)));
 );
-dgs3dQuadricCoefficientVector(M):=(
-  (M_1_1,M_1_2+M_2_1,M_1_3+M_1_3,M_1_4+M_1_4,M_2_2,M_2_3+M_3_2,M_2_4+M_4_2,M_3_3,M_3_4+M_4_3,M_4_4)
-);
 dgs3dConicCoefficientVector(M):=(
   (M_1_1,M_1_2+M_2_1,M_1_3+M_1_3,M_2_2,M_2_3+M_3_2,M_3_3)
+);
+dgs3dConicAsMatrix(c):=(
+  ((2*c_1,c_2,c_3),(c_2,2*c_4,c_5),(c_3,c_5,2*c_6))
 );
 // M = P^T Q + Q^T P: given point P find Q
 dgs3dSplitDegenerateQuadric1known(M,knownPoint):=(
@@ -508,7 +508,7 @@ dgs3dSplitDegenerateQuadric1known(M,knownPoint):=(
     (0,0,0,a,0,0,b,0,c,d)
   );
   // TODO: handle case where AT*transpose(AT) is (almost) not invertible?
-  linearSolve(AT*transpose(AT),AT*dgs3dQuadricCoefficientVector(M));
+  linearSolve(AT*transpose(AT),AT*dgs3dQuadAsVec(M));
 );
 dgs3dIntersectQuadricDualLineMatrix(Q,mL):=(
   regional(M,lineEntry,minorIndices,a);
@@ -634,18 +634,31 @@ dgs3dIntersect2DConicLine(A,l):=(
   ));
   dgs3dSplit2DRank1Conic(B + alpha*Ml);
 );
-// return a root of a x^3 + b x^2 + c x + d
-// prefer real roots with small magnitude
-dgs3dCubicRoot(p):=(
-  sort(roots(p),(!isReal(#),|#|))_1
+// cube root + special case handling for negative real numbers
+rcbrt(x):=(
+  if(if(isReal(x),re(x)<0,false),-(-re(x))^(1/3),x^(1/3))
+);
+// return a root of a l^3 + b l^2m + c l m^2 + d m^3
+solveCubic(p):=(
+  regional(a,b,c,d,w1,w2,W,D,Q,K,r1,r2,r3);
+  (a,b,c,d) = p;
+  W=-2*b^3+9*a*b*c-27*a^2*d;
+  D=(-b^2*c^2+4*a*c^3+4*b^3*d-18*a*b*c*d+27*a^2*d^2)*27;
+  Q=rcbrt(4*(W+a*sqrt(D)));
+  K=2*b^2-6*a*c;
+  // w1=-1/2+i*sqrt(3/4);
+  // w2=-1/2-i*sqrt(3/4);
+  ((-b*Q+K+(Q^2)/2),(3*a*Q))
+  // ((-b*(Q*w1)+K+((Q*w1)^2)/2),(3*a*(Q*w1)))
+  // ((-b*(Q*w2)+K+((Q*w2)^2)/2),(3*a*(Q*w2)))
 );
 dgs3dQuarticRoots(p):=(
   sort(roots(p),(!isReal(#),|#|))
 );
 dgs3dIntersect2DConic(A,B):=(
-  regional(lambda,C,l12,p12,p34);
+  regional(lambda,mu,C,l12,p12,p34);
   // 1. find degenerate matrix in pencil
-  lambda = dgs3dCubicRoot([
+  (lambda,mu) = solveCubic([
     det(A),
     -A_2_3*A_3_2*B_1_1+A_2_2*A_3_3*B_1_1+A_2_3*A_3_1*B_1_2-A_2_1*A_3_3*B_1_2
     -A_2_2*A_3_1*B_1_3+A_2_1*A_3_2*B_1_3+A_1_3*A_3_2*B_2_1-A_1_2*A_3_3*B_2_1
@@ -659,11 +672,11 @@ dgs3dIntersect2DConic(A,B):=(
     -A_1_2*B_2_1*B_3_3+A_1_1*B_2_2*B_3_3,
     det(B)
   ]);
-  C = A+lambda*B;
+  C = lambda*A+mu*B;
   // 3. decompose into lines
   l12 = dgs3dDecompose2DConic(C);
   // 4. compute intersections with lines
-  if(|lambda|>=1,
+  if(|lambda|<=|mu|,
     p12 = dgs3dIntersect2DConicLine(A,l12_1);
     p34 = dgs3dIntersect2DConicLine(A,l12_2);
   ,
@@ -3033,6 +3046,44 @@ dgs3dDistanceQuadricPlane(conicQuadric,conicPlane,samplePoint):=(
   //P = dgs3dSimpleConicProjectionStep(conicQuadric,conicPlane,planePoint,P);
   v = (P / P_4 - samplePoint / samplePoint_4);
   v*v
+);
+// TODO! make dgs3dDistanceQuadricPlaneExact run in CindyGL
+// missing: isReal(.), cvec/cmplx, cmat*mat, ...
+dgs3dDistanceQuadricPlaneExact(conicQuadric,conicPlane,samplePoint):=(
+  regional(n,v,O,T,S,p,px,py,pz,a,b,c,d,e,f,pts,q);
+  // 1. affine-orthogonal transform such conicPlane is (0,0,1,0)
+  // ? change input parameters to be sample+conic+transform (O,d)
+  n = normalize(conicPlane_(1..3));
+  v = n - (0,0,1);
+  O = ((1,0,0),(0,1,0),(0,0,1)) - 2 * [n_1*n,n_2*n,n_3*n];
+  T = ((O_1_1,O_1_2,O_1_3,0),(O_2_1,O_2_2,O_2_3,0),(O_3_1,O_3_2,O_3_3,conicPlane_4),(0,0,0,1));
+  S = ((O_1_1,O_2_1,O_3_1,-O_3_1*conicPlane_4),(O_1_2,O_2_2,O_3_2,-O_3_2*conicPlane_4),(O_1_3,O_2_3,O_3_3,-O_3_3*conicPlane_4),(0,0,0,1));
+  samplePoint = T*samplePoint;
+  (px,py,pz)= p = samplePoint_(1..3)/samplePoint_4;
+  conicQuadric = transpose(S)*conicQuadric*S;
+  // 2. solve problem in RP2
+  // xx xy xw yy yw ww
+  (a,b,c,d,e,f) = (conicQuadric_1_1,conicQuadric_1_2+conicQuadric_2_1,conicQuadric_1_4+conicQuadric_4_4,
+    conicQuadric_2_2,conicQuadric_2_4+conicQuadric_4_2,conicQuadric_4_4);
+  // for closest point q on conic P0-q has to be multiple of gradient at Q
+  // P0 - q = (dX,DY) C(q)
+  conic2 = (b,2*d-2*a,2*a*py-b*px+e,-b,b*py-2*d*px-d,d*py-e*px);
+  // find the intersection q of the two conics closest to p
+  pts = apply(dgs3dIntersect2DConic(((2*a,b,c),(b,2*d,e),(c,e,2*f)),dgs3dConicAsMatrix(conic2)),
+    #_(1..3)/#_3
+  );
+  q = pts_1;
+  if(if(isReal(q_1)&isReal(q_2)&isReal(pts_2_1)&isReal(pts_2_2),
+    (p-re(q))*(p-re(q)) < (p-re(pts_2))*(p-re(pts_2))
+  ,isReal(pts_2_1)&isReal(pts_2_2)),q = pts_2);
+  if(if(isReal(q_1)&isReal(q_2)&isReal(pts_3_1)&isReal(pts_3_2),
+    (p-re(q))*(p-re(q)) < (p-re(pts_3))*(p-re(pts_3))
+  ,isReal(pts_3_1)&isReal(pts_3_2)),q = pts_3);
+  if(if(isReal(q_1)&isReal(q_2)&isReal(pts_4_1)&isReal(pts_4_2),
+    (p-re(q))*(p-re(q)) < (p-re(pts_4))*(p-re(pts_4))
+  ,isReal(pts_4_1)&isReal(pts_2_2)),q = pts_4);
+  // 3. get squared distance as RP2 sq-dist + squared height
+  ((px,py,pz)-(re(q_1),re(q_2),0))*((px,py,pz)-(re(q_1),re(q_2),0))
 );
 dgs3dCheckCurvePoint(v):=(
   if(isRealVec(v) & |v| < dgs3dCutoffRadius,re(v),cglNada)
