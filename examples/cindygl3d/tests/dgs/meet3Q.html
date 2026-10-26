@@ -24,12 +24,11 @@
                 zoom3d(zoom);
                 dgs3dHandleZoom(zoom);
             );
-            cgl3d.defaults:"sphereSize" = 0.1;
-            cgl3d.defaults:"cylinderSize" = 0.05;
+            cgl3d.defaults:"sphereSize" = 0.05;
 
-            A = apply(1..9,point3d((random(),random(),random()),color->"red",size->0.05));
-            B = apply(1..9,point3d((random(),random(),random()),color->"green",size->0.05));
-            C = apply(1..9,point3d((random(),random(),random()),color->"blue",size->0.05));
+            A = apply(1..9,point3d((random(),random(),random()),color->"red"));
+            B = apply(1..9,point3d((random(),random(),random()),color->"green"));
+            C = apply(1..9,point3d((random(),random(),random()),color->"blue"));
             Q1 = quadricBy9Points(A,color->"red");
             Q2 = quadricBy9Points(B,color->"green");
             Q3 = quadricBy9Points(C,color->"blue");

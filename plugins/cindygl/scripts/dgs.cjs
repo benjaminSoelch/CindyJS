@@ -2042,7 +2042,7 @@ dgs3dIntersect3Q(q1,q2,q3) := (
   ,if(!isUndefined(pq = dgs3dTrySplitDegenerateQuadric(q3)),
     dgs3dDegenerateIntersect3Q(pq,q1,q2)
   ,
-    dgs3de3q3(dgs3dQuadAsVec(q1),dgs3dQuadAsVec(q2),dgs3dQuadAsVec(q3));
+    dgs3de3q3(q1,q2,q3);
   )))
 );
 dgs3d.alg.meetBQ = (b,q) => (
@@ -2138,8 +2138,20 @@ dgs3de3q3computeError(res,q1,q2,q3):=(
   if(isUndefined(res),
     1e400
   ,
-    max((q1,q2,q3),q,max(res,v,abs(v*dgs3dQuadAsMat(q)*v)))
+    max((q1,q2,q3),q,max(res,v,abs(v*q*v)))
   );
+);
+dsg3de3q3Polar(X,q):=(
+  // q: xx xy xz xw yy yz yw zz zw ww
+  dgs3dQuadAsMat(q)*X;
+);
+dgs3de3q3ImproveSolution(X,q1,q2,q3):=(
+  regional(p1,p2,p3);
+  p1 = q1*X;
+  p2 = q2*X;
+  p3 = q3*X;
+  // single Newton iteration step
+  X-inverse((2*p1,2*p2,2*p3,X))*(p1*X,p2*X,p3*X,0)
 );
 randomVec4():=(apply(1..4,randomNormal()));
 randomOrthMatrix4():=(
@@ -2156,25 +2168,25 @@ randomOrthMatrix4():=(
 // quadric intersection algo from paper: Efficient Intersection of Three Quadrics and Applications in Computer Vision
 dgs3de3q3(q1,q2,q3):=(
   regional(res,retryCount,trafo,trafoT,err,bestRes);
-  res = dgs3de3q3Impl(q1,q2,q3);
+  res = dgs3de3q3Impl(dgs3dQuadAsVec(q1),dgs3dQuadAsVec(q2),dgs3dQuadAsVec(q3));
   err = 1e400;
   minErr = 1e400;
   retryCount = 10; // retry at most 10 times
   // retry if error is too large
   while(retryCount > 0 & (
+    // TODO when will this collapse solutions
+    // single newton iteration with original quadrics
+    res = apply(res,dgs3de3q3ImproveSolution(#,q1,q2,q3));
     err = dgs3de3q3computeError(res,q1,q2,q3);
     if(err < minErr,minErr = err; bestRes=res);
-    // TODO? use projection to improve inaccurate solutions
-    err > 1e-7
+    err > 1e-10
   ),
-    // TODO: how often is the error case hit?
-    // TODO: what is the best way to reduce retry-count
     trafo = randomOrthMatrix4();
     trafoT = transpose(trafo);
     res = apply(dgs3de3q3Impl(
-      dgs3dQuadAsVec(trafoT*dgs3dQuadAsMat(q1)*trafo),
-      dgs3dQuadAsVec(trafoT*dgs3dQuadAsMat(q2)*trafo),
-      dgs3dQuadAsVec(trafoT*dgs3dQuadAsMat(q3)*trafo)
+      dgs3dQuadAsVec(trafoT*q1*trafo),
+      dgs3dQuadAsVec(trafoT*q2*trafo),
+      dgs3dQuadAsVec(trafoT*q3*trafo)
     ),p,trafo*p);
     retryCount = retryCount - 1;
   );
