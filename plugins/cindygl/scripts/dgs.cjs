@@ -2673,9 +2673,8 @@ dgs3d.alg.coneByConicPoint = (c,P) => (
   [q,p] = c;
   T = dgs3dMapPinfTo(p);
   P = T*P;
-  P = P/P_4;
+  x = P_(1..3)/P_4;
   A = dgs3dTopLeft3x3(T*q*transpose(T));
-  x = P_(1..3);
   v = -A * x;
   transpose(T)*(
     (A_1_1,A_1_2,A_1_3,v_1),
