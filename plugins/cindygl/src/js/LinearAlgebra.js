@@ -96,6 +96,20 @@ function generatecmatmult(t, modifs, codebuilder) {
     }
     `);
 }
+// TODO is there a smarter way to generate matrix-matrix multiplication
+function generatecmatmatmult(n, modifs, codebuilder) {
+    includefunction('multc', modifs, codebuilder);
+    let name = `cmat${n}mult`;
+    let matType = list(n,type.cvec(n));
+    codebuilder.add('functions', name, () => `${webgltype(matType)} ${name}(${webgltype(matType)} a, ${webgltype(matType)} b){
+        return ${webgltype(matType)}(${
+          range(n).map(x => `${webgltype(type.cvec(n))}(${(range(n).map(y => range(n).map(k =>
+            `multc(a.a${x}.a${k},b.a${k}.a${y})`
+          ).join("+")))})`)
+        });
+    }
+    `);
+}
 
 function generatedot(n, codebuilder) {
     if ((2 <= n && n <= 4)) return;
@@ -119,7 +133,7 @@ function generateadd(t, modifs, codebuilder) {
     let name = `add${webgltype(t)}`;
     codebuilder.add('functions', name, () => `${webgltype(t)} ${name}(${webgltype(t)} a, ${webgltype(t)} b) {
     return ${webgltype(t)}(${
-        genchilds(t).map(ch => `${webgltype(ch.type)}(${
+        genchilds(t).map(ch => /*${webgltype(ch.type)}*/`(${
           useadd(ch.type)([`a.${ch.name}`,`b.${ch.name}`], modifs, codebuilder)
         })`).join(',')});
       }`);
@@ -146,6 +160,16 @@ function generatescalarmult(t, modifs, codebuilder) {
         });
     }`);
 }
+function generatevecre(t, modifs, codebuilder) {
+    let name = `re_${webgltype(t)}`;
+    let n = t.length;
+    let reType = type.vec(t.length);
+    codebuilder.add('functions', name, () => `${webgltype(reType)} ${name}(${webgltype(t)} v) {
+    return ${webgltype(reType)}(${
+          range(n).map(k => `(v.a${k}).x`).join(',')
+        });
+    }`);
+}
 
 function generatecscalarmult(t, modifs, codebuilder) {
     includefunction('multc', modifs, codebuilder);
@@ -159,6 +183,29 @@ function generatecscalarmult(t, modifs, codebuilder) {
     }`);
 }
 
+function generatescalardiv(t, modifs, codebuilder) {
+    let name = `scalardiv${webgltype(t)}`;
+    codebuilder.add('functions', name, () => `${webgltype(t)} ${name}(${webgltype(t)} a,float b) {
+    return ${webgltype(t)}(${
+          genchilds(t).map(ch => `${webgltype(ch.type)}(${
+            usescalardiv(ch.type)([`a.${ch.name}`,`b`], modifs, codebuilder)
+          })`).join(',')
+        });
+    }`);
+}
+
+function generatecscalardiv(t, modifs, codebuilder) {
+    includefunction('divc', modifs, codebuilder);
+    let name = `cscalardiv${webgltype(t)}`;
+    codebuilder.add('functions', name, () => `${webgltype(t)} ${name}(${webgltype(t)} a,vec2 b) {
+    return ${webgltype(t)}(${
+          genchilds(t).map(ch => `${
+            usecscalardiv(ch.type)([`a.${ch.name}`,`b`], modifs, codebuilder)
+          }`).join(',')
+        });
+    }`);
+}
+
 function usemult(t) {
     if (t === type.complex) return useincludefunction('multc');
     if (isnativeglsl(t)) return (args, modifs, codebuilder) => useinfix('*')([args[1], args[0]]); //swap multiplication order as matrices are interpreted as list of columns in glsl
@@ -167,6 +214,9 @@ function usemult(t) {
         return (args, modifs, codebuilder) => {generatematmult(t, modifs, codebuilder);return `mult${t.length}_${t.parameters.length}(${args.join(',')})`};
     else if (fp === type.complex)
         return (args, modifs, codebuilder) => {generatecmatmult(t, modifs, codebuilder);return `multc${t.length}_${t.parameters.length}(${args.join(',')})`};
+}
+function usecmatmatmult(n) {
+    return (args, modifs, codebuilder) => {generatecmatmatmult(n, modifs, codebuilder);return `cmat${n}mult(${args.join(',')})`};
 }
 
 function usedot(n) {
@@ -274,12 +324,25 @@ function usescalarmult(t) { //assume t is a R or C-vectorspace, multiply with re
     if (isnativeglsl(t)) return useinfix('*');
     return (args, modifs, codebuilder) => {generatescalarmult(t, modifs, codebuilder);return `scalarmult${webgltype(t)}(${args.join(',')})`};
 }
+// real part of complex vector
+function usevecre(t) { //assume t is a R or C-vectorspace, multiply with real number
+    return (args, modifs, codebuilder) => {generatevecre(t, modifs, codebuilder);return `re_${webgltype(t)}(${args[0]})`};
+}
 
 function usecscalarmult(t) { //assume t is a R or C-vectorspace, multiply with complex number
     if (t === type.complex) return useincludefunction('multc');
     return (args, modifs, codebuilder) => {generatecscalarmult(t, modifs, codebuilder);return `cscalarmult${webgltype(t)}(${args.join(',')})`};
 }
 
+function usescalardiv(t) { //assume t is a R or C-vectorspace, multiply with real number
+    if (isnativeglsl(t)) return useinfix('/');
+    return (args, modifs, codebuilder) => {generatescalardiv(t, modifs, codebuilder);return `scalardiv${webgltype(t)}(${args.join(',')})`};
+}
+
+function usecscalardiv(t) { //assume t is a R or C-vectorspace, multiply with complex number
+    if (t === type.complex) return useincludefunction('divc');
+    return (args, modifs, codebuilder) => {generatecscalardiv(t, modifs, codebuilder);return `cscalardiv${webgltype(t)}(${args.join(',')})`};
+}
 
 // Build reverse function
 function generatereverse(t, modifs, codebuilder) {

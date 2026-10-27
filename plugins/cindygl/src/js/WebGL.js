@@ -532,6 +532,18 @@ webgl["mult"] = args => {
             };
         }
     }
+
+    //complex matrix-matrix products for 2x2,3x3 and 4x4
+    if (iscvectorspace(a) && depth(a) === 2 && a.length <= 4 && a.length == a.parameters.length &&
+        iscvectorspace(b) && depth(b) === 2 && b.length == a.length && b.length === b.parameters.length) {
+        if(a.length === 1) return false; // only 2,3,4
+        return {
+            args: [getcvectorspace(a), getcvectorspace(b)],
+            res: list(a.length,type.cvec(b.parameters.length)),
+            generator: usecmatmatmult(a.length)
+        };
+    }
+    return false;
 };
 
 webgl['*'] = webgl['mult'];
@@ -563,21 +575,41 @@ webgl["div"] = args => {
         }
         //TODO: implement / for other dimensions; and complex vector spaces
     }
+
+    //R/C vectorspaces with real scalar
+    if (issubtypeof(args[1], type.float) && (isrvectorspace(args[0]) || iscvectorspace(args[0]))) {
+        let vs = getrvectorspace(args[0]);
+        return {
+            args: [vs, type.float],
+            res: vs,
+            generator: (a, modifs, codebuilder) => usescalardiv(vs)([a[0], a[1]], modifs, codebuilder)
+        };
+    }
+    //complex vectorspaces by complex scalar
+    else if (issubtypeof(args[1], type.complex) && (iscvectorspace(args[0]))) {
+        let vs = getcvectorspace(args[0]);
+        return {
+            args: [vs, type.complex],
+            res: vs,
+            generator: (a, modifs, codebuilder) => usecscalardiv(vs)([a[0], a[1]], modifs, codebuilder)
+        };
+    }
     return false;
 }
 
 
 webgl['/'] = webgl['div'];
 
-webgl['re'] = first([
-    [
-        [type.complex], type.float, useincludefunction('realc') //TODO: shorter x => `(${x}).x`
-    ]
-]);
 
 webgl['im'] = first([
     [
         [type.complex], type.float, useincludefunction('imagc')
+    ]
+]);
+
+webgl['isreal'] = first([
+    [
+        [type.complex], type.bool, useincludefunction('isrealc')
     ]
 ]);
 
@@ -766,11 +798,23 @@ webgl["pow"] = args => {
 
 webgl["^"] = webgl["pow"];
 
-webgl["re"] = first([
-    [
-        [type.complex], type.float, getReal
-    ]
-]);
+webgl["re"] = args => {
+    let match = first([
+        [
+            [type.complex], type.float, getReal
+        ]
+    ])(args);
+    if (match) return match;
+    if (iscvectorspace(args[0]) && depth(args[0]) === 1) { // cvec
+        let vs = getcvectorspace(args[0]);
+        return {
+            args: [vs],
+            res: type.vec(vs.length),
+            generator: (a, modifs, codebuilder) => usevecre(vs)(a, modifs, codebuilder)
+        };
+    }
+    return false;
+};
 
 webgl["conjugate"] = first([
     [
