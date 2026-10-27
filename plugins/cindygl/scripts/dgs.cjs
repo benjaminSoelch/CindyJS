@@ -598,12 +598,16 @@ dgs3dSqCoords(p):=(
 // TODO? reuse code from 2D-geometry engine
 // TODO: check if results are correct in all cases
 dgs3dDecompose2DConic(A):=(
-  regional(B,maxDiagEltIndex,beta,P,C);
+  regional(B,P,C);
   // 1. find anti-symmetric matrix D s.t. A+D has rank 1
   B = adjoint3(A);
-  maxDiagEltIndex = if(|B_1_1|>=|B_2_2| & |B_1_1|>=|B_3_3|, 1, if(|B_2_2|>=|B_1_1| & |B_2_2|>=|B_3_3|,2, 3));
-  beta = sqrt(-B_maxDiagEltIndex_maxDiagEltIndex);
-  P = B_maxDiagEltIndex/beta;
+  P = if(|B_1_1|>=|B_2_2| & |B_1_1|>=|B_3_3|,
+    B_1/sqrt(-B_1_1)
+  ,if(|B_2_2|>=|B_1_1| & |B_2_2|>=|B_3_3|,
+    B_2/sqrt(-B_2_2)
+  ,
+    B_3/sqrt(-B_3_3)
+  ));
   C = A + ((0,P_3,-P_2),(-P_3,0,P_1),(P_2,-P_1,0));
   dgs3dSplit2DRank1Conic(C);
 );
@@ -640,7 +644,7 @@ rcbrt(x):=(
 );
 // return a root of a l^3 + b l^2m + c l m^2 + d m^3
 solveCubic(p):=(
-  regional(a,b,c,d,w1,w2,W,D,Q,K,r1,r2,r3);
+  regional(a,b,c,d,/*w1,w2,*/W,D,Q,K);
   (a,b,c,d) = p;
   W=-2*b^3+9*a*b*c-27*a^2*d;
   D=(-b^2*c^2+4*a*c^3+4*b^3*d-18*a*b*c*d+27*a^2*d^2)*27;
@@ -3047,8 +3051,9 @@ dgs3dDistanceQuadricPlane(conicQuadric,conicPlane,samplePoint):=(
   v = (P / P_4 - samplePoint / samplePoint_4);
   v*v
 );
-// TODO! make dgs3dDistanceQuadricPlaneExact run in CindyGL
-// missing: isReal(.), cvec/cmplx, cmat*mat, ...
+// TODO: is there a bug in this code?
+// can this be made more efficient up without loosing accuracy
+// ? directly solve conic equation without going through matrix decomposition
 dgs3dDistanceQuadricPlaneExact(conicQuadric,conicPlane,samplePoint):=(
   regional(n,v,O,T,S,p,px,py,pz,a,b,c,d,e,f,pts,q);
   // 1. affine-orthogonal transform such conicPlane is (0,0,1,0)
@@ -3083,7 +3088,7 @@ dgs3dDistanceQuadricPlaneExact(conicQuadric,conicPlane,samplePoint):=(
     (p-re(q))*(p-re(q)) < (p-re(pts_4))*(p-re(pts_4))
   ,isReal(pts_4_1)&isReal(pts_2_2)),q = pts_4);
   // 3. get squared distance as RP2 sq-dist + squared height
-  ((px,py,pz)-(re(q_1),re(q_2),0))*((px,py,pz)-(re(q_1),re(q_2),0))
+  0.05*((px,py,pz)-(re(q_1),re(q_2),0))*((px,py,pz)-(re(q_1),re(q_2),0))
 );
 dgs3dCheckCurvePoint(v):=(
   if(isRealVec(v) & |v| < dgs3dCutoffRadius,re(v),cglNada)
