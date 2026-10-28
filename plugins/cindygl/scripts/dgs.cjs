@@ -3051,6 +3051,49 @@ dgs3dDistanceQuadricPlane(conicQuadric,conicPlane,samplePoint):=(
   v = (P / P_4 - samplePoint / samplePoint_4);
   v*v
 );
+solveQuartic(a,b,c,d,e):=(
+  regional(p,q,r,P,Q,y,w,r1,t,r2,r3);
+  // bring in form y^4 + p y^2 + q y + r where x = y - b/4a
+  b = b/a; c = c/a; d = d/a; e = e/a;
+  p = -3/8*b*b+c;
+  q = b*b*b/8 - b*c/2 + d;
+  r = - 3/256 * (b*b)*(b*b) + c*b*b/16 - b*d/4 + e;
+  P = - p*p/12 - r;
+  Q = - p*p*p/108 + p*r/3 - q*q/8;
+  w = rcbrt(-Q/2 + sqrt(Q*Q/4 + P*P*P/27));
+  y = p/6 + w - P/(3*w);
+  r1 = sqrt(2*y-p);
+  t = 2*q/r1;
+  r2 = sqrt(-2*y-p+t);
+  r3 = sqrt(-2*y-p-t);
+  (
+    0.5*(-r1 + r2 - b/2),
+    0.5*(-r1 - r2 - b/2),
+    0.5*(-r1 + r3 - b/2),
+    0.5*(-r1 - r3 - b/2)
+  );
+);
+dsg3dSimpleIntersect2Conic(c1,c2):=(
+  regional(a,b,c,d,e,f,l,m,n,o,u,v,xs);
+  // TODO: swap x,y if more stable that way
+  // xx xy xw yy yw ww
+  if(|c1_4| < |c2_4|,
+    (c1,c2) = (c2,c1)
+  );// c1_yy >= c2_yy
+  c2 = c2 - (c2_4/c1_4)*c1; // c2_yy = 0
+  (a,b,c,d,e,f) = c1;
+  (l,u,m,o,v,n) = c2; // (l x^2 + m x + n) + y (u x + v)
+  xs = solveQuartic(
+    d*l*l+b*l*u+a*u*u,
+    a*v*v,2*d*l*m+e*l*u+b*m*u+c*u*u+b*l*v+2*a*u*v,
+    d*m*m+2*d*l*n+e*m*u+b*n*u+f*u*u+e*l*v+b*m*v+2*c*u*v+
+    2*d*m*n+e*n*u+e*m*v+b*n*v+2*f*u*v+c*v*v,
+    d*n*n+e*n*v+f*v*v
+  );
+  apply(xs,x,
+    (x,(l*x*x+m*x+n)/(u*x+v))
+  );
+);
 // TODO: is there a bug in this code? (the result be should be continous(?))
 // can this be made more efficient up without loosing accuracy
 // ? directly solve conic equation without going through matrix decomposition
@@ -3074,9 +3117,7 @@ dgs3dDistanceQuadricPlaneExact(conicQuadric,conicPlane,samplePoint):=(
   // P0 - q = (dX,DY) C(q)
   conic2 = (b,2*d-2*a,2*a*py-b*px+e,-b,b*py-2*d*px-c,c*py-e*px);
   // find the intersection q of the two conics closest to p
-  pts = apply(dgs3dIntersect2DConic(((2*a,b,c),(b,2*d,e),(c,e,2*f)),dgs3dConicAsMatrix(conic2)),
-    #_(1..3)/#_3
-  );
+  pts = dsg3dSimpleIntersect2Conic((a,b,c,d,e,f),conic2);
   q = pts_1;
   if(if(isReal(q_1)&isReal(q_2)&isReal(pts_2_1)&isReal(pts_2_2),
     (p-re(q))*(p-re(q)) < (p-re(pts_2))*(p-re(pts_2))
