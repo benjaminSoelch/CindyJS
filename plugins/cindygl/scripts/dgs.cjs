@@ -3051,7 +3051,7 @@ dgs3dDistanceQuadricPlane(conicQuadric,conicPlane,samplePoint):=(
   v = (P / P_4 - samplePoint / samplePoint_4);
   v*v
 );
-// TODO: is there a bug in this code?
+// TODO: is there a bug in this code? (the result be should be continous(?))
 // can this be made more efficient up without loosing accuracy
 // ? directly solve conic equation without going through matrix decomposition
 dgs3dDistanceQuadricPlaneExact(conicQuadric,conicPlane,samplePoint):=(
@@ -3072,7 +3072,7 @@ dgs3dDistanceQuadricPlaneExact(conicQuadric,conicPlane,samplePoint):=(
     conicQuadric_2_2,conicQuadric_2_4+conicQuadric_4_2,conicQuadric_4_4);
   // for closest point q on conic P0-q has to be multiple of gradient at Q
   // P0 - q = (dX,DY) C(q)
-  conic2 = (b,2*d-2*a,2*a*py-b*px+e,-b,b*py-2*d*px-d,d*py-e*px);
+  conic2 = (b,2*d-2*a,2*a*py-b*px+e,-b,b*py-2*d*px-c,c*py-e*px);
   // find the intersection q of the two conics closest to p
   pts = apply(dgs3dIntersect2DConic(((2*a,b,c),(b,2*d,e),(c,e,2*f)),dgs3dConicAsMatrix(conic2)),
     #_(1..3)/#_3
@@ -3088,7 +3088,7 @@ dgs3dDistanceQuadricPlaneExact(conicQuadric,conicPlane,samplePoint):=(
     (p-re(q))*(p-re(q)) < (p-re(pts_4))*(p-re(pts_4))
   ,isReal(pts_4_1)&isReal(pts_2_2)),q = pts_4);
   // 3. get squared distance as RP2 sq-dist + squared height
-  0.05*((px,py,pz)-(re(q_1),re(q_2),0))*((px,py,pz)-(re(q_1),re(q_2),0))
+  ((px,py,pz)-(re(q_1),re(q_2),0))*((px,py,pz)-(re(q_1),re(q_2),0))
 );
 dgs3dCheckCurvePoint(v):=(
   if(isRealVec(v) & |v| < dgs3dCutoffRadius,re(v),cglNada)
