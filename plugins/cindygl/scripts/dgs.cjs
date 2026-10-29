@@ -2739,6 +2739,10 @@ dgs3d.alg.conicFoci = (conic) => (
   // get four intersection points
   apply([cross(a,c),cross(b,d),cross(a,d),cross(b,c)],#=dgs3dRP3Normalize(#);T*(#_1,#_2,#_3,0))
 );
+// c: conic => set[point], 
+dgs3dConicFoci(c,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
+  dgs3dNewPointSet("conicFoci",[c],4,size->size,visible->visible,color->color,alpha->alpha);
+);
 
 dgs3d.alg.quadricPlanes = (q) => (
   regional(B);
