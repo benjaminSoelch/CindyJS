@@ -1193,6 +1193,29 @@ dgs3dClipLineCube = (l) => (
   (P,Q)
 );
 dgs3dClipLine = dgs3dClipLineSphere;
+dsg3dClipLineToSphere(globalClipping,M,r):=(
+  lambda((l),(
+    regional(X,Y,P,Q,v,a,b);
+    (X,Y) = globalClipping.(l);
+    (P,Q) = apply(dgs3dIntersectQuadricLine([[M_4,0,0,-M_1],[0,M_4,0,-M_2],[0,0,M_4,-M_3],[-M_1,-M_2,-M_3,(M_1^2+M_2^2+M_3^2-r*r)/M_4]],l),
+      dgs3ddehom4(#)_(1..3)
+    );
+    if(isRealVec(X)&isRealVec(Y)&isRealVec(P)&isRealVec(Q),
+      v = Y-X;
+      // P = X + a*v; Q = Y + b*v
+      a = |P-X| / |v|;
+      b = |Q-X| / |v|;
+      if (a>b,(a,b)=(b,a);(P,Q)=(Q,P)); // ensure a <= b
+      if (a>=1 % b <= 0,
+        ((1,i,0),(1,-i,0))
+      ,
+       (if(a > 0,P,X),if(b<1,Q,Y))
+      )
+    ,
+      ((1,i,0),(1,-i,0))
+    )
+  ),globalClipping->globalClipping,M->M,r->r)
+);
 dgs3dClipSurfaceSphere = (rayStart,direction) => (
   cgl3d.compute.sphereDepths.(rayStart,direction,(0,0,0),dgs3dCutoffRadius)
 );
