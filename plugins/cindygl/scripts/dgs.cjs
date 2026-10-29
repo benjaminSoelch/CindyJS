@@ -3073,30 +3073,6 @@ solveQuartic(a,b,c,d,e):=(
     0.5*(-r1 - r3 - b/2)
   );
 );
-dsg3dSimpleIntersect2Conic(c1,c2):=(
-  regional(a,b,c,d,e,f,l,m,n,o,u,v,xs);
-  // TODO: swap x,y if more stable that way
-  // xx xy xw yy yw ww
-  if(|c1_4| < |c2_4|,
-    (c1,c2) = (c2,c1)
-  );// c1_yy >= c2_yy
-  c2 = c2 - (c2_4/c1_4)*c1; // c2_yy = 0
-  (a,b,c,d,e,f) = c1;
-  (l,u,m,o,v,n) = c2; // (l x^2 + m x + n) + y (u x + v)
-  xs = solveQuartic(
-    d*l*l+b*l*u+a*u*u,
-    a*v*v,2*d*l*m+e*l*u+b*m*u+c*u*u+b*l*v+2*a*u*v,
-    d*m*m+2*d*l*n+e*m*u+b*n*u+f*u*u+e*l*v+b*m*v+2*c*u*v+
-    2*d*m*n+e*n*u+e*m*v+b*n*v+2*f*u*v+c*v*v,
-    d*n*n+e*n*v+f*v*v
-  );
-  apply(xs,x,
-    (x,(l*x*x+m*x+n)/(u*x+v))
-  );
-);
-// TODO: is there a bug in this code? (the result be should be continous(?))
-// can this be made more efficient up without loosing accuracy
-// ? directly solve conic equation without going through matrix decomposition
 dgs3dDistanceQuadricPlaneExact(conicQuadric,conicPlane,samplePoint):=(
   regional(n,v,O,T,S,p,px,py,pz,a,b,c,d,e,f,pts,q);
   // 1. affine-orthogonal transform such conicPlane is (0,0,1,0)
@@ -3105,34 +3081,45 @@ dgs3dDistanceQuadricPlaneExact(conicQuadric,conicPlane,samplePoint):=(
   v = n - (0,0,1);
   O = ((1,0,0),(0,1,0),(0,0,1)) - 2 * [n_1*n,n_2*n,n_3*n];
   T = ((O_1_1,O_1_2,O_1_3,0),(O_2_1,O_2_2,O_2_3,0),(O_3_1,O_3_2,O_3_3,conicPlane_4),(0,0,0,1));
-  S = ((O_1_1,O_2_1,O_3_1,-O_3_1*conicPlane_4),(O_1_2,O_2_2,O_3_2,-O_3_2*conicPlane_4),(O_1_3,O_2_3,O_3_3,-O_3_3*conicPlane_4),(0,0,0,1));
   samplePoint = T*samplePoint;
   (px,py,pz)= p = samplePoint_(1..3)/samplePoint_4;
+  // shift sameple point to (0,0,pz): S = T^-1 * (I p_xy; 0 1)
+  S = ((O_1_1,O_2_1,O_3_1,O_1_1*px+O_2_1*py-O_3_1*conicPlane_4),
+       (O_1_2,O_2_2,O_3_2,O_1_2*px+O_2_2*py-O_3_2*conicPlane_4),
+       (O_1_3,O_2_3,O_3_3,O_1_3*px+O_2_3*py-O_3_3*conicPlane_4),
+       (0,0,0,1));
+  // TODO: double-check transforms
   conicQuadric = transpose(S)*conicQuadric*S;
   // 2. solve problem in RP2
   // xx xy xw yy yw ww
   (a,b,c,d,e,f) = (conicQuadric_1_1,conicQuadric_1_2+conicQuadric_2_1,conicQuadric_1_4+conicQuadric_4_4,
     conicQuadric_2_2,conicQuadric_2_4+conicQuadric_4_2,conicQuadric_4_4);
-  // for closest point q on conic P0-q has to be multiple of gradient at Q
-  // P0 - q = (dX,DY) C(q)
-  conic2 = (b,2*d-2*a,2*a*py-b*px+e,-b,b*py-2*d*px-c,c*py-e*px);
-  // find the intersection q of the two conics closest to p
-  pts = dsg3dSimpleIntersect2Conic((a,b,c,d,e,f),conic2);
-  q = pts_1;
-  if(if(isReal(q_1)&isReal(q_2)&isReal(pts_2_1)&isReal(pts_2_2),
-    (p-re(q))*(p-re(q)) < (p-re(pts_2))*(p-re(pts_2))
-  ,isReal(pts_2_1)&isReal(pts_2_2)),q = pts_2);
-  if(if(isReal(q_1)&isReal(q_2)&isReal(pts_3_1)&isReal(pts_3_2),
-    (p-re(q))*(p-re(q)) < (p-re(pts_3))*(p-re(pts_3))
-  ,isReal(pts_3_1)&isReal(pts_3_2)),q = pts_3);
-  if(if(isReal(q_1)&isReal(q_2)&isReal(pts_4_1)&isReal(pts_4_2),
-    (p-re(q))*(p-re(q)) < (p-re(pts_4))*(p-re(pts_4))
-  ,isReal(pts_4_1)&isReal(pts_2_2)),q = pts_4);
+  // TODO: double-check polynomial
+  // discriminant of c(x,y) + x^2+y^2+r = 0 as polynomial in r, (roots coresponds to negative radii where the sphere is tangent to the conic)
+  rs = solveQuartic(
+    (b^2-4*a*d)^2*(a^2+b^2-2*a*d+d^2),
+    16*c^2*d^4-18*b^3*c*d*e-16*b*c*d^3*e+16*a^4*(e^2-2*d*f)+2*b^2*d^2*(10*c^2+e^2+4*d*f)
+    +b^4*(3*c^2+3*e^2+8*d*f)+8*a^3*(c^2*d-2*b*c*e-4*d*e^2+b^2*f+4*d^2*f)+2*a^2*(12*b*c*d*e
+    +b^2*(c^2+10*e^2-20*d*f)+4*d^2*(c^2+e^2+4*d*f))+2*a*(-9*b^3*c*e+12*b*c*d^2*e+4*b^4*f
+    +4*d^3*(-4*c^2+e^2-4*d*f)-b^2*d*(c^2+e^2+20*d*f)),
+    36*b^3*c*e*f+16*a^4*f^2-8*b^4*f^2-8*a^3*f*(c^2+4*e^2-4*d*f)+6*b*c*d*e*(6*c^2-3*e^2+4*d*f)
+    +d^2*(-8*c^4+4*c^2*(5*e^2-8*d*f)+(e^2-4*d*f)^2)+a^2*(c^4-8*e^4+24*b*c*e*f+80*d*e^2*f
+    +8*(b^2-12*d^2)*f^2+20*c^2*(e^2-2*d*f))+b^2*(3*c^4+3*e^4-2*d*e^2*f+8*d^2*f^2-c^2*(21*e^2+38*d*f))
+    +2*a*(4*c^4*d-9*b*c^3*e-19*b^2*e^2*f-20*d^2*e^2*f+16*d^3*f^2+6*b*c*e*(3*e^2-8*d*f)
+    +c^2*(-19*d*e^2-b^2*f+40*d^2*f)+4*d*(e^4+10*b^2*f^2)),
+    c^6+e^6-18*b*c^3*e*f+2*(4*a-5*d)*e^4*f+4*(2*a^2+5*b^2-10*a*d+8*d^2)*e^2*f^2
+    -32*(a+d)*(a^2+b^2-2*a*d+d^2)*f^3+c^4*(3*e^2-10*a*f+8*d*f)-6*b*c*e*f*(3*e^2-4*(a+d)*f)
+    +c^2*(3*e^4-2*(a+d)*e^2*f+4*(8*a^2+5*b^2-10*a*d+2*d^2)*f^2),
+    f^2*(c^4+e^4-16*b*c*e*f+8*(a-d)*e^2*f+16*(a^2+b^2-2*a*d+d^2)*f^2+2*c^2*(e^2+4*(-a+d)*f))
+  );
+  // pick largest negative real root
+  r = 1e10;
+  if(isReal(rs_1) & re(rs_1)<=0 & -re(rs_1) < r,r = -re(rs_1));
+  if(isReal(rs_2) & re(rs_2)<=0 & -re(rs_2) < r,r = -re(rs_2));
+  if(isReal(rs_3) & re(rs_3)<=0 & -re(rs_3) < r,r = -re(rs_3));
+  if(isReal(rs_4) & re(rs_4)<=0 & -re(rs_4) < r,r = -re(rs_4));
   // 3. get squared distance as RP2 sq-dist + squared height
-  ((px,py,pz)-(re(q_1),re(q_2),0))*((px,py,pz)-(re(q_1),re(q_2),0))
-);
-dgs3dCheckCurvePoint(v):=(
-  if(isRealVec(v) & |v| < dgs3dCutoffRadius,re(v),cglNada)
+  r + pz*pz;
 );
 // estimate squared-distance to intersection curve of quadric and quadric
 dgs3dDistanceQuadricQuadric(Q1,Q2,P):=(
