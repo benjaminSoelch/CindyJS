@@ -1216,6 +1216,21 @@ dsg3dRestrictLineToSphere(globalClipping,M,r):=(
     )
   ),globalClipping->globalClipping,M->M,r->r)
 );
+dsg3dRestrictLineToHalfSpace(globalClipping,v):=(
+  lambda((l),(
+    regional(X,Y,m,Z);
+    (X,Y) = globalClipping.(l);
+    if(isRealVec(X)&isRealVec(Y),
+      m = (v_4 - X*v_(1..3))/((Y-X)*v_(1..3));
+      if (m < 0 % m > 1, // cutoff outside interval
+        if(X*v_(1..3) > 0,(X,Y),((1,i,0),(1,-i,0)))
+      , // cutoff between X and Y
+        Z = X+m*(Y-X);
+        if(X*v_(1..3) > 0,(X,Z),(Z,Y))
+      )
+    ,(X,Y))
+  ),globalClipping->globalClipping,v->v)
+);
 dgs3dClipSurfaceSphere = (rayStart,direction) => (
   cgl3d.compute.sphereDepths.(rayStart,direction,(0,0,0),dgs3dCutoffRadius)
 );
