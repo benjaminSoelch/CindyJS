@@ -1235,6 +1235,20 @@ dsg3dRestrictSurfaceToSphere(globalClipping,M,r):=(
     (max(x,a),min(y,b))
   ),globalClipping->globalClipping,cutoffCenter->dgs3ddehom4(M)_(1..3),cutoffRadius->r)
 );
+dsg3dRestrictSurfaceToHalfSpace(globalClipping,v):=(
+  lambda((rayStart,direction),(
+    regional(x,y,m);
+    (x,y) = globalClipping.(rayStart,direction);
+    m = (cutoffPlane_4 - rayStart*cutoffPlane_(1..3))/(direction*cutoffPlane_(1..3));
+    if (direction*cutoffPlane_(1..3)>0, // x,y > m
+      if (y < m,cglDiscard());
+      (max(x,m),y)
+    , // x,y < m
+      if (x > m,cglDiscard());
+      (x,min(y,m))
+    )
+  ),globalClipping->globalClipping,cutoffPlane -> v)
+);
 dgs3dRenderPoint = (self) => (
   regional(p,ptColor);
   p = self:"coords";
