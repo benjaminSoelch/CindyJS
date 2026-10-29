@@ -1193,7 +1193,7 @@ dgs3dClipLineCube = (l) => (
   (P,Q)
 );
 dgs3dClipLine = dgs3dClipLineSphere;
-dsg3dClipLineToSphere(globalClipping,M,r):=(
+dsg3dRestrictLineToSphere(globalClipping,M,r):=(
   lambda((l),(
     regional(X,Y,P,Q,v,a,b);
     (X,Y) = globalClipping.(l);
@@ -1225,6 +1225,16 @@ dgs3dClipSurfaceCube = (rayStart,direction) => (
   cgl3d.compute.cuboidDepths.(rayStart,direction,(0,0,0),[s,0,0],[0,s,0],[0,0,s])
 );
 dgs3dClipSurface = dgs3dClipSurfaceSphere;
+dgs3dClipCurve = dgs3dClipSurface;
+dsg3dRestrictSurfaceToSphere(globalClipping,M,r):=(
+  lambda((rayStart,direction),(
+    regional(x,y,a,b);
+    (x,y) = globalClipping.(rayStart,direction);
+    (a,b) = cgl3d.compute.sphereDepths.(rayStart,direction,cutoffCenter,cutoffRadius);
+    if(a>y % b<x,cglDiscard());
+    (max(x,a),min(y,b))
+  ),globalClipping->globalClipping,cutoffCenter->dgs3ddehom4(M)_(1..3),cutoffRadius->r)
+);
 dgs3dRenderPoint = (self) => (
   regional(p,ptColor);
   p = self:"coords";
@@ -1306,9 +1316,9 @@ dgs3dRenderConic = (self) => (
     if(self:"drawId"==-1,
       self:"drawId" = surface3d((x,y,z)=>dgs3dDistanceQuadricPlane(Q,p,(x,y,z,1))-r*r,degree->8,
         plotModifiers->{"Q":M_1,"p":M_2,"r":self:"size"},
-        alpha->self:"alpha",color->self:"color",cutoffRegion->cgl3d.cutoff.expr.(dgs3dClipSurface));
+        alpha->self:"alpha",color->self:"color",cutoffRegion->cgl3d.cutoff.expr.(dgs3dClipCurve));
     ,
-      cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["Q","p","r","cglColor","cglAlpha","cglCutoffRegion"],[M_1,M_2,self:"size",self:"color",self:"alpha",dgs3dClipSurface]);
+      cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["Q","p","r","cglColor","cglAlpha","cglCutoffRegion"],[M_1,M_2,self:"size",self:"color",self:"alpha",dgs3dClipCurve]);
       cgl3d.setVisible.(self:"drawId",true);
     );
   ,if(self:"drawId"!=-1,
@@ -1323,10 +1333,10 @@ dgs3dRenderBiQuadric = (self) => (
     if(self:"drawId"==-1,
       self:"drawId" = surface3d((x,y,z)=>dgs3dDistanceQuadricQuadric(Q1,Q2,(x,y,z))-(r*r),degree->8,
         plotModifiers->{"Q1":M_1,"Q2":M_2,"r":self:"size"},
-        alpha->self:"alpha",color->self:"color",cutoffRegion->cgl3d.cutoff.expr.(dgs3dClipSurface));
+        alpha->self:"alpha",color->self:"color",cutoffRegion->cgl3d.cutoff.expr.(dgs3dClipCurve));
     ,
       cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["Q1","Q2","r","cglColor","cglAlpha","cglCutoffRegion"],
-        [M_1,M_2,self:"size",self:"color",self:"alpha",dgs3dClipSurface]);
+        [M_1,M_2,self:"size",self:"color",self:"alpha",dgs3dClipCurve]);
       cgl3d.setVisible.(self:"drawId",true);
     );
   ,if(self:"drawId"!=-1,
