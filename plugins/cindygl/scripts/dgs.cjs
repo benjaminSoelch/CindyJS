@@ -2721,6 +2721,25 @@ dgs3dQuadricInPencil(q1,q2,P,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dNewQuadric("quadricInPencil",[q1,q2,P],visible->visible,color->color,alpha->alpha,incidences->[P]);
 );
 
+dsg3dConicAsMatrixAndTrafo(c):=(
+  regional(q,p);
+  (q,p) = c;
+  T = dgs3dMapPinfTo(p);
+  (dgs3dTopLeft3x3(T*q*transpose(T)),T);
+);
+dgs3d.alg.conicFoci = (conic) => (
+  regional(M,T,a,b,c,d,I,J);
+  (M,T) = dsg3dConicAsMatrixAndTrafo(conic);
+  // get tangents to M through I and J
+  I = (1,i,0);
+  J = (1,-i,0);
+  (a,b) = apply(dgs3dIntersect2DConicLine(M,M*I),cross(#,I));
+  (c,d) = apply(dgs3dIntersect2DConicLine(M,M*J),cross(#,J));
+  print([cross(a,c),cross(b,d),cross(a,d),cross(b,c)]);
+  // get four intersection points
+  apply([cross(a,c),cross(b,d),cross(a,d),cross(b,c)],#=dgs3dRP3Normalize(#);T*(#_1,#_2,#_3,0))
+);
+
 dgs3d.alg.quadricPlanes = (q) => (
   regional(B);
   B = dgs3dTopLeft3x3(q);
