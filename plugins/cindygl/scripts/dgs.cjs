@@ -1458,7 +1458,7 @@ dgs3dRestrictMovableToSphere(point,center,radius):=(
     v = newCoords - center;
     distSqFromCenter = v*v;
     if(distSqFromCenter<=radius*radius,newCoords,
-      center + v/sqrt(distSqFromCenter);
+      center + radius*(v/sqrt(distSqFromCenter));
     );
   ,center->if(length(center)==3,append(center,1),dgs3ddehom4(center)),radius->radius);
   point;
