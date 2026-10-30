@@ -991,6 +991,7 @@ dgs3dNewObject(type,alg,parents,onInit->lambda(self,),label->cglNada,
       "color": cglColor(cglValOrDefault(color,dgs3dDefaultColor(type))),
       "alpha": cglValOrDefault(alpha,dgs3dDefaultAlpha(type)),
       "recompute": recompute, "redraw": dgs3dDefaultRenderer(type),
+      "clippingRegion" : cglNada,
       "move": cglValOrDefault(onMove,
         if(isUndefined(recompute),lambda(self,DGS3DmOVEoK),
           lambda(self,self.coords=eval(self.recompute,apply(self.parents,#.coords));DGS3DmOVEoK)
@@ -1265,9 +1266,10 @@ dsg3dRestrictSurfaceToHalfSpace(globalClipping,v):=(
   ),globalClipping->globalClipping,cutoffPlane -> v)
 );
 dgs3dRenderPoint = (self) => (
-  regional(p,ptColor);
+  regional(p,ptColor,clippingRegion);
   p = self:"coords";
-  if(self:"visible" == true & dgs3dIsFiniteRealPoint(p) & !dgs3dClipPoint.(p), // treat undefined as falsy
+  clippingRegion = cglValOrDefault(self:"clippingRegion",dgs3dClipPoint);
+  if(self:"visible" == true & dgs3dIsFiniteRealPoint(p) & !clippingRegion.(p), // treat undefined as falsy
     p = re(p); // isReal allows small imaginary parts
     ptColor = if(self == dgs3dMouseState:"target",dgs3dFocusColor,self:"color");
     if(self:"drawId"==-1,
@@ -1283,12 +1285,13 @@ dgs3dRenderPoint = (self) => (
 );
 // TODO? line segments: use definition-points instead of sphere intersections if they are closer to center of clipping sphere
 dgs3dRenderLine = (self) => (
-  regional(l,P,Q);
+  regional(l,P,Q,clippingRegion);
   l = self:"coords";
+  clippingRegion = cglValOrDefault(self:"clippingRegion",dgs3dClipLine);
   if(self:"visible" == true & dgs3dIsFiniteRealLine(l), // treat undefined as falsy
     l = re(l); // isReal allows small imaginary parts
     // compute intersections of line with clipping sphere
-    (P,Q) = dgs3dClipLine.(l);
+    (P,Q) = clippingRegion.(l);
     if(isRealVec(P),// real solution
       if(self:"drawId"==-1,
         self:"drawId" = draw3d(P,Q,size->self:"size",color->self:"color",alpha->self:"alpha")
@@ -1307,14 +1310,15 @@ dgs3dRenderLine = (self) => (
 );
 // TODO? polygons: render only region bounded by set of (potentially infinite) points
 dgs3dRenderPlane = (self) => (
-  regional(n);
+  regional(n,clippingRegion);
   n = self:"coords";
+  clippingRegion = cglValOrDefault(self:"clippingRegion",dgs3dClipSurface);
   if(self:"visible" == true & dgs3dIsFiniteRealPlane(n), // treat undefined as falsy
     n = re(n); // isReal allows small imaginary parts
     if(self:"drawId"==-1,
-      self:"drawId" = surface3d((x,y,z)=>(x,y,z,1)*n,plotModifiers->{"n":n},color->self:"color",alpha->self:"alpha",cutoffRegion->cgl3d.cutoff.expr.(dgs3dClipSurface));
+      self:"drawId" = surface3d((x,y,z)=>(x,y,z,1)*n,plotModifiers->{"n":n},color->self:"color",alpha->self:"alpha",cutoffRegion->cgl3d.cutoff.expr.(clippingRegion));
     ,
-      cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["n","cglColor","cglAlpha","cglCutoffRegion"],[n,self:"color",self:"alpha",dgs3dClipSurface]);
+      cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["n","cglColor","cglAlpha","cglCutoffRegion"],[n,self:"color",self:"alpha",clippingRegion]);
       cgl3d.setVisible.(self:"drawId",true);
     );
   ,if(self:"drawId"!=-1,
@@ -1322,15 +1326,16 @@ dgs3dRenderPlane = (self) => (
   ));
 );
 dgs3dRenderQuadric = (self) => (
-  regional(M);
+  regional(M,clippingRegion);
   M = self:"coords";
+  clippingRegion = cglValOrDefault(self:"clippingRegion",dgs3dClipSurface);
   // is quadric matrix is not real (up to scalar) then the set of real points is one dimensional (TODO? render 1D set of real points)
   if(self:"visible" == true & dgs3dIsRealQuadric(M), // treat undefined as falsy
     M = re(M); // isReal allows small imaginary parts
     if(self:"drawId"==-1,
-      self:"drawId" = surface3d((x,y,z)=>(x,y,z,1)*M*(x,y,z,1),plotModifiers->{"M":M},alpha->self:"alpha",color->self:"color",cutoffRegion->cgl3d.cutoff.expr.(dgs3dClipSurface));
+      self:"drawId" = surface3d((x,y,z)=>(x,y,z,1)*M*(x,y,z,1),plotModifiers->{"M":M},alpha->self:"alpha",color->self:"color",cutoffRegion->cgl3d.cutoff.expr.(clippingRegion));
     ,
-      cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["M","cglColor","cglAlpha","cglCutoffRegion"],[M,self:"color",self:"alpha",dgs3dClipSurface]);
+      cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["M","cglColor","cglAlpha","cglCutoffRegion"],[M,self:"color",self:"alpha",clippingRegion]);
       cgl3d.setVisible.(self:"drawId",true);
     );
   ,if(self:"drawId"!=-1,
@@ -1338,16 +1343,17 @@ dgs3dRenderQuadric = (self) => (
   ));
 );
 dgs3dRenderConic = (self) => (
-  regional(M);
+  regional(M,clippingRegion);
   M = self:"coords";
+  clippingRegion = cglValOrDefault(self:"clippingRegion",dgs3dClipCurve);
   if(self:"visible" == true & dgs3dIsFiniteRealConic(M), // treat undefined as falsy
     M = re(M); // isReal allows small imaginary parts
     if(self:"drawId"==-1,
       self:"drawId" = surface3d((x,y,z)=>dgs3dDistanceQuadricPlane(Q,p,(x,y,z,1))-r*r,degree->8,
         plotModifiers->{"Q":M_1,"p":M_2,"r":self:"size"},
-        alpha->self:"alpha",color->self:"color",cutoffRegion->cgl3d.cutoff.expr.(dgs3dClipCurve));
+        alpha->self:"alpha",color->self:"color",cutoffRegion->cgl3d.cutoff.expr.(clippingRegion));
     ,
-      cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["Q","p","r","cglColor","cglAlpha","cglCutoffRegion"],[M_1,M_2,self:"size",self:"color",self:"alpha",dgs3dClipCurve]);
+      cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["Q","p","r","cglColor","cglAlpha","cglCutoffRegion"],[M_1,M_2,self:"size",self:"color",self:"alpha",clippingRegion]);
       cgl3d.setVisible.(self:"drawId",true);
     );
   ,if(self:"drawId"!=-1,
@@ -1355,17 +1361,18 @@ dgs3dRenderConic = (self) => (
   ));
 );
 dgs3dRenderBiQuadric = (self) => (
-  regional(M);
+  regional(M,clippingRegion);
   M = self:"coords";
+  clippingRegion = cglValOrDefault(self:"clippingRegion",dgs3dClipCurve);
   if(self:"visible" == true & dgs3dIsRealBiQuadric(M), // treat undefined as falsy
     M = re(M); // isReal allows small imaginary parts
     if(self:"drawId"==-1,
       self:"drawId" = surface3d((x,y,z)=>dgs3dDistanceQuadricQuadric(Q1,Q2,(x,y,z))-(r*r),degree->8,
         plotModifiers->{"Q1":M_1,"Q2":M_2,"r":self:"size"},
-        alpha->self:"alpha",color->self:"color",cutoffRegion->cgl3d.cutoff.expr.(dgs3dClipCurve));
+        alpha->self:"alpha",color->self:"color",cutoffRegion->cgl3d.cutoff.expr.(clippingRegion));
     ,
       cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["Q1","Q2","r","cglColor","cglAlpha","cglCutoffRegion"],
-        [M_1,M_2,self:"size",self:"color",self:"alpha",dgs3dClipCurve]);
+        [M_1,M_2,self:"size",self:"color",self:"alpha",clippingRegion]);
       cgl3d.setVisible.(self:"drawId",true);
     );
   ,if(self:"drawId"!=-1,
@@ -1395,14 +1402,16 @@ dgs3dSlitIntervalAtQuadraticRoots(interval,quadratic):=(
   ));
 );
 dgs3dRenderSurface = (self) => (
+  regional(clippingRegion);
+  clippingRegion = cglValOrDefault(self:"clippingRegion",dgs3dClipSurface);
   if(self:"visible" == true, // treat undefined as falsy
     if(self:"drawId"==-1,
       self:"drawId" = surface3d(pos3d=>f.(pos3d,data),degree->8,// TODO make degree a parameter/modifier
         plotModifiers->{"f":self:"coords"_1,"data":self:"coords"_2},
-        alpha->self:"alpha",color->self:"color",cutoffRegion->cgl3d.cutoff.expr.(dgs3dClipSurface));
+        alpha->self:"alpha",color->self:"color",cutoffRegion->cgl3d.cutoff.expr.(clippingRegion));
     ,
       cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["f","data","cglColor","cglAlpha","cglCutoffRegion"],
-        [self:"coords"_1,self:"coords"_2,self:"color",self:"alpha",dgs3dClipSurface]);
+        [self:"coords"_1,self:"coords"_2,self:"color",self:"alpha",clippingRegion]);
       cgl3d.setVisible.(self:"drawId",true);
     );
   ,if(self:"drawId"!=-1,
