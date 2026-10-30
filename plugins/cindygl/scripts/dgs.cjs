@@ -129,7 +129,13 @@ dgs3dPreFrame():=(
         newPos = newPos+(truePos-oldPos);
         // update position
         newCoords = (newPos_1,newPos_2,newPos_3,1);
+        if(!isUndefined(target.preDrag),
+          newCoords = target.preDrag.(newCoords);
+        );
         dgs3dTracePoint(target,newCoords);
+        if(!isUndefined(target.postDrag),
+          target.postDrag.(newCoords);
+        );
       );
       dgs3dRedrawChildren(target);
     ,if(dgs3dMouseState:"rotating",
@@ -997,6 +1003,7 @@ dgs3dNewObject(type,alg,parents,onInit->lambda(self,),label->cglNada,
           lambda(self,self.coords=eval(self.recompute,apply(self.parents,#.coords));DGS3DmOVEoK)
         )
       ),"needsRecompute": false,
+      "preDrag": cglNada, "postDrag": cglNada,
       "incidences": {},"tangencies":{}
     };
     dgs3dObjAddIncidences(obj,incidences);
@@ -1440,6 +1447,18 @@ dgs3dPoint4(p):=(
   ));
 );
 
+// feature TODO? restrict movable to cylinder, cube, half-space
+dgs3dRestrictMovableToSphere(point,center,radius):=(
+  point.preDrag = lambda(newCoords,
+    regional(v,distSqFromCenter);
+    v = newCoords - center;
+    distSqFromCenter = v*v;
+    if(distSqFromCenter<=radius*radius,newCoords,
+      center + v/sqrt(distSqFromCenter);
+    );
+  ,center->if(length(center)==3,append(center,1),dgs3ddehom4(center)),radius->radius);
+  point;
+);
 dgs3dInitMovable(point,pinned):=(
   if(cglValOrDefault(pinned,false),
     point.movable = false;
