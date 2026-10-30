@@ -256,6 +256,10 @@ dgs3dRedrawChildren(obj):=(
   );
 );
 DGS3DmAXlEVEL = 16;
+dsg3dMovePoint(p,newCoords):=(
+  dgs3dTracePoint(p,newCoords);
+  dgs3dRedrawChildren(p);
+);
 dgs3dTracePoint(p,newCoords):=(
   dgs3dPrepareRecompute(p);
   dgs3dTracePointRec(p,newCoords,0,(0,0,0,0));
@@ -1222,7 +1226,7 @@ dsg3dRestrictLineToSphere(globalClipping,M,r):=(
     ,
       ((1,i,0),(1,-i,0))
     )
-  ),globalClipping->globalClipping,M->M,r->r)
+  ),globalClipping->globalClipping,M->if(length(M)==3,append(M,1),M),r->r)
 );
 dsg3dRestrictLineToHalfSpace(globalClipping,v):=(
   lambda((l),(
@@ -1256,7 +1260,7 @@ dsg3dRestrictSurfaceToSphere(globalClipping,M,r):=(
     (a,b) = cgl3d.compute.sphereDepths.(rayStart,direction,cutoffCenter,cutoffRadius);
     if(a>y % b<x,cglDiscard());
     (max(x,a),min(y,b))
-  ),globalClipping->globalClipping,cutoffCenter->dgs3ddehom4(M)_(1..3),cutoffRadius->r)
+  ),globalClipping->globalClipping,cutoffCenter->if(length(M)>3,dgs3ddehom4(M)_(1..3),M),cutoffRadius->r)
 );
 dsg3dRestrictSurfaceToHalfSpace(globalClipping,v):=(
   lambda((rayStart,direction),(
@@ -3698,13 +3702,15 @@ dgs3dFind(x,y,searchSpace):=(
     objects = #_1;
     distanceEstimator = #_2;
     forall(objects,obj,
-      d = distanceEstimator.(obj,root,dir);
-      if(!isUndefined(d),
-        if(d < dist,
-          dist = d;
-          res = obj;
-        )
-      );
+      if(!isUndefined(obj.drawId) & obj.drawId != -1,
+        d = distanceEstimator.(obj,root,dir);
+        if(!isUndefined(d),
+          if(d < dist,
+            dist = d;
+            res = obj;
+          )
+        );
+      )
     );
   );
   res
