@@ -1371,6 +1371,31 @@ dgs3dRenderConic = (self) => (
       cgl3d.setVisible.(self:"drawId",false);
   ));
 );
+
+dgs3dPrepareConicRender(conic):=(
+  regional(M,T,S);
+  (M,T,S) = dsg3dConicAsMatrixAndOrthTrafo(conic);
+  (M,T,select(apply(dgs3dComputeConicFoci2D(M),#*max(#,(|#|,conjugate(#)))_2),isRealVec(#)))
+);
+dgs3dRenderConicFoci = (self) => (
+  regional(conicData,clippingRegion,M,T,foci);
+  conicData = self:"coords";
+  clippingRegion = cglValOrDefault(self:"clippingRegion",dgs3dClipCurve);
+  if(self:"visible" == true & dgs3dIsFiniteRealConic(conicData), // treat undefined as falsy
+    conicData = re(conicData); // isReal allows small imaginary parts
+    (M,T,foci) = dgs3dPrepareConicRender(conicData);
+    if(self:"drawId"==-1,
+      self:"drawId" = surface3d((x,y,z)=>dgs3dDistanceQuadricPlaneFoci(conicMatrix,conicTrafo*(x,y,z,1),foci)-r*r,degree->4,
+        plotModifiers->{"conicMatrix":M,"conicTrafo":T,"foci":foci,"r":self:"size"},
+        alpha->self:"alpha",color->self:"color",cutoffRegion->cgl3d.cutoff.expr.(clippingRegion));
+    ,
+      cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["conicMatrix","conicTrafo","foci","r","cglColor","cglAlpha","cglCutoffRegion"],[M,T,foci,self:"size",self:"color",self:"alpha",clippingRegion]);
+      cgl3d.setVisible.(self:"drawId",true);
+    );
+  ,if(self:"drawId"!=-1,
+      cgl3d.setVisible.(self:"drawId",false);
+  ));
+);
 dgs3dRenderBiQuadric = (self) => (
   regional(M,clippingRegion);
   M = self:"coords";
@@ -2246,6 +2271,17 @@ dgs3ddehom4(v):=(
     (0,0,0,0)
   ))))
 );
+dgs3ddehom3(v):=(
+  if(v_3 != 0,
+    v/v_3
+  ,if(v_2 != 0,
+    v/v_2
+  ,if(v_1 != 0,
+    (1,0,0)
+  ,
+    (0,0,0)
+  )))
+);
 
 dgs3de3q3computeError(res,q1,q2,q3):=(
   if(isUndefined(res),
@@ -2815,27 +2851,57 @@ dgs3dQuadricInPencil(q1,q2,P,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dNewQuadric("quadricInPencil",[q1,q2,P],visible->visible,color->color,alpha->alpha,incidences->[P]);
 );
 
+// affine-orthogonally map p to z=0 (and inverse map)
+dgs3dOrthMapToZ0(p):=(
+  regional(n,T,v1,v2,O,S);
+  n = p_(1..3);
+  if(n*n==0,
+    // plane at infinity -> no affine map possible, swap z,w to get correct coordinates for sub-matrix
+    T = [(1,0,0,0),(0,1,0,0),(0,0,0,1),(0,0,1,0)];
+    (T,T)
+  ,
+    n = normalize(n);
+    v1 = (1-n_1^2/(1+n_3),-n_1*n_2/(1+n_3),-n_1);
+    v2 = (-n_1*n_2/(1+n_3),1-n_2^2/(1+n_3),-n_2);
+    T = ((v1_1,v2_2,v1_3,0),(v2_1,v2_2,v2_3,0),(n_1,n_2,n_3,p_4),(0,0,0,1));
+    // shift sameple point to (0,0,pz): S = T^-1 * (I p_xy; 0 1)
+    S = ((v1_1,v2_1,n_1,-n_1*p_4),
+        (v1_2,v2_2,n_2,-n_2*p_4),
+        (v1_3,v2_3,n_3,-n_3*p_4),
+        (0,0,0,1));
+    (T,S)
+  )
+);
 dsg3dConicAsMatrixAndTrafo(c):=(
-  regional(q,p);
+  regional(q,p,T);
   (q,p) = c;
   T = dgs3dMapPinfTo(p);
   (dgs3dTopLeft3x3(T*q*transpose(T)),T);
 );
-dgs3d.alg.conicFoci = (conic) => (
-  regional(M,T,a,b,c,d,I,J);
-  (M,T) = dsg3dConicAsMatrixAndTrafo(conic);
+dsg3dConicAsMatrixAndOrthTrafo(c):=(
+  regional(q,p,T,S);
+  (q,p) = c;
+  (T,S) = dgs3dOrthMapToZ0(p);
+  (apply((transpose(S)*q*S)_(1,2,4),#_(1,2,4)),T,S)
+);
+dgs3dComputeConicFoci2D(conicMatrix) := (
   // get tangents to M through I and J
   I = (1,i,0);
   J = (1,-i,0);
+  // get tagents through I and J
   (a,b) = apply(dgs3dIntersect2DConicLine(M,M*I),cross(#,I));
   (c,d) = apply(dgs3dIntersect2DConicLine(M,M*J),cross(#,J));
-  print([cross(a,c),cross(b,d),cross(a,d),cross(b,c)]);
   // get four intersection points
-  apply([cross(a,c),cross(b,d),cross(a,d),cross(b,c)],#=dgs3dRP3Normalize(#);T*(#_1,#_2,#_3,0))
+  [cross(a,c),cross(b,d),cross(a,d),cross(b,c)]
+);
+dgs3d.alg.conicFoci = (conic) => (
+  regional(M,T,I,J);
+  (M,T) = dsg3dConicAsMatrixAndTrafo(conic);
+  apply(dgs3dComputeConicFoci2D(M),#=dgs3dRP3Normalize(#);T*(#_1,#_2,#_3,0))
 );
 // c: conic => set[point], 
 dgs3dConicFoci(c,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dNewPointSet("conicFoci",[c],4,size->size,visible->visible,color->color,alpha->alpha);
+  dgs3dNewPointSet("conicFoci",[c],4,size->size,visible->visible,color->color,alpha->alpha).children;
 );
 
 dgs3d.alg.quadricPlanes = (q) => (
@@ -3168,6 +3234,54 @@ dgs3dDistanceQuadricPlane(conicQuadric,conicPlane,samplePoint):=(
   v = (P / P_4 - samplePoint / samplePoint_4);
   v*v
 );
+
+dgs3dOrthProjectPointToLine2D(line,point):=(
+  regional(a,b,c,x,y,z,r,phi);
+  (a,b,c) = line;
+  (x,y,z) = point;
+  r = a*a+b*b;
+  phi = line*point;
+  (x*r-a*phi,y*r-b*phi,z*r)
+);
+dgs3dDistanceQuadricPlaneFociIter(conicMatrix,iterPoint,planePoint):=(
+  regional(p,Q,q,R);
+  p = conicMatrix*iterPoint;
+  Q = dgs3dOrthProjectPointToLine2D(p,planePoint);
+  q = conicMatrix*Q;
+  R = dgs3dOrthProjectPointToLine2D(q,planePoint);
+  Q+R;
+);
+// assumes intersections are real
+dgs3dSimpleIntersectConicLine(q,P,Q):=(
+  regional(a,b,c,D);
+  // (lP+Q)^T q (lP+Q) = l^2 PqP + 2l PqQ + QqQ
+  a = P*q*P;
+  b = P*q*Q;
+  c = Q*q*Q;
+  D = b*b-a*c;
+  (((-b + re(sqrt(D)))/a)*P+Q,((-b - re(sqrt(D)))/a)*P+Q)
+);
+sqDist(P,Q):=((P-Q)*(P-Q));
+// conic-trafo: affine-orth trafo mapping conic plane to (0,0,1,0)
+// conicMatrix: 3x3 matrix for conic after trafo
+// samplePoint: space point used for sampling
+// X,Y: focal points for conic as RP^2 point in conic-plane
+dgs3dDistanceQuadricPlaneFoci(conicMatrix,planePoint3d,foci):=(
+  regional(planePoint,Q1,Q2,Q3,Q4,Q,v);
+  planePoint = planePoint3d_(1,2,4);
+  (Q1,Q2) = dgs3dSimpleIntersectConicLine(conicMatrix,planePoint,foci_1);
+  (Q3,Q4) = dgs3dSimpleIntersectConicLine(conicMatrix,planePoint,foci_2);
+  Q = Q1;
+  if(sqDist(planePoint,dgs3ddehom3(Q2))<sqDist(planePoint,dgs3ddehom3(Q)),Q = Q2);
+  if(sqDist(planePoint,dgs3ddehom3(Q3))<sqDist(planePoint,dgs3ddehom3(Q)),Q = Q3);
+  if(sqDist(planePoint,dgs3ddehom3(Q4))<sqDist(planePoint,dgs3ddehom3(Q)),Q = Q4);
+  Q = dgs3dDistanceQuadricPlaneFociIter(conicMatrix,Q,planePoint);
+  //Q = dgs3dDistanceQuadricPlaneFociIter(conicMatrix,Q,planePoint);
+  //Q = dgs3dDistanceQuadricPlaneFociIter(conicMatrix,Q,planePoint);
+  v = (Q/Q_3 - planePoint/planePoint_3);
+  v*v+planePoint3d_3*planePoint3d_3;
+);
+
 solveQuartic(a,b,c,d,e):=(
   regional(p,q,r,P,Q,y,w,r1,t,r2,r3);
   // bring in form y^4 + p y^2 + q y + r where x = y - b/4a
