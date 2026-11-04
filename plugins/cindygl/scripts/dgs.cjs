@@ -499,7 +499,7 @@ dgs3dSplitRank1Quadric(M):=(
   [r,c] = max(M,v,r,max(v,x,c,(|x|,r,c)))_(2,3);
   (dgs3dRP3Normalize(M_r),dgs3dRP3Normalize(apply(M,#_c)));
 );
-dgs3d2DConicCoefficientVector(M):=(
+dgs3d2DConicAsVec(M):=(
   (M_1_1,M_1_2+M_2_1,M_1_3+M_1_3,M_2_2,M_2_3+M_3_2,M_3_3)
 );
 dgs3d2DConicAsMatrix(c):=(
@@ -635,6 +635,21 @@ dgs3dSplit2DRank1Conic(C):=(
   );
   (l1,l2)
 );
+// M = P^T Q + Q^T P: given point P find Q
+dgs3dSplit2DRank1Conic1known(M,knownPoint):=(
+  // use least squares: Ax = b -> A^T A x = A^T b
+  // where b is coefficient vector of M, x is point P and A represents the equation M = P^T Q + Q^T
+  regional(a,b,c,AT);
+  [a,b,c] = knownPoint;
+  // (ax by cz)(px qy rz) = (ap xx,aq+bp xy,ar+cp xz,bq yy,br+cq yz, cr zz)
+  AT = (
+    (a,b,c,0,0,0),
+    (0,a,0,b,c,0),
+    (0,0,a,0,b,c)
+  );
+  // TODO: handle case where AT*transpose(AT) is (almost) not invertible?
+  linearSolve(AT*transpose(AT),AT*dgs3d2DConicAsVec(M));
+);
 dgs3dIntersect2DConicLine(A,l):=(
   regional(Ml,B,alpha);
   Ml = ((0,l_3,-l_2),(-l_3,0,l_1),(l_2,-l_1,0));
@@ -647,6 +662,11 @@ dgs3dIntersect2DConicLine(A,l):=(
     sqrt(B_2_3*B_3_2-B_2_2*B_3_3)/l_1;
   ));
   dgs3dSplit2DRank1Conic(B + alpha*Ml);
+);
+dgs3dIntersect2DConicLine1known(A,l,X):=(
+  regional(Ml);
+  Ml = ((0,l_3,-l_2),(-l_3,0,l_1),(l_2,-l_1,0));
+  dgs3dSplit2DRank1Conic1known(Ml*A*Ml,X);
 );
 // cube root + special case handling for negative real numbers
 rcbrt(x):=(
@@ -706,8 +726,8 @@ dgs3dIntersect2DConic2known(A,B,knownIntersection1,knownIntersection2):=(
   // solve linear system x*A+y*B + (m^T l + l^T m) = 0 -> M*(x,y,m1,m2,m3) = 0
   // use least squares: Mv = b -> M^T M v = M^T b
   MT = (
-    dgs3d2DConicCoefficientVector(A),
-    dgs3d2DConicCoefficientVector(B),
+    dgs3d2DConicAsVec(A),
+    dgs3d2DConicAsVec(B),
     (l_1,l_2,l_3,  0,  0,  0),
     (  0,l_1,  0,l_2,l_3,  0),
     (  0,  0,l_1,  0,l_2,l_3)
@@ -1377,7 +1397,7 @@ dgs3dRenderConic = (self) => (
       cgl3d.setVisible.(self:"drawId",false);
   ));
 );
-dgs3dRenderConicOld = (self) => (
+dgs3dRenderConic = (self) => (
   regional(M,clippingRegion,Q,p);
   M = self:"coords";
   clippingRegion = cglValOrDefault(self:"clippingRegion",dgs3dClipCurve);
@@ -2055,9 +2075,11 @@ dgs3d.alg.meetCP = (c,p) => (
   apply(dgs3dIntersect2DConicLine(M,(T*p)_(1..3)),dgs3dRP3Normalize(transpose(T)*append(#,0)));
 );
 dgs3d.alg.meetCP1known = (c,p,knownIntersection) => (
-  regional(q,conicPlane);
-  (q,conicPlane) = dsg3dConicAsQuadricAndPlane(c);
-  dgs3dIntersectQuadricDualLine1known(q,dgs3dEpsilon44(conicPlane,p),knownIntersection)
+  regional(M,T);
+  (M,T) = dsg3dConicAsMatrixAndTrafo(c);
+  dgs3dRP3Normalize(transpose(T)*append(
+    dgs3dIntersect2DConicLine1known(M,(T*p)_(1..3),(T*knownIntersection)_(1..3))
+  ,0));
 );
 // c: conic, p: plane ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeetCp(c,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
@@ -2772,16 +2794,16 @@ dgs3d.alg.conicBy5P = (P1,P2,P3,P4,P5) => (
   // find common plane
   p = dgs3dRP3Normalize(dgs3dEpsilon444(P1,P2,P3));
   // find quadric in plane
-  dgs3dRP3Normalize(dgs3dComputeConicBy5(p,[P1,P2,P3,P4,P5]))
+  apply(dgs3dComputeConicBy5(p,[P1,P2,P3,P4,P5]),dgs3dRP3Normalize(#))
 );
 dgs3d.alg.conicBy5L = (l1,l2,l3,l4,l5) => (
   regional(K,p,A,B,C,D,E);
   // find common plane
   K = dgs3dLineMatrix(dgs3dDualLine(l1))*dgs3dLineMatrix(l2);
   p = dgs3dRP3Normalize(max(K,(#*#,#))_2);
-  dgs3dRP3Normalize(dgs3dComputeConicBy5(p,
+  apply(dgs3dComputeConicBy5(p,
     apply((l1,l2,l3,l4,l5),dgs3dEpsilon46(p,dgs3dDualLine(#))),
-  dual->true));
+  dual->true),dgs3dRP3Normalize(#));
 );
 dgs3d.alg.biQuadricBy8 = (P1,P2,P3,P4,P5,P6,P7,P8) => (
   [
@@ -3208,7 +3230,7 @@ dgs3d.alg.circleBy3P = (A,B,C) => (
     ((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,0)), // circle at infinity
     dgs3dEpsilon44(p,(0,0,0,1)) // line at infinity in plane
   );
-  dgs3dRP3Normalize(dgs3dComputeConicBy5(p,[A,B,C,I,J]))
+  apply(dgs3dComputeConicBy5(p,[A,B,C,I,J]),dgs3dRP3Normalize(#))
 );
 circle3d(A,B,C,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dCircle3points(A,B,C,size->size,visible->visible,color->color,alpha->alpha);
