@@ -499,10 +499,10 @@ dgs3dSplitRank1Quadric(M):=(
   [r,c] = max(M,v,r,max(v,x,c,(|x|,r,c)))_(2,3);
   (dgs3dRP3Normalize(M_r),dgs3dRP3Normalize(apply(M,#_c)));
 );
-dgs3dConicCoefficientVector(M):=(
+dgs3d2DConicCoefficientVector(M):=(
   (M_1_1,M_1_2+M_2_1,M_1_3+M_1_3,M_2_2,M_2_3+M_3_2,M_3_3)
 );
-dgs3dConicAsMatrix(c):=(
+dgs3d2DConicAsMatrix(c):=(
   ((2*c_1,c_2,c_3),(c_2,2*c_4,c_5),(c_3,c_5,2*c_6))
 );
 // M = P^T Q + Q^T P: given point P find Q
@@ -706,8 +706,8 @@ dgs3dIntersect2DConic2known(A,B,knownIntersection1,knownIntersection2):=(
   // solve linear system x*A+y*B + (m^T l + l^T m) = 0 -> M*(x,y,m1,m2,m3) = 0
   // use least squares: Mv = b -> M^T M v = M^T b
   MT = (
-    dgs3dConicCoefficientVector(A),
-    dgs3dConicCoefficientVector(B),
+    dgs3d2DConicCoefficientVector(A),
+    dgs3d2DConicCoefficientVector(B),
     (l_1,l_2,l_3,  0,  0,  0),
     (  0,l_1,  0,l_2,l_3,  0),
     (  0,  0,l_1,  0,l_2,l_3)
@@ -1354,17 +1354,17 @@ dgs3dRenderQuadric = (self) => (
   ));
 );
 dgs3dRenderConic = (self) => (
-  regional(M,clippingRegion);
+  regional(M,clippingRegion,Q,p);
   M = self:"coords";
   clippingRegion = cglValOrDefault(self:"clippingRegion",dgs3dClipCurve);
   if(self:"visible" == true & dgs3dIsFiniteRealConic(M), // treat undefined as falsy
-    M = re(M); // isReal allows small imaginary parts
+    (Q,p) = re(dsg3dConicAsQuadricAndPlane(M)); // isReal allows small imaginary parts
     if(self:"drawId"==-1,
       self:"drawId" = surface3d((x,y,z)=>dgs3dDistanceQuadricPlane(Q,p,(x,y,z,1))-r*r,degree->8,
-        plotModifiers->{"Q":M_1,"p":M_2,"r":self:"size"},
+        plotModifiers->{"Q":Q,"p":p,"r":self:"size"},
         alpha->self:"alpha",color->self:"color",cutoffRegion->cgl3d.cutoff.expr.(clippingRegion));
     ,
-      cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["Q","p","r","cglColor","cglAlpha","cglCutoffRegion"],[M_1,M_2,self:"size",self:"color",self:"alpha",clippingRegion]);
+      cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["Q","p","r","cglColor","cglAlpha","cglCutoffRegion"],[Q,p,self:"size",self:"color",self:"alpha",clippingRegion]);
       cgl3d.setVisible.(self:"drawId",true);
     );
   ,if(self:"drawId"!=-1,
@@ -1689,7 +1689,7 @@ dgs3dConicProjectionStep(q,p,P,X,unique->false):=(
 );
 dgs3dTryProjectPointToConic(P,c,unique->false):=(
   regional(X,q,p);
-  [q, p] = c;
+  [q, p] = dsg3dConicAsQuadricAndPlane(c);
   // 1. project point into plane
   X = P = dgs3dProjectPointToPlane(P,p);
   forall(1..4,X = dgs3dConicProjectionStep(q,p,P,X));
@@ -2050,20 +2050,24 @@ dgs3dMeetQpp(Q1,p1,p2,size->cglNada,visible->true,color->cglNada,alpha->cglNada)
   dgs3dMeetQLImpl("meetQPP",[Q1,p1,p2],size->size,visible->visible,color->color,alpha->alpha)
 );
 dgs3d.alg.meetCP = (c,p) => (
-  dgs3dIntersectQuadricDualLine(c_1,dgs3dEpsilon44(c_2,p))
+  regional(q,conicPlane);
+  (q,conicPlane) = dsg3dConicAsQuadricAndPlane(c);
+  dgs3dIntersectQuadricDualLine(q,dgs3dEpsilon44(conicPlane,p))
 );
 dgs3d.alg.meetCP1known = (c,p,knownIntersection) => (
-  dgs3dIntersectQuadricDualLine1known(c_1,dgs3dEpsilon44(c_2,p),knownIntersection)
+  regional(q,conicPlane);
+  (q,conicPlane) = dsg3dConicAsQuadricAndPlane(c);
+  dgs3dIntersectQuadricDualLine1known(q,dgs3dEpsilon44(conicPlane,p),knownIntersection)
 );
 // c: conic, p: plane ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeetCp(c,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dMeetQLImpl("meetCP",[c,p],size->size,visible->visible,color->color,alpha->alpha)
 );
 dgs3d.alg.meetCL = (c,l) => (
-  dgs3dIntersectQuadricLine(c_1,l);
+  dgs3dIntersectQuadricLine(dsg3dConicAsQuadricAndPlane(c)_1,l);
 );
 dgs3d.alg.meetCL1known = (c,l,knownIntersection) => (
-  dgs3dIntersectQuadricLine1known(c_1,l,knownIntersection);
+  dgs3dIntersectQuadricLine1known(dsg3dConicAsQuadricAndPlane(c)_1,l,knownIntersection);
 );
 // c: conic, l: line ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeetCL(c,l,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
@@ -2071,12 +2075,18 @@ dgs3dMeetCL(c,l,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dMeetQLImpl("meetCL",[c,l],size->size,visible->visible,color->color,alpha->alpha)
 );
 dgs3d.alg.meetCC = (c1,c2) => (
+  regional(q1,p1,q2,p2);
+  (q1,p1) = dsg3dConicAsQuadricAndPlane(c1);
+  (q2,p2) = dsg3dConicAsQuadricAndPlane(c2);
   // TODO? handle intersections in non-coplanar case
-  dgs3dComputeIntersectionsQQP(c1_1,c2_1,c1_2);
+  dgs3dComputeIntersectionsQQP(q1,q2,p1);
 );
 dgs3d.alg.meetCC2known = (c1,c2,X,Y) => (
+  regional(q1,p1,q2,p2);
+  (q1,p1) = dsg3dConicAsQuadricAndPlane(c1);
+  (q2,p2) = dsg3dConicAsQuadricAndPlane(c2);
   // TODO? handle intersections in non-coplanar case
-  dgs3dComputeIntersectionsQQP(c1_1,c2_1,c1_2,X,Y);
+  dgs3dComputeIntersectionsQQP(q1,q2,p1,X,Y);
 );
 // c1,c2: conic ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeetConicConic(c1,c2,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
@@ -2113,7 +2123,11 @@ dgs3dComputeIntersectionsQQP2known(Q1,Q2,p,X,Y):=(
   );
 );
 dgs3d.alg.meetQQP = (q1,q2,p) => (dgs3dComputeIntersectionsQQP(q1,q2,p));
-dgs3d.alg.meetQC = (q,c) => (dgs3dComputeIntersectionsQQP(q,c_1,c_2));
+dgs3d.alg.meetQC = (q,c) => (
+  regional(conicQuadric,p);
+  (conicQuadric,p) = dsg3dConicAsQuadricAndPlane(c);
+  dgs3dComputeIntersectionsQQP(q,conicQuadric,p)
+);
 dgs3d.alg.meetBP = (b,p) => (dgs3dComputeIntersectionsQQP(b_1,b_2,p));
 dgs3d.alg.meetQQP2known = (q1,q2,p,X,Y) => (dgs3dComputeIntersectionsQQP2known(q1,q2,p,X,Y));
 dgs3d.alg.meetQC2known = (q,c,X,Y) => (dgs3dComputeIntersectionsQQP2known(q,c_1,c_2,X,Y));
@@ -2138,11 +2152,11 @@ dgs3dMeetQQp(q1,q2,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):
 );
 // q: quadric, c: conic ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeetQuadricConic(q,c,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dMeetQQPImpl("meetQQP",[q,c],size->size,visible->visible,color->color,alpha->alpha)
+  dgs3dMeetQQPImpl("meetQC",[q,c],size->size,visible->visible,color->color,alpha->alpha)
 );
 // b: bi-quadric, p: plane ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeetBiQuadricPlane(b,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
-  dgs3dMeetQQPImpl("meetQQP",[b,p],size->size,visible->visible,color->color,alpha->alpha)
+  dgs3dMeetQQPImpl("meetBP",[b,p],size->size,visible->visible,color->color,alpha->alpha)
 );
 dgs3dComputeR4Basis2(pq):=(
   regional(p,q,vw);
@@ -2553,13 +2567,13 @@ dgs3dPolarPoint(q,p,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=
 );
 dgs3d.alg.conicPolarLn = (c,P) => (
   regional(q,p);
-  [q,p] = c;
+  [q,p] = dsg3dConicAsQuadricAndPlane(c);
   q = q + transpose([p])*[p];
   dgs3dRP3Normalize(dgs3dDualLine(dgs3dEpsilon44(q*P,p)))
 );
 dgs3d.alg.conicPolarPt = (c,l) => (
   regional(q,p,Q);
-  [q,p] = c; 
+  [q,p] = dsg3dConicAsQuadricAndPlane(c); 
   Q = adjoint4(q + transpose([p])*[p]); // polar degenerates if q is othrogonal to p
   dgs3dRP3Normalize(dgs3dEpsilon46(p,dgs3dLineFromDualMatrix(Q*dgs3dLineMatrix(l)*Q)));
 );
@@ -2737,7 +2751,7 @@ dgs3dMapPinfTo(p):=(
   T
 );
 dgs3dComputeConicBy5(p,pts,dual->false):=(
-  regional(T,a,b,c,d,e,G,H,M,v,w,r);
+  regional(T,a,b,c,d,e,G,H,M);
   // transform p to p-inf & project points to p
   T = dgs3dMapPinfTo(p);
   // find conic in RP2
@@ -2750,17 +2764,7 @@ dgs3dComputeConicBy5(p,pts,dual->false):=(
     M = adjoint3(M);
   );
   M = conjugate(max(M,max(#,(|#|,#)))_2)*M; // scale by conjugate of maximum entry to avoid scalar multiples of real matrix
-  // find v,r such that (M v;v r)*(p_1,p_2,p_3,0) = (0,0,0,0)
-  w = T*(p_1,p_2,p_3,0);
-  if(w_4 != 0,
-    v = -(M*w_(1..3))/w_4;
-    r = -(v*w_(1..3))/w_4;
-  ,
-    v = (0,0,0);
-    r = 0;
-  );
-  // transform quadric back
-  transpose(T)*((M_1_1,M_1_2,M_1_3,v_1),(M_2_1,M_2_2,M_2_3,v_2),(M_3_1,M_3_2,M_3_3,v_3),(v_1,v_2,v_3,r))*T;
+  dgs3dConicByMatrixAndTrafo(M,T);
 );
 
 dgs3d.alg.conicBy5P = (P1,P2,P3,P4,P5) => (
@@ -2768,16 +2772,16 @@ dgs3d.alg.conicBy5P = (P1,P2,P3,P4,P5) => (
   // find common plane
   p = dgs3dRP3Normalize(dgs3dEpsilon444(P1,P2,P3));
   // find quadric in plane
-  [dgs3dRP3Normalize(dgs3dComputeConicBy5(p,[P1,P2,P3,P4,P5])),p]
+  dgs3dRP3Normalize(dgs3dComputeConicBy5(p,[P1,P2,P3,P4,P5]))
 );
 dgs3d.alg.conicBy5L = (l1,l2,l3,l4,l5) => (
   regional(K,p,A,B,C,D,E);
   // find common plane
   K = dgs3dLineMatrix(dgs3dDualLine(l1))*dgs3dLineMatrix(l2);
   p = dgs3dRP3Normalize(max(K,(#*#,#))_2);
-  [dgs3dRP3Normalize(dgs3dComputeConicBy5(p,
+  dgs3dRP3Normalize(dgs3dComputeConicBy5(p,
     apply((l1,l2,l3,l4,l5),dgs3dEpsilon46(p,dgs3dDualLine(#))),
-  dual->true)),p];
+  dual->true));
 );
 dgs3d.alg.biQuadricBy8 = (P1,P2,P3,P4,P5,P6,P7,P8) => (
   [
@@ -2818,12 +2822,10 @@ dgs3dBiQuadric8points(pts,size->cglNada,visible->true,color->cglNada,alpha->cglN
     size->size,visible->visible,color->color,alpha->alpha,isCircle->false,incidences->pts,reuse->true);
 );
 dgs3d.alg.coneByConicPoint = (c,P) => (
-  regional(q,p,T,A,v,x);
-  [q,p] = c;
-  T = dgs3dMapPinfTo(p);
+  regional(q,p,T,v,x);
+  (A,T) = dsg3dConicAsMatrixAndTrafo(c);
   P = T*P;
   x = P_(1..3)/P_4;
-  A = dgs3dTopLeft3x3(T*q*transpose(T));
   v = -A * x;
   transpose(T)*(
     (A_1_1,A_1_2,A_1_3,v_1),
@@ -2872,11 +2874,33 @@ dgs3dOrthMapToZ0(p):=(
     (T,S)
   )
 );
+dgs3dConicByQuadricAndPlane(q,p):=(
+  (q,p)
+);
+dsg3dConicAsQuadricAndPlane(c):=(
+  c
+);
 dsg3dConicAsMatrixAndTrafo(c):=(
   regional(q,p,T);
   (q,p) = c;
   T = dgs3dMapPinfTo(p);
   (dgs3dTopLeft3x3(T*q*transpose(T)),T);
+);
+dgs3dConicByMatrixAndTrafo(M,T):=(
+  regional(w,v,r);
+  // find v,r such that (M v;v r)*(p_1,p_2,p_3,0) = (0,0,0,0)
+  w = T*append(T_4_(1..3),0);
+  if(w_4 != 0,
+    v = -(M*w_(1..3))/w_4;
+    r = -(v*w_(1..3))/w_4;
+  ,
+    v = (0,0,0);
+    r = 0;
+  );
+  ( // transform quadric to base-coordinate system
+    transpose(T)*((M_1_1,M_1_2,M_1_3,v_1),(M_2_1,M_2_2,M_2_3,v_2),(M_3_1,M_3_2,M_3_3,v_3),(v_1,v_2,v_3,r))*T,
+    T_4 // plane is given by last column of conic trafo-matrix
+  )
 );
 dsg3dConicAsMatrixAndOrthTrafo(c):=(
   regional(q,p,T,S);
@@ -3185,7 +3209,7 @@ dgs3d.alg.circleBy3P = (A,B,C) => (
     ((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,0)), // circle at infinity
     dgs3dEpsilon44(p,(0,0,0,1)) // line at infinity in plane
   );
-  [dgs3dComputeConicBy5(p,[A,B,C,I,J]),p]
+  dgs3dRP3Normalize(dgs3dComputeConicBy5(p,[A,B,C,I,J]))
 );
 circle3d(A,B,C,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dCircle3points(A,B,C,size->size,visible->visible,color->color,alpha->alpha);
@@ -3367,7 +3391,7 @@ dgs3d.alg.meetQP = (q,p) => (
   R = T*q*transpose(T);
   R_4 = (0,0,0,0);
   R_1_4 = R_2_4 = R_3_4 = 0;
-  [dgs3dRP3Normalize(transpose(T)*R*T),p];
+  dgs3dConicByQuadricAndPlane(dgs3dRP3Normalize(transpose(T)*R*T),p);
 );
 dgs3d.alg.meetQQ = (q1,q2) => ([q1,q2]);
 // q: quadric, p: plane => conic; size:real = radius, visible: bool = should object be drawn
@@ -3551,8 +3575,8 @@ dgs3d.alg.mobiusTransformSphere = (T,s) => (
     ((k,0,0,v_1),(0,k,0,v_2),(0,0,k,v_3),(v_1,v_2,v_3,r));
   );
 );
-// find plane in pencil through two spheres
-dgs3dSpherePencileBase(S1,S2):=(
+// find common conic in pencil through two spheres
+dgs3dSpherePencileConic(S1,S2):=(
   regional(S,plane);
   if(S1_1_1==0,
     plane = S1;
@@ -3561,7 +3585,7 @@ dgs3dSpherePencileBase(S1,S2):=(
     plane = S2_1_1*S1-S1_1_1*S2; // make top-left 3x3 submatrix zero
     S = S1_1_1*S1+S2_1_1*S2; // swap factors and one single to ensure linearly independent choice
   );
-  (S,(plane_1_4+plane_4_1,plane_2_4+plane_4_2,plane_3_4+plane_4_3,plane_4_4));
+  dgs3dConicByQuadricAndPlane(S,(plane_1_4+plane_4_1,plane_2_4+plane_4_2,plane_3_4+plane_4_3,plane_4_4));
 );
 dgs3dFind2PointsOnLine(l):=(
   transpose(kernel(dgs3dLineMatrix(l)))
@@ -3573,7 +3597,7 @@ dgs3d.alg.mobiusTransformLn = (T,l) => (
   regional(p1,p2);
   (p1,p2) = dgs3dFind2PlanesThroughLine(l);
   // intersect transformed planes
-  dgs3dSpherePencileBase(dgs3d.alg.mobiusTransformPl.(T,p1),dgs3d.alg.mobiusTransformPl.(T,p2));
+  dgs3dSpherePencileConic(dgs3d.alg.mobiusTransformPl.(T,p1),dgs3d.alg.mobiusTransformPl.(T,p2));
 );
 dgs3dSphereThroughCircle(q,p):=(
   regional(P);
@@ -3589,16 +3613,16 @@ dgs3dSphereThroughCircle(q,p):=(
 );
 dgs3d.alg.mobiusTransformCircle = (T,c) => (
   regional(q,p);
-  (q,p) = c;
+  (q,p) = dsg3dConicAsQuadricAndPlane(c);
   // intersect transformed plane and sphere
-  dgs3dSpherePencileBase(
+  dgs3dSpherePencileConic(
     dgs3d.alg.mobiusTransformPl.(T,p),
     dgs3d.alg.mobiusTransformSphere.(T,dgs3dSphereThroughCircle(q,p))
   );
 );
 dgs3d.alg.mobiusTransformCircle2 = (T,b) => (
   // TODO? are the arguments guaranteed to be spheres
-  dgs3dSpherePencileBase(
+  dgs3dSpherePencileConic(
     dgs3d.alg.mobiusTransformSphere.(T,b_1),
     dgs3d.alg.mobiusTransformSphere.(T,b_2)
   )
@@ -3720,8 +3744,8 @@ dgs3d.alg.transformQuadric = (T,q) => (
 dgs3d.alg.transformConic = (T,c) => (
   regional(q,p);
   T = inverse(T);
-  (q,p) = c;
-  [dgs3dRP3Normalize(transpose(T)*q*T),dgs3dRP3Normalize(transpose(T)*p)];
+  (q,p) = dsg3dConicAsQuadricAndPlane(c);
+  dgs3dConicByQuadricAndPlane(dgs3dRP3Normalize(transpose(T)*q*T),dgs3dRP3Normalize(transpose(T)*p));
 );
 dgs3d.alg.transformBiquadric = (T,b) => (
   T = inverse(T);
