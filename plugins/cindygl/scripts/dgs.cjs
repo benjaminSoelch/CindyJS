@@ -2097,23 +2097,25 @@ dgs3dMeetCL(c,l,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   dgs3dMeetQLImpl("meetCL",[c,l],size->size,visible->visible,color->color,alpha->alpha)
 );
 dgs3d.alg.meetCC = (c1,c2) => (
-  regional(q1,p1,q2,p2);
-  (q1,p1) = dsg3dConicAsQuadricAndPlane(c1);
-  (q2,p2) = dsg3dConicAsQuadricAndPlane(c2);
+  regional(M1,T1,M2,T2);
+  (M1,T1) = dsg3dConicAsMatrixAndTrafo(c1);
+  (M2,T2) = dsg3dConicAsMatrixAndTrafo(c2);
   // TODO? handle intersections in non-coplanar case
-  dgs3dComputeIntersectionsQQP(q1,q2,p1);
+  apply(dgs3dIntersect2DConic(M1,M2),transpose(T1)*append(normalize(#*(max(#,(|#|,conjugate(#)))_2)),0))
 );
 dgs3d.alg.meetCC2known = (c1,c2,X,Y) => (
-  regional(q1,p1,q2,p2);
-  (q1,p1) = dsg3dConicAsQuadricAndPlane(c1);
-  (q2,p2) = dsg3dConicAsQuadricAndPlane(c2);
+  regional(M1,T1,M2,T2);
+  (M1,T1) = dsg3dConicAsMatrixAndTrafo(c1);
+  (M2,T2) = dsg3dConicAsMatrixAndTrafo(c2);
   // TODO? handle intersections in non-coplanar case
-  dgs3dComputeIntersectionsQQP(q1,q2,p1,X,Y);
+  apply(dgs3dIntersect2DConic2known(M1,M2,(T1*X)_(1..3),(T1*Y)_(1..3)),
+    transpose(T1)*append(normalize(#*(max(#,(|#|,conjugate(#)))_2)),0)
+  )
 );
 // c1,c2: conic ; size:real = radius, visible: bool = should object be drawn
 dgs3dMeetConicConic(c1,c2,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   // TODO: ensure co-planar
-  dgs3dMeetQQPImpl("meetCC",c1,c2,size->size,visible->visible,color->color,alpha->alpha)
+  dgs3dMeetQQPImpl("meetCC",[c1,c2],size->size,visible->visible,color->color,alpha->alpha)
 );
 dgs3dTopLeft3x3(M):=(
   apply(M_(1..3),#_(1..3))
