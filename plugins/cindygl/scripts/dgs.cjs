@@ -1353,31 +1353,12 @@ dgs3dRenderQuadric = (self) => (
       cgl3d.setVisible.(self:"drawId",false);
   ));
 );
-dgs3dRenderConic = (self) => (
-  regional(M,clippingRegion,Q,p);
-  M = self:"coords";
-  clippingRegion = cglValOrDefault(self:"clippingRegion",dgs3dClipCurve);
-  if(self:"visible" == true & dgs3dIsFiniteRealConic(M), // treat undefined as falsy
-    (Q,p) = re(dsg3dConicAsQuadricAndPlane(M)); // isReal allows small imaginary parts
-    if(self:"drawId"==-1,
-      self:"drawId" = surface3d((x,y,z)=>dgs3dDistanceQuadricPlane(Q,p,(x,y,z,1))-r*r,degree->8,
-        plotModifiers->{"Q":Q,"p":p,"r":self:"size"},
-        alpha->self:"alpha",color->self:"color",cutoffRegion->cgl3d.cutoff.expr.(clippingRegion));
-    ,
-      cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["Q","p","r","cglColor","cglAlpha","cglCutoffRegion"],[Q,p,self:"size",self:"color",self:"alpha",clippingRegion]);
-      cgl3d.setVisible.(self:"drawId",true);
-    );
-  ,if(self:"drawId"!=-1,
-      cgl3d.setVisible.(self:"drawId",false);
-  ));
-);
-
 dgs3dPrepareConicRender(conic):=(
   regional(M,T,S);
   (M,T,S) = dsg3dConicAsMatrixAndOrthTrafo(conic);
   (M,T,select(apply(dgs3dComputeConicFoci2D(M),#*max(#,(|#|,conjugate(#)))_2),isRealVec(#)))
 );
-dgs3dRenderConicFoci = (self) => (
+dgs3dRenderConic = (self) => (
   regional(conicData,clippingRegion,M,T,foci);
   conicData = self:"coords";
   clippingRegion = cglValOrDefault(self:"clippingRegion",dgs3dClipCurve);
@@ -1385,11 +1366,29 @@ dgs3dRenderConicFoci = (self) => (
     conicData = re(conicData); // isReal allows small imaginary parts
     (M,T,foci) = dgs3dPrepareConicRender(conicData);
     if(self:"drawId"==-1,
-      self:"drawId" = surface3d((x,y,z)=>dgs3dDistanceQuadricPlaneFoci(conicMatrix,conicTrafo*(x,y,z,1),foci)-r*r,degree->4,
+      self:"drawId" = surface3d((x,y,z)=>dgs3dDistanceQuadricPlane(conicMatrix,conicTrafo*(x,y,z,1),foci)-r*r,degree->4,
         plotModifiers->{"conicMatrix":M,"conicTrafo":T,"foci":foci,"r":self:"size"},
         alpha->self:"alpha",color->self:"color",cutoffRegion->cgl3d.cutoff.expr.(clippingRegion));
     ,
       cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["conicMatrix","conicTrafo","foci","r","cglColor","cglAlpha","cglCutoffRegion"],[M,T,foci,self:"size",self:"color",self:"alpha",clippingRegion]);
+      cgl3d.setVisible.(self:"drawId",true);
+    );
+  ,if(self:"drawId"!=-1,
+      cgl3d.setVisible.(self:"drawId",false);
+  ));
+);
+dgs3dRenderConicOld = (self) => (
+  regional(M,clippingRegion,Q,p);
+  M = self:"coords";
+  clippingRegion = cglValOrDefault(self:"clippingRegion",dgs3dClipCurve);
+  if(self:"visible" == true & dgs3dIsFiniteRealConic(M), // treat undefined as falsy
+    (Q,p) = re(dsg3dConicAsQuadricAndPlane(M)); // isReal allows small imaginary parts
+    if(self:"drawId"==-1,
+      self:"drawId" = surface3d((x,y,z)=>dgs3dDistanceQuadricPlaneOld(Q,p,(x,y,z,1))-r*r,degree->8,
+        plotModifiers->{"Q":Q,"p":p,"r":self:"size"},
+        alpha->self:"alpha",color->self:"color",cutoffRegion->cgl3d.cutoff.expr.(clippingRegion));
+    ,
+      cgl3dObjectSetModifier(cgl3d.getObjects.(self:"drawId"),["Q","p","r","cglColor","cglAlpha","cglCutoffRegion"],[Q,p,self:"size",self:"color",self:"alpha",clippingRegion]);
       cgl3d.setVisible.(self:"drawId",true);
     );
   ,if(self:"drawId"!=-1,
@@ -1690,6 +1689,7 @@ dgs3dConicProjectionStep(q,p,P,X,unique->false):=(
 dgs3dTryProjectPointToConic(P,c,unique->false):=(
   regional(X,q,p);
   [q, p] = dsg3dConicAsQuadricAndPlane(c);
+  // TODO? use same algo as in renderer
   // 1. project point into plane
   X = P = dgs3dProjectPointToPlane(P,p);
   forall(1..4,X = dgs3dConicProjectionStep(q,p,P,X));
@@ -2050,9 +2050,9 @@ dgs3dMeetQpp(Q1,p1,p2,size->cglNada,visible->true,color->cglNada,alpha->cglNada)
   dgs3dMeetQLImpl("meetQPP",[Q1,p1,p2],size->size,visible->visible,color->color,alpha->alpha)
 );
 dgs3d.alg.meetCP = (c,p) => (
-  regional(q,conicPlane);
-  (q,conicPlane) = dsg3dConicAsQuadricAndPlane(c);
-  dgs3dIntersectQuadricDualLine(q,dgs3dEpsilon44(conicPlane,p))
+  regional(M,T);
+  (M,T) = dsg3dConicAsMatrixAndTrafo(c);
+  apply(dgs3dIntersect2DConicLine(M,(T*p)_(1..3)),dgs3dRP3Normalize(transpose(T)*append(#,0)));
 );
 dgs3d.alg.meetCP1known = (c,p,knownIntersection) => (
   regional(q,conicPlane);
@@ -2865,8 +2865,7 @@ dgs3dOrthMapToZ0(p):=(
     n = normalize(n);
     v1 = (1-n_1^2/(1+n_3),-n_1*n_2/(1+n_3),-n_1);
     v2 = (-n_1*n_2/(1+n_3),1-n_2^2/(1+n_3),-n_2);
-    T = ((v1_1,v2_2,v1_3,0),(v2_1,v2_2,v2_3,0),(n_1,n_2,n_3,p_4),(0,0,0,1));
-    // shift sameple point to (0,0,pz): S = T^-1 * (I p_xy; 0 1)
+    T = ((v1_1,v1_2,v1_3,0),(v2_1,v2_2,v2_3,0),(n_1,n_2,n_3,p_4),(0,0,0,1));
     S = ((v1_1,v2_1,n_1,-n_1*p_4),
         (v1_2,v2_2,n_2,-n_2*p_4),
         (v1_3,v2_3,n_3,-n_3*p_4),
@@ -3222,6 +3221,7 @@ dgs3dCircle3points(A,B,C,size->cglNada,visible->true,color->cglNada,alpha->cglNa
 ////////////////
 // Distance Estimators
 ////////////////
+
 // shader friendly version of quadric line intersection with line throuh P and Q close to P
 // TODO: check if interpolation based algorithm can also be used in normal case
 dgs3dSimpleIntersectQuadricLine(q,P,Q):=(
@@ -3248,7 +3248,7 @@ dgs3dSimpleConicProjectionStep(conicQuadric,conicPlane,planePoint,iterPoint):=(
   dgs3dSimpleIntersectQuadricLine(conicQuadric,planePoint,Q);
 );
 // estimate squared-distance to intersection curve of quadric and plane
-dgs3dDistanceQuadricPlane(conicQuadric,conicPlane,samplePoint):=(
+dgs3dDistanceQuadricPlaneOld(conicQuadric,conicPlane,samplePoint):=(
   regional(planePoint,P,v);
   planePoint = dgs3dProjectPointToPlane0(samplePoint,conicPlane);
   P = dgs3dSimpleConicProjectionStep(conicQuadric,conicPlane,planePoint,planePoint);
@@ -3259,6 +3259,7 @@ dgs3dDistanceQuadricPlane(conicQuadric,conicPlane,samplePoint):=(
   v*v
 );
 
+// Ecosia AI (Mistral) came up with this code, how does this work?
 dgs3dOrthProjectPointToLine2D(line,point):=(
   regional(a,b,c,x,y,z,r,phi);
   (a,b,c) = line;
@@ -3267,15 +3268,15 @@ dgs3dOrthProjectPointToLine2D(line,point):=(
   phi = line*point;
   (x*r-a*phi,y*r-b*phi,z*r)
 );
-dgs3dDistanceQuadricPlaneFociIter(conicMatrix,iterPoint,planePoint):=(
+dgs3dDistanceQuadricPlaneIter(conicMatrix,iterPoint,planePoint):=(
   regional(p,Q,q,R);
   p = conicMatrix*iterPoint;
   Q = dgs3dOrthProjectPointToLine2D(p,planePoint);
   q = conicMatrix*Q;
   R = dgs3dOrthProjectPointToLine2D(q,planePoint);
-  Q+R;
+  normalize(Q+R); // normalize to keep coordinate small
 );
-// assumes intersections are real
+// shader-friendly conic-line intersection, assumes intersections are real
 dgs3dSimpleIntersectConicLine(q,P,Q):=(
   regional(a,b,c,D);
   // (lP+Q)^T q (lP+Q) = l^2 PqP + 2l PqQ + QqQ
@@ -3290,7 +3291,7 @@ sqDist(P,Q):=((P-Q)*(P-Q));
 // conicMatrix: 3x3 matrix for conic after trafo
 // samplePoint: space point used for sampling
 // X,Y: focal points for conic as RP^2 point in conic-plane
-dgs3dDistanceQuadricPlaneFoci(conicMatrix,planePoint3d,foci):=(
+dgs3dDistanceQuadricPlane(conicMatrix,planePoint3d,foci):=(
   regional(planePoint,Q1,Q2,Q3,Q4,Q,v);
   planePoint = planePoint3d_(1,2,4);
   (Q1,Q2) = dgs3dSimpleIntersectConicLine(conicMatrix,planePoint,foci_1);
@@ -3299,9 +3300,9 @@ dgs3dDistanceQuadricPlaneFoci(conicMatrix,planePoint3d,foci):=(
   if(sqDist(planePoint,dgs3ddehom3(Q2))<sqDist(planePoint,dgs3ddehom3(Q)),Q = Q2);
   if(sqDist(planePoint,dgs3ddehom3(Q3))<sqDist(planePoint,dgs3ddehom3(Q)),Q = Q3);
   if(sqDist(planePoint,dgs3ddehom3(Q4))<sqDist(planePoint,dgs3ddehom3(Q)),Q = Q4);
-  Q = dgs3dDistanceQuadricPlaneFociIter(conicMatrix,Q,planePoint);
-  //Q = dgs3dDistanceQuadricPlaneFociIter(conicMatrix,Q,planePoint);
-  //Q = dgs3dDistanceQuadricPlaneFociIter(conicMatrix,Q,planePoint);
+  repeat(3, // find good iteration count
+    Q = dgs3dDistanceQuadricPlaneIter(conicMatrix,Q,planePoint);
+  );
   v = (Q/Q_3 - planePoint/planePoint_3);
   v*v+planePoint3d_3*planePoint3d_3;
 );
