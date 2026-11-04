@@ -2096,12 +2096,15 @@ dgs3dMeetCL(c,l,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   // TODO: ensure co-planar
   dgs3dMeetQLImpl("meetCL",[c,l],size->size,visible->visible,color->color,alpha->alpha)
 );
+dgs3dEmbedCP2point(p):=(
+  append(normalize(#*(max(#,(|#|,conjugate(#)))_2)),0)
+);
 dgs3d.alg.meetCC = (c1,c2) => (
   regional(M1,T1,M2,T2);
   (M1,T1) = dsg3dConicAsMatrixAndTrafo(c1);
   (M2,T2) = dsg3dConicAsMatrixAndTrafo(c2);
   // TODO? handle intersections in non-coplanar case
-  apply(dgs3dIntersect2DConic(M1,M2),transpose(T1)*append(normalize(#*(max(#,(|#|,conjugate(#)))_2)),0))
+  apply(dgs3dIntersect2DConic(M1,M2),transpose(T1)*dgs3dEmbedCP2point(#))
 );
 dgs3d.alg.meetCC2known = (c1,c2,X,Y) => (
   regional(M1,T1,M2,T2);
@@ -2109,7 +2112,7 @@ dgs3d.alg.meetCC2known = (c1,c2,X,Y) => (
   (M2,T2) = dsg3dConicAsMatrixAndTrafo(c2);
   // TODO? handle intersections in non-coplanar case
   apply(dgs3dIntersect2DConic2known(M1,M2,(T1*X)_(1..3),(T1*Y)_(1..3)),
-    transpose(T1)*append(normalize(#*(max(#,(|#|,conjugate(#)))_2)),0)
+    transpose(T1)*dgs3dEmbedCP2point(#)
   )
 );
 // c1,c2: conic ; size:real = radius, visible: bool = should object be drawn
@@ -2148,13 +2151,21 @@ dgs3dComputeIntersectionsQQP2known(Q1,Q2,p,X,Y):=(
 );
 dgs3d.alg.meetQQP = (q1,q2,p) => (dgs3dComputeIntersectionsQQP(q1,q2,p));
 dgs3d.alg.meetQC = (q,c) => (
-  regional(conicQuadric,p);
-  (conicQuadric,p) = dsg3dConicAsQuadricAndPlane(c);
-  dgs3dComputeIntersectionsQQP(q,conicQuadric,p)
+  regional(M,T);
+  (M,T) = dsg3dConicAsMatrixAndTrafo(c);
+  apply(dgs3dIntersect2DConic(M,dgs3dTopLeft3x3(T*q*transpose(T))),
+    transpose(T)*dgs3dEmbedCP2point(#)
+  )
 );
 dgs3d.alg.meetBP = (b,p) => (dgs3dComputeIntersectionsQQP(b_1,b_2,p));
 dgs3d.alg.meetQQP2known = (q1,q2,p,X,Y) => (dgs3dComputeIntersectionsQQP2known(q1,q2,p,X,Y));
-dgs3d.alg.meetQC2known = (q,c,X,Y) => (dgs3dComputeIntersectionsQQP2known(q,c_1,c_2,X,Y));
+dgs3d.alg.meetQC2known = (q,c,X,Y) => (
+  regional(M,T);
+  (M,T) = dsg3dConicAsMatrixAndTrafo(c);
+  apply(dgs3dIntersect2DConic2known(M,dgs3dTopLeft3x3(T*q*transpose(T)),(T*X)_(1..3),(T*Y)_(1..3)),
+    transpose(T)*dgs3dEmbedCP2point(#)
+  )
+);
 dgs3d.alg.meetBP2known = (b,p,X,Y) => (dgs3dComputeIntersectionsQQP2known(b_1,b_2,p,X,Y));
 dgs3dMeetQQPImpl(alg,parents,size->cglNada,visible->true,color->cglNada,alpha->cglNada):=(
   regional(knownIntersections);
