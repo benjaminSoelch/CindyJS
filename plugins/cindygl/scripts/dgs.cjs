@@ -1376,7 +1376,7 @@ dgs3dRenderQuadric = (self) => (
 dgs3dPrepareConicRender(conic):=(
   regional(M,T,S);
   (M,T,S) = dsg3dConicAsMatrixAndOrthTrafo(conic);
-  (M,T,select(apply(dgs3dComputeConicFoci2D(M),#*max(#,(|#|,conjugate(#)))_2),isRealVec(#)))
+  (M,T,select(apply(dgs3dComputeConicFoci2D(M),normalize(#*max(#,(|#|,conjugate(#)))_2)),isRealVec(#)))
 );
 dgs3dRenderConic = (self) => (
   regional(conicData,clippingRegion,M,T,foci);
@@ -1397,6 +1397,7 @@ dgs3dRenderConic = (self) => (
       cgl3d.setVisible.(self:"drawId",false);
   ));
 );
+// the old algorithm seems to still be the better choice, even if there are some cases where the result diverges
 dgs3dRenderConic = (self) => (
   regional(M,clippingRegion,Q,p);
   M = self:"coords";
@@ -2890,14 +2891,16 @@ dgs3dQuadricInPencil(q1,q2,P,visible->true,color->cglNada,alpha->cglNada):=(
 
 // affine-orthogonally map p to z=0 (and inverse map)
 dgs3dOrthMapToZ0(p):=(
-  regional(n,T,v1,v2,O,S);
+  regional(n,l2,T,v1,v2,O,S);
   n = p_(1..3);
-  if(n*n==0,
+  l2 = n*n;
+  if(l2 == 0,
     // plane at infinity -> no affine map possible, swap z,w to get correct coordinates for sub-matrix
     T = [(1,0,0,0),(0,1,0,0),(0,0,0,1),(0,0,1,0)];
     (T,T)
   ,
-    n = normalize(n);
+    p = p/sqrt(l2);
+    n = p_(1..3);
     v1 = (1-n_1^2/(1+n_3),-n_1*n_2/(1+n_3),-n_1);
     v2 = (-n_1*n_2/(1+n_3),1-n_2^2/(1+n_3),-n_2);
     T = ((v1_1,v1_2,v1_3,0),(v2_1,v2_2,v2_3,0),(n_1,n_2,n_3,p_4),(0,0,0,1));
@@ -3294,23 +3297,6 @@ dgs3dDistanceQuadricPlaneOld(conicQuadric,conicPlane,samplePoint):=(
   v*v
 );
 
-// Ecosia AI (Mistral) came up with this code, how does this work?
-dgs3dOrthProjectPointToLine2D(line,point):=(
-  regional(a,b,c,x,y,z,r,phi);
-  (a,b,c) = line;
-  (x,y,z) = point;
-  r = a*a+b*b;
-  phi = line*point;
-  (x*r-a*phi,y*r-b*phi,z*r)
-);
-dgs3dDistanceQuadricPlaneIter(conicMatrix,iterPoint,planePoint):=(
-  regional(p,Q,q,R);
-  p = conicMatrix*iterPoint;
-  Q = dgs3dOrthProjectPointToLine2D(p,planePoint);
-  q = conicMatrix*Q;
-  R = dgs3dOrthProjectPointToLine2D(q,planePoint);
-  normalize(Q+R); // normalize to keep coordinate small
-);
 // shader-friendly conic-line intersection, assumes intersections are real
 dgs3dSimpleIntersectConicLine(q,P,Q):=(
   regional(a,b,c,D);
@@ -3319,99 +3305,57 @@ dgs3dSimpleIntersectConicLine(q,P,Q):=(
   b = P*q*Q;
   c = Q*q*Q;
   D = b*b-a*c;
-  (((-b + re(sqrt(D)))/a)*P+Q,((-b - re(sqrt(D)))/a)*P+Q)
+  if(|a|<|c|,
+    (((-b + re(sqrt(D)))/c)*Q+P,((-b - re(sqrt(D)))/c)*Q+P)
+  ,
+    (((-b + re(sqrt(D)))/a)*P+Q,((-b - re(sqrt(D)))/a)*P+Q)
+  )
+);
+
+dgs3dConicProjectionItrStep(conicCoeffs,itrPoint,planePoint):=(
+  regional(a,b,c,d,e,f,F,x,y,l,gx,gy,M00,M11,t0,t1,D,v);
+  (a,b,c,d,e,f) = conicCoeffs;
+  (x,y,l) = itrPoint;
+  F = a*x*x+b*x*y+c*x+d*y*y+e*y+f;
+  gx = 2*a*x+b*y+c;
+  gy = b*x+2*d*y+e;
+  M00 = 1-2*a*l;
+  M11 = 1-2*d*l;
+  t0 = (2*a*x+c)*M11+b^2*l*x+b*(e*l+y);
+  t1 = (2*d*y+e)*M00+b^2*l*y+b*(c*l+x);
+  D = -(gy*t1+gx*t0);
+  v = (x-planePoint_1-l*gx,y-planePoint_2-l*gy,-F);
+  (
+    x - (-(gy*gy)/D,(gx*gy)/D,t0/D)*v,
+    y - ((gx*gy)/D,-(gx*gx)/D,t1/D)*v,
+    l - (t0/D,t1/D,(M00*M11-b^2*l^2)/D)*v
+  )
 );
 sqDist(P,Q):=((P-Q)*(P-Q));
-// conic-trafo: affine-orth trafo mapping conic plane to (0,0,1,0)
-// conicMatrix: 3x3 matrix for conic after trafo
-// samplePoint: space point used for sampling
-// X,Y: focal points for conic as RP^2 point in conic-plane
+// conicMatrix: 3x3 matrix for conic 
+// planePoint3d: dehomogenized point on conic
+// foci: focal points for conic as RP^2 point in conic-plane
 dgs3dDistanceQuadricPlane(conicMatrix,planePoint3d,foci):=(
-  regional(planePoint,Q1,Q2,Q3,Q4,Q,v);
+  regional(conicCoeffs,planePoint,Q1,Q2,Q3,Q4,Q,xy,g,xyl,v);
   planePoint = planePoint3d_(1,2,4);
   (Q1,Q2) = dgs3dSimpleIntersectConicLine(conicMatrix,planePoint,foci_1);
   (Q3,Q4) = dgs3dSimpleIntersectConicLine(conicMatrix,planePoint,foci_2);
   Q = Q1;
-  if(sqDist(planePoint,dgs3ddehom3(Q2))<sqDist(planePoint,dgs3ddehom3(Q)),Q = Q2);
-  if(sqDist(planePoint,dgs3ddehom3(Q3))<sqDist(planePoint,dgs3ddehom3(Q)),Q = Q3);
-  if(sqDist(planePoint,dgs3ddehom3(Q4))<sqDist(planePoint,dgs3ddehom3(Q)),Q = Q4);
-  repeat(3, // find good iteration count
-    Q = dgs3dDistanceQuadricPlaneIter(conicMatrix,Q,planePoint);
+  if(sqDist(planePoint,(Q2/Q2_3))<sqDist(planePoint,(Q/Q_3)),Q = Q2);
+  if(sqDist(planePoint,(Q3/Q3_3))<sqDist(planePoint,(Q/Q_3)),Q = Q3);
+  if(sqDist(planePoint,(Q4/Q3_3))<sqDist(planePoint,(Q/Q_3)),Q = Q4);
+  g = (Q*conicMatrix)_(1..2);
+  xy = Q_(1..2)/Q_3;
+  xyl = (xy_1,xy_2,(g*(xy-planePoint_(1,2)))/(g*g));
+  conicCoeffs = dgs3d2DConicAsVec(conicMatrix);
+  // TODO: why do more iterations lead to less stable result
+  repeat(1, // find good iteration count
+    xyl = dgs3dConicProjectionItrStep(conicCoeffs,xyl,planePoint);
   );
-  v = (Q/Q_3 - planePoint/planePoint_3);
+  v = (xyl_(1,2) - planePoint_(1,2));
   v*v+planePoint3d_3*planePoint3d_3;
 );
 
-solveQuartic(a,b,c,d,e):=(
-  regional(p,q,r,P,Q,y,w,r1,t,r2,r3);
-  // bring in form y^4 + p y^2 + q y + r where x = y - b/4a
-  b = b/a; c = c/a; d = d/a; e = e/a;
-  p = -3/8*b*b+c;
-  q = b*b*b/8 - b*c/2 + d;
-  r = - 3/256 * (b*b)*(b*b) + c*b*b/16 - b*d/4 + e;
-  P = - p*p/12 - r;
-  Q = - p*p*p/108 + p*r/3 - q*q/8;
-  w = rcbrt(-Q/2 + sqrt(Q*Q/4 + P*P*P/27));
-  y = p/6 + w - P/(3*w);
-  r1 = sqrt(2*y-p);
-  t = 2*q/r1;
-  r2 = sqrt(-2*y-p+t);
-  r3 = sqrt(-2*y-p-t);
-  (
-    0.5*(-r1 + r2 - b/2),
-    0.5*(-r1 - r2 - b/2),
-    0.5*(-r1 + r3 - b/2),
-    0.5*(-r1 - r3 - b/2)
-  );
-);
-dgs3dDistanceQuadricPlaneExact(conicQuadric,conicPlane,samplePoint):=(
-  regional(n,v,O,T,S,p,px,py,pz,a,b,c,d,e,f,pts,q);
-  // 1. affine-orthogonal transform such conicPlane is (0,0,1,0)
-  // ? change input parameters to be sample+conic+transform (O,d)
-  n = normalize(conicPlane_(1..3));
-  v = n - (0,0,1);
-  O = ((1,0,0),(0,1,0),(0,0,1)) - 2 * [n_1*n,n_2*n,n_3*n];
-  T = ((O_1_1,O_1_2,O_1_3,0),(O_2_1,O_2_2,O_2_3,0),(O_3_1,O_3_2,O_3_3,conicPlane_4),(0,0,0,1));
-  samplePoint = T*samplePoint;
-  (px,py,pz)= p = samplePoint_(1..3)/samplePoint_4;
-  // shift sameple point to (0,0,pz): S = T^-1 * (I p_xy; 0 1)
-  S = ((O_1_1,O_2_1,O_3_1,O_1_1*px+O_2_1*py-O_3_1*conicPlane_4),
-       (O_1_2,O_2_2,O_3_2,O_1_2*px+O_2_2*py-O_3_2*conicPlane_4),
-       (O_1_3,O_2_3,O_3_3,O_1_3*px+O_2_3*py-O_3_3*conicPlane_4),
-       (0,0,0,1));
-  // TODO: double-check transforms
-  conicQuadric = transpose(S)*conicQuadric*S;
-  // 2. solve problem in RP2
-  // xx xy xw yy yw ww
-  (a,b,c,d,e,f) = (conicQuadric_1_1,conicQuadric_1_2+conicQuadric_2_1,conicQuadric_1_4+conicQuadric_4_4,
-    conicQuadric_2_2,conicQuadric_2_4+conicQuadric_4_2,conicQuadric_4_4);
-  // TODO: double-check polynomial
-  // discriminant of c(x,y) + x^2+y^2+r = 0 as polynomial in r, (roots coresponds to negative radii where the sphere is tangent to the conic)
-  rs = solveQuartic(
-    (b^2-4*a*d)^2*(a^2+b^2-2*a*d+d^2),
-    16*c^2*d^4-18*b^3*c*d*e-16*b*c*d^3*e+16*a^4*(e^2-2*d*f)+2*b^2*d^2*(10*c^2+e^2+4*d*f)
-    +b^4*(3*c^2+3*e^2+8*d*f)+8*a^3*(c^2*d-2*b*c*e-4*d*e^2+b^2*f+4*d^2*f)+2*a^2*(12*b*c*d*e
-    +b^2*(c^2+10*e^2-20*d*f)+4*d^2*(c^2+e^2+4*d*f))+2*a*(-9*b^3*c*e+12*b*c*d^2*e+4*b^4*f
-    +4*d^3*(-4*c^2+e^2-4*d*f)-b^2*d*(c^2+e^2+20*d*f)),
-    36*b^3*c*e*f+16*a^4*f^2-8*b^4*f^2-8*a^3*f*(c^2+4*e^2-4*d*f)+6*b*c*d*e*(6*c^2-3*e^2+4*d*f)
-    +d^2*(-8*c^4+4*c^2*(5*e^2-8*d*f)+(e^2-4*d*f)^2)+a^2*(c^4-8*e^4+24*b*c*e*f+80*d*e^2*f
-    +8*(b^2-12*d^2)*f^2+20*c^2*(e^2-2*d*f))+b^2*(3*c^4+3*e^4-2*d*e^2*f+8*d^2*f^2-c^2*(21*e^2+38*d*f))
-    +2*a*(4*c^4*d-9*b*c^3*e-19*b^2*e^2*f-20*d^2*e^2*f+16*d^3*f^2+6*b*c*e*(3*e^2-8*d*f)
-    +c^2*(-19*d*e^2-b^2*f+40*d^2*f)+4*d*(e^4+10*b^2*f^2)),
-    c^6+e^6-18*b*c^3*e*f+2*(4*a-5*d)*e^4*f+4*(2*a^2+5*b^2-10*a*d+8*d^2)*e^2*f^2
-    -32*(a+d)*(a^2+b^2-2*a*d+d^2)*f^3+c^4*(3*e^2-10*a*f+8*d*f)-6*b*c*e*f*(3*e^2-4*(a+d)*f)
-    +c^2*(3*e^4-2*(a+d)*e^2*f+4*(8*a^2+5*b^2-10*a*d+2*d^2)*f^2),
-    f^2*(c^4+e^4-16*b*c*e*f+8*(a-d)*e^2*f+16*(a^2+b^2-2*a*d+d^2)*f^2+2*c^2*(e^2+4*(-a+d)*f))
-  );
-  // pick largest negative real root
-  r = 1e10;
-  if(isReal(rs_1) & re(rs_1)<=0 & -re(rs_1) < r,r = -re(rs_1));
-  if(isReal(rs_2) & re(rs_2)<=0 & -re(rs_2) < r,r = -re(rs_2));
-  if(isReal(rs_3) & re(rs_3)<=0 & -re(rs_3) < r,r = -re(rs_3));
-  if(isReal(rs_4) & re(rs_4)<=0 & -re(rs_4) < r,r = -re(rs_4));
-  // 3. get squared distance as RP2 sq-dist + squared height
-  r + pz*pz;
-);
 // estimate squared-distance to intersection curve of quadric and quadric
 dgs3dDistanceQuadricQuadric(Q1,Q2,P):=(
   // newton iteration to get more accurate approximation of intersection
